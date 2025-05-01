@@ -38,47 +38,91 @@ const ReceiptUpload = () => {
         description: "We're processing your receipt...",
       });
       
+      // First check if the file is readable
+      try {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        await new Promise((resolve, reject) => {
+          reader.onload = resolve;
+          reader.onerror = () => reject(new Error("File cannot be read"));
+        });
+      } catch (error) {
+        console.error("Error reading file:", error);
+        throw new Error("Unable to read the uploaded file");
+      }
+      
       // Upload file to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("receipts")
         .upload(filePath, file);
       
       if (uploadError) {
+        console.error("Upload error details:", uploadError);
         throw new Error(`Error uploading receipt: ${uploadError.message}`);
       }
       
-      // Run OCR on the uploaded image
-      const worker = await createWorker({
-        logger: progress => {
-          setProgress(Math.round(progress.progress * 100));
-        }
-      });
+      // Log success for debugging
+      console.log("File uploaded successfully:", filePath);
       
-      await worker.loadLanguage('eng');
-      await worker.initialize('eng');
+      // Create a blob URL for the file to use with Tesseract.js
+      const fileURL = URL.createObjectURL(file);
       
-      const { data } = await worker.recognize(file);
-      await worker.terminate();
-      
-      // Store receipt data in the database
-      const { error: insertError } = await supabase
-        .from("receipts")
-        .insert({
-          image_path: filePath,
-          text_content: data.text,
-          user_id: user.id
+      // Run OCR on the uploaded image with more explicit error handling
+      console.log("Starting OCR processing...");
+      try {
+        const worker = await createWorker({
+          logger: progress => {
+            setProgress(Math.round(progress.progress * 100));
+            console.log("OCR progress:", Math.round(progress.progress * 100) + "%");
+          }
         });
-      
-      if (insertError) {
-        throw new Error(`Error saving receipt data: ${insertError.message}`);
+        
+        console.log("Worker created, loading language...");
+        await worker.loadLanguage('eng');
+        console.log("Language loaded, initializing...");
+        await worker.initialize('eng');
+        console.log("Worker initialized, starting recognition...");
+        
+        const { data } = await worker.recognize(fileURL);
+        console.log("Recognition complete");
+        await worker.terminate();
+        
+        // Store receipt data in the database
+        const { error: insertError } = await supabase
+          .from("receipts")
+          .insert({
+            image_path: filePath,
+            text_content: data.text,
+            user_id: user.id
+          });
+        
+        if (insertError) {
+          console.error("DB insertion error:", insertError);
+          throw new Error(`Error saving receipt data: ${insertError.message}`);
+        }
+        
+        toast({
+          title: "Receipt uploaded",
+          description: "Your receipt has been processed successfully.",
+        });
+        
+        navigate("/receipts");
+      } catch (ocrError) {
+        console.error("OCR processing error:", ocrError);
+        // Clean up the uploaded file since OCR failed
+        try {
+          await supabase.storage
+            .from("receipts")
+            .remove([filePath]);
+          console.log("Cleaned up storage after OCR failure");
+        } catch (cleanupError) {
+          console.error("Failed to clean up storage:", cleanupError);
+        }
+        throw new Error(`OCR processing failed: ${ocrError instanceof Error ? ocrError.message : "Unknown OCR error"}`);
+      } finally {
+        // Clean up the blob URL
+        URL.revokeObjectURL(fileURL);
       }
-      
-      toast({
-        title: "Receipt uploaded",
-        description: "Your receipt has been processed successfully.",
-      });
-      
-      navigate("/receipts");
     } catch (error) {
       console.error("Error processing receipt:", error);
       toast({
