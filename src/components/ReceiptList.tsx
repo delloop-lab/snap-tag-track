@@ -35,7 +35,20 @@ const ReceiptList = () => {
           throw error;
         }
 
-        setReceipts(data || []);
+        // Ensure all objects have the expected properties, even if null
+        const completeReceipts: Receipt[] = (data || []).map(item => ({
+          id: item.id,
+          user_id: item.user_id,
+          image_path: item.image_path,
+          text_content: item.text_content,
+          vendor_name: item.vendor_name || null,
+          total_amount: item.total_amount || null,
+          purchase_date: item.purchase_date || null,
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        }));
+
+        setReceipts(completeReceipts);
       } catch (error) {
         console.error("Error fetching receipts:", error);
         toast({

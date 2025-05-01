@@ -39,7 +39,20 @@ const ReceiptDetail = () => {
           throw error;
         }
 
-        setReceipt(data);
+        // Make sure all required fields are present, even if null
+        const completeReceipt: Receipt = {
+          id: data.id,
+          user_id: data.user_id,
+          image_path: data.image_path,
+          text_content: data.text_content,
+          vendor_name: data.vendor_name || null,
+          total_amount: data.total_amount || null,
+          purchase_date: data.purchase_date || null,
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+
+        setReceipt(completeReceipt);
       } catch (error) {
         console.error("Error fetching receipt:", error);
         toast({
