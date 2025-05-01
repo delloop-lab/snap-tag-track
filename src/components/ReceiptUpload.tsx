@@ -7,6 +7,7 @@ import { createWorker } from "tesseract.js";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
+import { Progress } from "@/components/ui/progress";
 
 const ReceiptUpload = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -22,6 +23,16 @@ const ReceiptUpload = () => {
         variant: "destructive",
       });
       navigate("/auth");
+      return;
+    }
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 10MB.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -41,58 +52,72 @@ const ReceiptUpload = () => {
       // First check if the file is readable
       try {
         const reader = new FileReader();
-        reader.readAsDataURL(file);
-        await new Promise((resolve, reject) => {
-          reader.onload = resolve;
+        reader.readAsArrayBuffer(file);
+        const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
           reader.onerror = () => reject(new Error("File cannot be read"));
         });
-      } catch (error) {
-        console.error("Error reading file:", error);
-        throw new Error("Unable to read the uploaded file");
-      }
-      
-      // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("receipts")
-        .upload(filePath, file);
-      
-      if (uploadError) {
-        console.error("Upload error details:", uploadError);
-        throw new Error(`Error uploading receipt: ${uploadError.message}`);
-      }
-      
-      // Log success for debugging
-      console.log("File uploaded successfully:", filePath);
-      
-      // Create a blob URL for the file to use with Tesseract.js
-      const fileURL = URL.createObjectURL(file);
-      
-      // Run OCR on the uploaded image with more explicit error handling
-      console.log("Starting OCR processing...");
-      try {
-        const worker = await createWorker({
-          logger: progress => {
-            setProgress(Math.round(progress.progress * 100));
-            console.log("OCR progress:", Math.round(progress.progress * 100) + "%");
+        
+        // Create a blob from file for processing
+        const blob = new Blob([fileBuffer], { type: file.type });
+        
+        // Upload file to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("receipts")
+          .upload(filePath, blob);
+        
+        if (uploadError) {
+          console.error("Upload error details:", uploadError);
+          throw new Error(`Error uploading receipt: ${uploadError.message}`);
+        }
+        
+        console.log("File uploaded successfully:", filePath);
+        
+        // Only process images with OCR - skip PDFs and other formats
+        const isImage = file.type.startsWith('image/');
+        let textContent = '';
+        
+        if (isImage) {
+          // Create a blob URL for the file to use with Tesseract.js
+          const blobUrl = URL.createObjectURL(blob);
+          
+          console.log("Starting OCR processing...");
+          try {
+            const worker = await createWorker({
+              logger: progress => {
+                setProgress(Math.round(progress.progress * 100));
+                console.log("OCR progress:", Math.round(progress.progress * 100) + "%");
+              }
+            });
+            
+            console.log("Worker created, loading language...");
+            await worker.loadLanguage('eng');
+            console.log("Language loaded, initializing...");
+            await worker.initialize('eng');
+            console.log("Worker initialized, starting recognition...");
+            
+            const { data } = await worker.recognize(blobUrl);
+            console.log("Recognition complete");
+            textContent = data.text;
+            await worker.terminate();
+            
+            // Clean up the blob URL
+            URL.revokeObjectURL(blobUrl);
+          } catch (ocrError) {
+            console.error("OCR processing error:", ocrError);
+            // Don't throw - we'll still save the receipt without text content
+            textContent = "OCR processing failed. Please check receipt manually.";
           }
-        });
-        
-        console.log("Worker created, loading language...");
-        await worker.loadLanguage('eng');
-        console.log("Language loaded, initializing...");
-        await worker.initialize('eng');
-        console.log("Worker initialized, starting recognition...");
-        
-        const { data } = await worker.recognize(fileURL);
-        console.log("Recognition complete");
-        await worker.terminate();
+        } else {
+          textContent = "Non-image file uploaded. OCR not performed.";
+        }
         
         // Store receipt data in the database
         const { error: insertError } = await supabase
           .from("receipts")
           .insert({
             image_path: filePath,
-            text_content: data.text,
+            text_content: textContent,
             user_id: user.id
           });
         
@@ -107,21 +132,9 @@ const ReceiptUpload = () => {
         });
         
         navigate("/receipts");
-      } catch (ocrError) {
-        console.error("OCR processing error:", ocrError);
-        // Clean up the uploaded file since OCR failed
-        try {
-          await supabase.storage
-            .from("receipts")
-            .remove([filePath]);
-          console.log("Cleaned up storage after OCR failure");
-        } catch (cleanupError) {
-          console.error("Failed to clean up storage:", cleanupError);
-        }
-        throw new Error(`OCR processing failed: ${ocrError instanceof Error ? ocrError.message : "Unknown OCR error"}`);
-      } finally {
-        // Clean up the blob URL
-        URL.revokeObjectURL(fileURL);
+      } catch (fileError) {
+        console.error("File processing error:", fileError);
+        throw new Error(`Error processing file: ${fileError instanceof Error ? fileError.message : "Unknown file error"}`);
       }
     } catch (error) {
       console.error("Error processing receipt:", error);
@@ -191,12 +204,7 @@ const ReceiptUpload = () => {
             <span>Processing...</span>
             <span>{progress}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              className="bg-primary h-2.5 rounded-full"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
+          <Progress value={progress} className="h-2.5" />
         </div>
       )}
       
