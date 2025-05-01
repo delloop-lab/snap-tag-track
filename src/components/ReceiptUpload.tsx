@@ -48,11 +48,14 @@ const ReceiptUpload = () => {
       }
       
       // Run OCR on the uploaded image
-      const worker = await createWorker('eng');
-      
-      worker.setProgressHandler((p) => {
-        setProgress(Math.round(p.progress * 100));
+      const worker = await createWorker({
+        logger: progress => {
+          setProgress(Math.round(progress.progress * 100));
+        }
       });
+      
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng');
       
       const { data } = await worker.recognize(file);
       await worker.terminate();
