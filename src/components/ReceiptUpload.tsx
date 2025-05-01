@@ -6,13 +6,25 @@ import { useNavigate } from "react-router-dom";
 import { createWorker } from "tesseract.js";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
 
 const ReceiptUpload = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const processReceipt = async (file: File) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be signed in to upload receipts.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Create unique file name
@@ -50,7 +62,8 @@ const ReceiptUpload = () => {
         .from("receipts")
         .insert({
           image_path: filePath,
-          text_content: data.text
+          text_content: data.text,
+          user_id: user.id
         });
       
       if (insertError) {
