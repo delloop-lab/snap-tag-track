@@ -8,14 +8,14 @@ import { format } from "date-fns";
 
 type Receipt = {
   id: string;
-  image_url: string;
-  raw_text: string | null;
+  user_id: string;
+  image_path: string;
+  text_content: string | null;
   vendor_name: string | null;
   total_amount: number | null;
   purchase_date: string | null;
   created_at: string;
-  uploaded_at: string;
-  user_id: string;
+  updated_at: string;
 };
 
 const ReceiptDetail = () => {
@@ -123,7 +123,7 @@ const ReceiptDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="border rounded-lg overflow-hidden shadow-sm">
           <img
-            src={receipt.image_url}
+            src={receipt.image_path}
             alt="Receipt"
             className="w-full h-auto object-contain bg-gray-50"
             onError={(e) => {
@@ -164,7 +164,7 @@ const ReceiptDetail = () => {
             <p className="text-sm text-muted-foreground">Extracted Text</p>
             <div className="bg-muted p-3 rounded-md max-h-96 overflow-y-auto">
               <pre className="whitespace-pre-wrap font-mono text-sm">
-                {receipt.raw_text || "No text extracted"}
+                {receipt.text_content || "No text extracted"}
               </pre>
             </div>
           </div>

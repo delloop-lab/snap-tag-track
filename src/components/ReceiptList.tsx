@@ -9,13 +9,13 @@ import { formatDistanceToNow, format } from "date-fns";
 type Receipt = {
   id: string;
   user_id: string;
-  image_url: string;
-  raw_text: string | null;
+  image_path: string;
+  text_content: string | null;
   vendor_name: string | null;
   total_amount: number | null;
   purchase_date: string | null;
   created_at: string;
-  uploaded_at: string;
+  updated_at: string;
 };
 
 const ReceiptList = () => {
@@ -122,7 +122,7 @@ const ReceiptList = () => {
             >
               <div className="aspect-[3/4] bg-gray-100">
                 <img
-                  src={receipt.image_url}
+                  src={receipt.image_path}
                   alt="Receipt"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -136,7 +136,7 @@ const ReceiptList = () => {
                     <h3 className="font-medium text-lg">{receipt.vendor_name || "Unknown Vendor"}</h3>
                     <p className="text-sm text-muted-foreground">
                       {receipt.purchase_date ? format(new Date(receipt.purchase_date), 'MMM d, yyyy') : 
-                      formatDistanceToNow(new Date(receipt.uploaded_at), { addSuffix: true })}
+                      formatDistanceToNow(new Date(receipt.updated_at), { addSuffix: true })}
                     </p>
                     {receipt.total_amount && (
                       <p className="mt-1 font-semibold">{formatCurrency(receipt.total_amount)}</p>
@@ -145,7 +145,7 @@ const ReceiptList = () => {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(receipt.id, receipt.image_url)}
+                    onClick={() => handleDelete(receipt.id, receipt.image_path)}
                   >
                     Delete
                   </Button>

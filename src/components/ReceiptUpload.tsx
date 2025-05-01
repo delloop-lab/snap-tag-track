@@ -73,7 +73,7 @@ const ReceiptUpload = () => {
         console.log("File uploaded successfully:", filePath);
         
         // Get the public URL for the uploaded file
-        const imageUrl = supabase.storage.from("receipts").getPublicUrl(filePath).data.publicUrl;
+        const imagePath = supabase.storage.from("receipts").getPublicUrl(filePath).data.publicUrl;
         
         // Only process images with OCR - skip PDFs and other formats
         const isImage = file.type.startsWith('image/');
@@ -166,8 +166,8 @@ const ReceiptUpload = () => {
           .from("receipts")
           .insert({
             user_id: user.id,
-            image_url: imageUrl,
-            raw_text: textContent,
+            image_path: imagePath,
+            text_content: textContent,
             vendor_name: vendorName,
             total_amount: totalAmount,
             purchase_date: purchaseDate,
