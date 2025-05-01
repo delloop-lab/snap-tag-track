@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
@@ -73,6 +72,9 @@ const ReceiptUpload = () => {
         
         console.log("File uploaded successfully:", filePath);
         
+        // Get the public URL for the uploaded file
+        const imageUrl = supabase.storage.from("receipts").getPublicUrl(filePath).data.publicUrl;
+        
         // Only process images with OCR - skip PDFs and other formats
         const isImage = file.type.startsWith('image/');
         let textContent = '';
@@ -112,13 +114,63 @@ const ReceiptUpload = () => {
           textContent = "Non-image file uploaded. OCR not performed.";
         }
         
+        // Extract potential vendor name from the first non-empty line of text
+        let vendorName = "Unknown Vendor";
+        if (textContent) {
+          const firstLines = textContent.split('\n').filter(line => line.trim().length > 0);
+          if (firstLines.length > 0) {
+            vendorName = firstLines[0].trim().substring(0, 100); // Limit to 100 chars
+          }
+        }
+        
+        // Extract potential total amount using regex pattern
+        let totalAmount = null;
+        const amountRegex = /(?:total|amount|sum)[:\s]*[$€£]?\s*(\d+(?:[.,]\d{1,2})?)/i;
+        const amountMatch = textContent.match(amountRegex);
+        if (amountMatch && amountMatch[1]) {
+          // Convert to number and handle different decimal separators
+          totalAmount = parseFloat(amountMatch[1].replace(',', '.'));
+        }
+        
+        // Try to extract date from the text content
+        let purchaseDate = null;
+        const dateRegex = /\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/;
+        const dateMatch = textContent.match(dateRegex);
+        if (dateMatch && dateMatch[0]) {
+          try {
+            const dateParts = dateMatch[0].split(/[-/.]/);
+            // Attempt to create a valid date (this is simplified and could be enhanced)
+            if (dateParts.length === 3) {
+              purchaseDate = new Date().toISOString().split('T')[0]; // Fallback to today
+              // Try to determine date format based on values
+              if (parseInt(dateParts[0]) <= 31 && parseInt(dateParts[1]) <= 12) {
+                // Likely DD/MM/YYYY
+                purchaseDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+              } else if (parseInt(dateParts[1]) <= 12) {
+                // Likely YYYY/MM/DD or MM/DD/YYYY
+                if (dateParts[0].length === 4) {
+                  purchaseDate = `${dateParts[0]}-${dateParts[1].padStart(2, '0')}-${dateParts[2].padStart(2, '0')}`;
+                } else {
+                  purchaseDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
+                }
+              }
+            }
+          } catch (dateError) {
+            console.error("Failed to parse date:", dateError);
+            // Keep purchaseDate as null if parsing fails
+          }
+        }
+        
         // Store receipt data in the database
         const { error: insertError } = await supabase
           .from("receipts")
           .insert({
-            image_path: filePath,
-            text_content: textContent,
-            user_id: user.id
+            user_id: user.id,
+            image_url: imageUrl,
+            raw_text: textContent,
+            vendor_name: vendorName,
+            total_amount: totalAmount,
+            purchase_date: purchaseDate,
           });
         
         if (insertError) {

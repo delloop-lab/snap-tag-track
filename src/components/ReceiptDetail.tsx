@@ -8,10 +8,13 @@ import { format } from "date-fns";
 
 type Receipt = {
   id: string;
-  image_path: string;
-  text_content: string | null;
+  image_url: string;
+  raw_text: string | null;
+  vendor_name: string | null;
+  total_amount: number | null;
+  purchase_date: string | null;
   created_at: string;
-  updated_at: string;
+  uploaded_at: string;
   user_id: string;
 };
 
@@ -53,21 +56,18 @@ const ReceiptDetail = () => {
     fetchReceipt();
   }, [id, navigate]);
 
-  const getImageUrl = (path: string) => {
-    return supabase.storage.from("receipts").getPublicUrl(path).data.publicUrl;
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return "Not available";
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   };
 
   const handleDelete = async () => {
     if (!receipt) return;
 
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from("receipts")
-        .remove([receipt.image_path]);
-
-      if (storageError) throw storageError;
-
       // Delete from database
       const { error: dbError } = await supabase
         .from("receipts")
@@ -123,7 +123,7 @@ const ReceiptDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="border rounded-lg overflow-hidden shadow-sm">
           <img
-            src={getImageUrl(receipt.image_path)}
+            src={receipt.image_url}
             alt="Receipt"
             className="w-full h-auto object-contain bg-gray-50"
             onError={(e) => {
@@ -134,17 +134,37 @@ const ReceiptDetail = () => {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Uploaded on</p>
-            <p className="font-medium">
-              {format(new Date(receipt.created_at), "PPpp")}
-            </p>
+            <h3 className="text-xl font-semibold">{receipt.vendor_name || "Unknown Vendor"}</h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Date</p>
+              <p className="font-medium">
+                {receipt.purchase_date 
+                  ? format(new Date(receipt.purchase_date), "PPP") 
+                  : "Not available"}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="font-medium">{formatCurrency(receipt.total_amount)}</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Uploaded on</p>
+              <p className="font-medium">
+                {format(new Date(receipt.created_at), "PPp")}
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Extracted Text</p>
             <div className="bg-muted p-3 rounded-md max-h-96 overflow-y-auto">
               <pre className="whitespace-pre-wrap font-mono text-sm">
-                {receipt.text_content || "No text extracted"}
+                {receipt.raw_text || "No text extracted"}
               </pre>
             </div>
           </div>

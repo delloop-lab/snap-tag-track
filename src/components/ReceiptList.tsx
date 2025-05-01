@@ -4,14 +4,18 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 type Receipt = {
   id: string;
-  image_path: string;
-  text_content: string | null;
-  created_at: string;
   user_id: string;
+  image_url: string;
+  raw_text: string | null;
+  vendor_name: string | null;
+  total_amount: number | null;
+  purchase_date: string | null;
+  created_at: string;
+  uploaded_at: string;
 };
 
 const ReceiptList = () => {
@@ -47,27 +51,16 @@ const ReceiptList = () => {
     fetchReceipts();
   }, []);
 
-  const getImageUrl = (path: string) => {
-    return supabase.storage.from("receipts").getPublicUrl(path).data.publicUrl;
-  };
-
   const handleDelete = async (id: string, imagePath: string) => {
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from("receipts")
-        .remove([imagePath]);
-
-      if (storageError) throw storageError;
-
-      // Delete from database
+      // First delete from database
       const { error: dbError } = await supabase
         .from("receipts")
         .delete()
         .eq("id", id);
 
       if (dbError) throw dbError;
-
+      
       // Update the UI
       setReceipts((prev) => prev.filter((receipt) => receipt.id !== id));
 
@@ -83,6 +76,14 @@ const ReceiptList = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return "N/A";
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   };
 
   if (loading) {
@@ -121,7 +122,7 @@ const ReceiptList = () => {
             >
               <div className="aspect-[3/4] bg-gray-100">
                 <img
-                  src={getImageUrl(receipt.image_path)}
+                  src={receipt.image_url}
                   alt="Receipt"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -132,19 +133,19 @@ const ReceiptList = () => {
               <div className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
+                    <h3 className="font-medium text-lg">{receipt.vendor_name || "Unknown Vendor"}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(receipt.created_at), {
-                        addSuffix: true,
-                      })}
+                      {receipt.purchase_date ? format(new Date(receipt.purchase_date), 'MMM d, yyyy') : 
+                      formatDistanceToNow(new Date(receipt.uploaded_at), { addSuffix: true })}
                     </p>
-                    <p className="mt-2 text-sm line-clamp-3">
-                      {receipt.text_content || "No text extracted"}
-                    </p>
+                    {receipt.total_amount && (
+                      <p className="mt-1 font-semibold">{formatCurrency(receipt.total_amount)}</p>
+                    )}
                   </div>
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(receipt.id, receipt.image_path)}
+                    onClick={() => handleDelete(receipt.id, receipt.image_url)}
                   >
                     Delete
                   </Button>
