@@ -89,7 +89,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       let tagId;
 
       // Create tag if it doesn't exist
-      if (existingTags.length === 0) {
+      if (!existingTags || existingTags.length === 0) {
         const { data: newTag, error: createError } = await supabase
           .from("tags")
           .insert({ name: tagName, user_id: user.id })
@@ -97,10 +97,12 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
           .single();
 
         if (createError) throw createError;
-        tagId = newTag.id;
+        tagId = newTag?.id;
       } else {
-        tagId = existingTags[0].id;
+        tagId = existingTags[0]?.id;
       }
+
+      if (!tagId) throw new Error("Failed to obtain tag ID");
 
       // Check if tag is already associated with this receipt
       const { data: existingLinks, error: linkFetchError } = await supabase
@@ -112,7 +114,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       if (linkFetchError) throw linkFetchError;
 
       // Only add if not already linked
-      if (existingLinks.length === 0) {
+      if (!existingLinks || existingLinks.length === 0) {
         const { error: linkError } = await supabase
           .from("receipt_tags")
           .insert({

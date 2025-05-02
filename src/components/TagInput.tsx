@@ -61,15 +61,15 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
 
         if (receiptTagsError) throw receiptTagsError;
         
-        const selectedTagIds = receiptTags.map(rt => rt.tag_id);
+        const selectedTagIds = receiptTags?.map(rt => rt.tag_id) || [];
         
-        const selectedTagsData = userTags.filter(tag => 
+        const selectedTagsData = userTags?.filter(tag => 
           selectedTagIds.includes(tag.id)
-        );
+        ) || [];
         
-        const availableTagsData = userTags.filter(tag => 
+        const availableTagsData = userTags?.filter(tag => 
           !selectedTagIds.includes(tag.id)
-        );
+        ) || [];
         
         setAvailableTags(availableTagsData);
         setSelectedTags(selectedTagsData);
@@ -275,7 +275,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
               )}
             </CommandEmpty>
             <CommandGroup heading="Available Tags">
-              {availableTags.filter(tag => 
+              {(availableTags || []).filter(tag => 
                 tag.name.toLowerCase().includes(inputValue.toLowerCase())
               ).map(tag => (
                 <CommandItem 
