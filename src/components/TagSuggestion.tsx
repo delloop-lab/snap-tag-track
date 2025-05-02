@@ -60,6 +60,8 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
   }, [textContent]);
 
   const analyzeTags = (text: string) => {
+    if (!text) return;
+    
     const lowercaseText = text.toLowerCase();
     const suggestions = new Set<string>();
     
@@ -73,7 +75,10 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
   };
 
   const addTagToReceipt = async (tagName: string) => {
-    if (!user) return;
+    if (!user || !receiptId) {
+      console.error("Missing user or receiptId");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -147,7 +152,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
     }
   };
 
-  if (suggestedTags.length === 0) {
+  if (!suggestedTags || suggestedTags.length === 0) {
     return null;
   }
 
@@ -155,7 +160,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
     <div className="mt-2">
       <p className="text-sm font-medium mb-2">Suggested tags:</p>
       <div className="flex flex-wrap gap-2">
-        {suggestedTags.map(tag => (
+        {(suggestedTags || []).map(tag => (
           <Badge key={tag} variant="success" className="cursor-pointer hover:bg-green-200 transition-colors">
             <Tag className="h-3 w-3 mr-1" />
             {tag}

@@ -42,7 +42,10 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   // Fetch available tags and selected tags
   useEffect(() => {
     const fetchTags = async () => {
-      if (!user) return;
+      if (!user || !receiptId) {
+        setLoading(false);
+        return;
+      }
       
       try {
         // Fetch all user tags
@@ -93,7 +96,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   }, [user, receiptId, onTagsChange]);
 
   const createTag = async (name: string) => {
-    if (!user) return null;
+    if (!user || !name.trim()) return null;
     
     try {
       // First check if a tag with this name already exists
@@ -117,7 +120,9 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
       if (error) throw error;
       
       // Update available tags
-      setAvailableTags(prev => [...prev, data]);
+      if (data) {
+        setAvailableTags(prev => [...prev, data]);
+      }
       
       return data;
     } catch (error) {
@@ -132,6 +137,8 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   };
 
   const addTagToReceipt = async (tag: Tag) => {
+    if (!tag || !tag.id || !receiptId) return false;
+    
     try {
       const { error } = await supabase
         .from("receipt_tags")
@@ -163,6 +170,8 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   };
 
   const removeTagFromReceipt = async (tagId: string) => {
+    if (!tagId || !receiptId) return false;
+    
     try {
       const { error } = await supabase
         .from("receipt_tags")
@@ -220,7 +229,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 mb-2">
-        {selectedTags.map(tag => (
+        {(selectedTags || []).map(tag => (
           <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
             <Tag className="h-3 w-3" />
             {tag.name}
