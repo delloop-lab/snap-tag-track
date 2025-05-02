@@ -226,6 +226,11 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
     return <div className="text-sm text-muted-foreground">Loading tags...</div>;
   }
 
+  // This ensures we never pass undefined to Command components
+  const filteredTags = availableTags && inputValue 
+    ? availableTags.filter(tag => tag.name.toLowerCase().includes(inputValue.toLowerCase())) 
+    : availableTags || [];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 mb-2">
@@ -284,9 +289,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
               )}
             </CommandEmpty>
             <CommandGroup heading="Available Tags">
-              {(availableTags || []).filter(tag => 
-                tag.name.toLowerCase().includes(inputValue.toLowerCase())
-              ).map(tag => (
+              {filteredTags.map(tag => (
                 <CommandItem 
                   key={tag.id}
                   value={tag.id}
