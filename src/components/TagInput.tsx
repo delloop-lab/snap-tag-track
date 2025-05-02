@@ -227,15 +227,10 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
     return <div className="text-sm text-muted-foreground">Loading tags...</div>;
   }
 
-  // This ensures we never pass undefined to Command components
-  const filteredTags = availableTags && inputValue 
-    ? availableTags.filter(tag => tag.name.toLowerCase().includes(inputValue.toLowerCase())) 
-    : availableTags || [];
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 mb-2">
-        {(selectedTags || []).map(tag => (
+        {selectedTags.map(tag => (
           <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
             <Tag className="h-3 w-3" />
             {tag.name}
@@ -270,48 +265,53 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
-          <Command>
-            <CommandInput 
-              placeholder="Search or create tag..." 
-              ref={inputRef}
-              value={inputValue}
-              onValueChange={setInputValue}
-            />
-            <CommandList>
-              <CommandEmpty>
-                {inputValue.trim() ? (
-                  <CommandItem
-                    value="create-new"
-                    className="flex items-center gap-2 text-sm"
-                    onSelect={() => handleSelect("create-new")}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create "{inputValue.trim()}"
-                  </CommandItem>
-                ) : (
-                  <p className="py-2 px-4 text-sm">No tags found</p>
+          {/* Using a key to force remount of Command component when open state changes */}
+          {open && (
+            <Command key={`command-${open}`}>
+              <CommandInput 
+                placeholder="Search or create tag..." 
+                ref={inputRef}
+                value={inputValue}
+                onValueChange={setInputValue}
+              />
+              <CommandList>
+                <CommandEmpty>
+                  {inputValue.trim() ? (
+                    <CommandItem
+                      value="create-new"
+                      className="flex items-center gap-2 text-sm"
+                      onSelect={() => handleSelect("create-new")}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create "{inputValue.trim()}"
+                    </CommandItem>
+                  ) : (
+                    <p className="py-2 px-4 text-sm">No tags found</p>
+                  )}
+                </CommandEmpty>
+                {availableTags.length > 0 && (
+                  <CommandGroup heading="Available Tags">
+                    {availableTags.map(tag => (
+                      <CommandItem 
+                        key={tag.id}
+                        value={tag.id}
+                        onSelect={handleSelect}
+                        className="flex items-center gap-2"
+                      >
+                        <Tag className="h-4 w-4 flex-shrink-0" />
+                        {tag.name}
+                        <Check 
+                          className={`ml-auto h-4 w-4 ${
+                            selectedTags.some(t => t.id === tag.id) ? "opacity-100" : "opacity-0"
+                          }`}
+                        />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
                 )}
-              </CommandEmpty>
-              <CommandGroup heading="Available Tags">
-                {filteredTags.map(tag => (
-                  <CommandItem 
-                    key={tag.id}
-                    value={tag.id}
-                    onSelect={handleSelect}
-                    className="flex items-center gap-2"
-                  >
-                    <Tag className="h-4 w-4 flex-shrink-0" />
-                    {tag.name}
-                    <Check 
-                      className={`ml-auto h-4 w-4 ${
-                        selectedTags.some(t => t.id === tag.id) ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+              </CommandList>
+            </Command>
+          )}
         </PopoverContent>
       </Popover>
     </div>

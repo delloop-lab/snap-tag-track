@@ -154,6 +154,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
     }
   };
 
+  // Return null if there are no suggested tags
   if (!suggestedTags || suggestedTags.length === 0) {
     return null;
   }
