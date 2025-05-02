@@ -47,25 +47,34 @@ export type Database = {
           created_at: string
           id: string
           image_path: string
+          purchase_date: string | null
           text_content: string | null
+          total_amount: number | null
           updated_at: string
           user_id: string
+          vendor_name: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           image_path: string
+          purchase_date?: string | null
           text_content?: string | null
+          total_amount?: number | null
           updated_at?: string
           user_id: string
+          vendor_name?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           image_path?: string
+          purchase_date?: string | null
           text_content?: string | null
+          total_amount?: number | null
           updated_at?: string
           user_id?: string
+          vendor_name?: string | null
         }
         Relationships: []
       }
