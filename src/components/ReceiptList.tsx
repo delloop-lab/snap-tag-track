@@ -1,10 +1,26 @@
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, isAfter, isBefore } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
+import { Tag, X, Filter, ChevronDown } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Receipt = {
   id: string;
@@ -16,53 +32,121 @@ type Receipt = {
   purchase_date: string | null;
   created_at: string;
   updated_at: string;
+  tags?: { id: string; name: string }[];
+};
+
+type Tag = {
+  id: string;
+  name: string;
 };
 
 const ReceiptList = () => {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Filter states
+  const [vendorFilter, setVendorFilter] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    const fetchReceipts = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("receipts")
-          .select("*")
-          .order("created_at", { ascending: false });
+    if (!user) return;
+    
+    const fetchTags = async () => {
+      const { data: tags, error } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("user_id", user.id);
+      
+      if (error) {
+        console.error("Error fetching tags:", error);
+        return;
+      }
+      
+      setAllTags(tags || []);
+    };
+    
+    fetchTags();
+  }, [user]);
 
-        if (error) {
-          throw error;
+  useEffect(() => {
+    fetchReceipts();
+  }, [user]);
+
+  const fetchReceipts = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      
+      // First fetch all receipts
+      const { data: receiptsData, error: receiptsError } = await supabase
+        .from("receipts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (receiptsError) throw receiptsError;
+
+      const receiptsWithTags = await Promise.all((receiptsData || []).map(async (receipt) => {
+        // Fetch tags for each receipt
+        const { data: tagData, error: tagError } = await supabase
+          .from("receipt_tags")
+          .select(`
+            tag_id,
+            tags:tag_id(id, name)
+          `)
+          .eq("receipt_id", receipt.id);
+
+        if (tagError) {
+          console.error("Error fetching tags for receipt:", tagError);
+          return {
+            ...receipt,
+            tags: []
+          };
         }
 
-        // Ensure all objects have the expected properties, even if null
-        const completeReceipts: Receipt[] = (data || []).map(item => ({
-          id: item.id,
-          user_id: item.user_id,
-          image_path: item.image_path,
-          text_content: item.text_content || null,
-          vendor_name: item.vendor_name || null,
-          total_amount: item.total_amount || null,
-          purchase_date: item.purchase_date || null,
-          created_at: item.created_at,
-          updated_at: item.updated_at
-        }));
+        const tags = tagData.map(item => item.tags);
+        
+        return {
+          ...receipt,
+          tags
+        };
+      }));
 
-        setReceipts(completeReceipts);
-      } catch (error) {
-        console.error("Error fetching receipts:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load receipts",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Ensure all objects have the expected properties, even if null
+      const completeReceipts: Receipt[] = receiptsWithTags.map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        image_path: item.image_path,
+        text_content: item.text_content || null,
+        vendor_name: item.vendor_name || null,
+        total_amount: item.total_amount || null,
+        purchase_date: item.purchase_date || null,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        tags: item.tags || []
+      }));
 
-    fetchReceipts();
-  }, []);
+      setReceipts(completeReceipts);
+    } catch (error) {
+      console.error("Error fetching receipts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load receipts",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id: string, imagePath: string) => {
     try {
@@ -99,6 +183,72 @@ const ReceiptList = () => {
     }).format(amount);
   };
 
+  const addTagFilter = (tag: Tag) => {
+    if (!selectedTags.some(t => t.id === tag.id)) {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const removeTagFilter = (tagId: string) => {
+    setSelectedTags(selectedTags.filter(tag => tag.id !== tagId));
+  };
+
+  const resetFilters = () => {
+    setVendorFilter("");
+    setMinAmount("");
+    setMaxAmount("");
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setSelectedTags([]);
+  };
+
+  const filteredReceipts = receipts.filter(receipt => {
+    // Filter by vendor name
+    if (vendorFilter && receipt.vendor_name && 
+        !receipt.vendor_name.toLowerCase().includes(vendorFilter.toLowerCase())) {
+      return false;
+    }
+
+    // Filter by amount range
+    const numMin = minAmount ? parseFloat(minAmount) : null;
+    const numMax = maxAmount ? parseFloat(maxAmount) : null;
+    
+    if (numMin !== null && (receipt.total_amount === null || receipt.total_amount < numMin)) {
+      return false;
+    }
+    
+    if (numMax !== null && (receipt.total_amount === null || receipt.total_amount > numMax)) {
+      return false;
+    }
+
+    // Filter by date range
+    if (startDate && receipt.purchase_date && 
+        isBefore(new Date(receipt.purchase_date), startDate)) {
+      return false;
+    }
+    
+    if (endDate && receipt.purchase_date && 
+        isAfter(new Date(receipt.purchase_date), endDate)) {
+      return false;
+    }
+
+    // Filter by tags
+    if (selectedTags.length > 0) {
+      if (!receipt.tags || receipt.tags.length === 0) {
+        return false;
+      }
+      
+      const receiptTagIds = receipt.tags.map(tag => tag.id);
+      const hasAllSelectedTags = selectedTags.every(tag => receiptTagIds.includes(tag.id));
+      
+      if (!hasAllSelectedTags) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -111,24 +261,170 @@ const ReceiptList = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Your Receipts</h2>
-        <Button onClick={() => navigate("/upload")}>Upload New Receipt</Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
+          <Button onClick={() => navigate("/upload")}>Upload New Receipt</Button>
+        </div>
       </div>
 
-      {receipts.length === 0 ? (
+      {/* Filters Section */}
+      {showFilters && (
+        <div className="bg-muted/50 rounded-lg p-4 mb-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="vendor-filter">
+                Vendor Name
+              </label>
+              <Input
+                id="vendor-filter"
+                placeholder="Filter by vendor"
+                value={vendorFilter}
+                onChange={(e) => setVendorFilter(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount Range</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Min"
+                  type="number"
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(e.target.value)}
+                />
+                <span>to</span>
+                <Input
+                  placeholder="Max"
+                  type="number"
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date Range</label>
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      {startDate ? format(startDate, "PP") : "Start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={setStartDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span>to</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      {endDate ? format(endDate, "PP") : "End date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tags</label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    Select tags
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {allTags.map((tag) => (
+                    <DropdownMenuItem 
+                      key={tag.id}
+                      onClick={() => addTagFilter(tag)}
+                    >
+                      {tag.name}
+                    </DropdownMenuItem>
+                  ))}
+                  {allTags.length === 0 && (
+                    <DropdownMenuItem disabled>No tags available</DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              {/* Selected tag badges */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedTags.map((tag) => (
+                  <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    {tag.name}
+                    <button 
+                      onClick={() => removeTagFilter(tag.id)}
+                      className="ml-1 rounded-full outline-none focus:shadow-outline hover:bg-gray-300/20"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={resetFilters}>Reset Filters</Button>
+          </div>
+        </div>
+      )}
+
+      {filteredReceipts.length === 0 ? (
         <div className="text-center py-10">
           <p className="text-muted-foreground">
-            You haven't uploaded any receipts yet.
+            {receipts.length === 0 
+              ? "You haven't uploaded any receipts yet."
+              : "No receipts match your filters."}
           </p>
-          <Button 
-            onClick={() => navigate("/upload")} 
-            className="mt-4"
-          >
-            Upload Your First Receipt
-          </Button>
+          {receipts.length === 0 && (
+            <Button 
+              onClick={() => navigate("/upload")} 
+              className="mt-4"
+            >
+              Upload Your First Receipt
+            </Button>
+          )}
+          {receipts.length > 0 && (
+            <Button 
+              variant="outline"
+              onClick={resetFilters} 
+              className="mt-4"
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {receipts.map((receipt) => (
+          {filteredReceipts.map((receipt) => (
             <div
               key={receipt.id}
               className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
@@ -153,6 +449,17 @@ const ReceiptList = () => {
                     </p>
                     {receipt.total_amount && (
                       <p className="mt-1 font-semibold">{formatCurrency(receipt.total_amount)}</p>
+                    )}
+                    
+                    {/* Show tags */}
+                    {receipt.tags && receipt.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {receipt.tags.map((tag) => (
+                          <Badge key={tag.id} variant="outline" className="text-xs">
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <Button
