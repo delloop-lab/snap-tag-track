@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
+import TagInput from "./TagInput";
 
 type Receipt = {
   id: string;
@@ -171,6 +172,11 @@ const ReceiptDetail = () => {
                 {format(new Date(receipt.created_at), "PPp")}
               </p>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Tags</p>
+            {receipt.id && <TagInput receiptId={receipt.id} />}
           </div>
 
           <div className="space-y-2">
