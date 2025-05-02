@@ -6,6 +6,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command";
 import { 
   Popover,
@@ -66,13 +67,13 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
         
         const selectedTagIds = receiptTags?.map(rt => rt.tag_id) || [];
         
-        const selectedTagsData = userTags?.filter(tag => 
+        const selectedTagsData = (userTags || []).filter(tag => 
           selectedTagIds.includes(tag.id)
-        ) || [];
+        );
         
-        const availableTagsData = userTags?.filter(tag => 
+        const availableTagsData = (userTags || []).filter(tag => 
           !selectedTagIds.includes(tag.id)
-        ) || [];
+        );
         
         setAvailableTags(availableTagsData);
         setSelectedTags(selectedTagsData);
@@ -241,6 +242,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
             <button 
               className="ml-1 rounded-full outline-none focus:shadow-outline hover:bg-gray-300/20"
               onClick={() => removeTagFromReceipt(tag.id)}
+              type="button"
             >
               <X className="h-3 w-3" />
             </button>
@@ -259,6 +261,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
               setOpen(true);
               setTimeout(() => inputRef.current?.focus(), 0);
             }}
+            type="button"
           >
             <div className="flex items-center gap-2">
               <Tag className="h-4 w-4" />
@@ -274,38 +277,40 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
               value={inputValue}
               onValueChange={setInputValue}
             />
-            <CommandEmpty>
-              {inputValue.trim() ? (
-                <CommandItem
-                  value="create-new"
-                  className="flex items-center gap-2 text-sm"
-                  onSelect={() => handleSelect("create-new")}
-                >
-                  <Plus className="h-4 w-4" />
-                  Create "{inputValue.trim()}"
-                </CommandItem>
-              ) : (
-                <p className="py-2 px-4 text-sm">No tags found</p>
-              )}
-            </CommandEmpty>
-            <CommandGroup heading="Available Tags">
-              {filteredTags.map(tag => (
-                <CommandItem 
-                  key={tag.id}
-                  value={tag.id}
-                  onSelect={handleSelect}
-                  className="flex items-center gap-2"
-                >
-                  <Tag className="h-4 w-4 flex-shrink-0" />
-                  {tag.name}
-                  <Check 
-                    className={`ml-auto h-4 w-4 ${
-                      selectedTags.some(t => t.id === tag.id) ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <CommandList>
+              <CommandEmpty>
+                {inputValue.trim() ? (
+                  <CommandItem
+                    value="create-new"
+                    className="flex items-center gap-2 text-sm"
+                    onSelect={() => handleSelect("create-new")}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create "{inputValue.trim()}"
+                  </CommandItem>
+                ) : (
+                  <p className="py-2 px-4 text-sm">No tags found</p>
+                )}
+              </CommandEmpty>
+              <CommandGroup heading="Available Tags">
+                {filteredTags.map(tag => (
+                  <CommandItem 
+                    key={tag.id}
+                    value={tag.id}
+                    onSelect={handleSelect}
+                    className="flex items-center gap-2"
+                  >
+                    <Tag className="h-4 w-4 flex-shrink-0" />
+                    {tag.name}
+                    <Check 
+                      className={`ml-auto h-4 w-4 ${
+                        selectedTags.some(t => t.id === tag.id) ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>

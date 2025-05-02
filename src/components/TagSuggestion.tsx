@@ -56,6 +56,8 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
   useEffect(() => {
     if (textContent) {
       analyzeTags(textContent);
+    } else {
+      setSuggestedTags([]);
     }
   }, [textContent]);
 
@@ -160,7 +162,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
     <div className="mt-2">
       <p className="text-sm font-medium mb-2">Suggested tags:</p>
       <div className="flex flex-wrap gap-2">
-        {(suggestedTags || []).map(tag => (
+        {suggestedTags.map(tag => (
           <Badge key={tag} variant="success" className="cursor-pointer hover:bg-green-200 transition-colors">
             <Tag className="h-3 w-3 mr-1" />
             {tag}
@@ -170,6 +172,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
               className="h-4 w-4 p-0 ml-1"
               disabled={loading}
               onClick={() => addTagToReceipt(tag)}
+              type="button"
             >
               <Plus className="h-3 w-3" />
             </Button>
@@ -178,6 +181,6 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       </div>
     </div>
   );
-};
+}
 
 export default TagSuggestion;
