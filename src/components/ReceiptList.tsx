@@ -40,7 +40,7 @@ const ReceiptList = () => {
           id: item.id,
           user_id: item.user_id,
           image_path: item.image_path,
-          text_content: item.text_content,
+          text_content: item.text_content || null,
           vendor_name: item.vendor_name || null,
           total_amount: item.total_amount || null,
           purchase_date: item.purchase_date || null,

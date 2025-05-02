@@ -44,7 +44,7 @@ const ReceiptDetail = () => {
           id: data.id,
           user_id: data.user_id,
           image_path: data.image_path,
-          text_content: data.text_content,
+          text_content: data.text_content || null,
           vendor_name: data.vendor_name || null,
           total_amount: data.total_amount || null,
           purchase_date: data.purchase_date || null,
