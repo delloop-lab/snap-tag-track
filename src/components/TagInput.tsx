@@ -208,9 +208,8 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
 
   const handleSelect = async (value: string) => {
     setOpen(false);
-    setInputValue("");
     
-    if (value === "create-new" && inputValue.trim()) {
+    if (value === "create-new" && inputValue && inputValue.trim()) {
       const newTag = await createTag(inputValue);
       if (newTag) {
         await addTagToReceipt(newTag);
@@ -221,6 +220,9 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
         await addTagToReceipt(selectedTag);
       }
     }
+    
+    // Clear input value after selection
+    setInputValue("");
   };
 
   if (loading) {
@@ -265,9 +267,8 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
-          {/* Only render Command when the popover is open */}
           {open && (
-            <Command key={`command-${open}`}>
+            <Command>
               <CommandInput 
                 placeholder="Search or create tag..." 
                 ref={inputRef}
@@ -278,6 +279,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
                 <CommandEmpty>
                   {inputValue && inputValue.trim() ? (
                     <CommandItem
+                      key="create-new-option"
                       value="create-new"
                       className="flex items-center gap-2 text-sm"
                       onSelect={() => handleSelect("create-new")}
