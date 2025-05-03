@@ -136,7 +136,9 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       setSuggestedTags(prev => prev.filter(t => t !== tagName));
       
       // Notify parent component to refresh tags
-      onTagAdded();
+      if (onTagAdded && typeof onTagAdded === 'function') {
+        onTagAdded();
+      }
 
       toast({
         title: "Tag added",
@@ -163,8 +165,8 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
     <div className="mt-2">
       <p className="text-sm font-medium mb-2">Suggested tags:</p>
       <div className="flex flex-wrap gap-2">
-        {suggestedTags.map(tag => (
-          <Badge key={tag} variant="success" className="cursor-pointer hover:bg-green-200 transition-colors">
+        {suggestedTags.map((tag, index) => (
+          <Badge key={`${tag}-${index}`} variant="success" className="cursor-pointer hover:bg-green-200 transition-colors">
             <Tag className="h-3 w-3 mr-1" />
             {tag}
             <Button
@@ -182,6 +184,6 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       </div>
     </div>
   );
-}
+};
 
 export default TagSuggestion;

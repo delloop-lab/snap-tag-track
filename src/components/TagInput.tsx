@@ -272,7 +272,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
             <Command 
               shouldFilter={true} 
               loop={true}
-              key={`command-${inputValue}`} // Add a key to force re-render
+              key={`command-${inputValue}`} // Force re-render when input changes
             >
               <CommandInput 
                 placeholder="Search or create tag..." 
