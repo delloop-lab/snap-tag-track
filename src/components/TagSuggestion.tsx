@@ -77,8 +77,8 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
   };
 
   const addTagToReceipt = async (tagName: string) => {
-    if (!user || !receiptId) {
-      console.error("Missing user or receiptId");
+    if (!user || !receiptId || !tagName) {
+      console.error("Missing user, receiptId, or tagName");
       return;
     }
 

@@ -207,6 +207,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   };
 
   const handleSelect = async (value: string) => {
+    if (!value) return;
     setOpen(false);
     
     if (value === "create-new" && inputValue && inputValue.trim()) {
@@ -268,7 +269,11 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
           {open && (
-            <Command>
+            <Command 
+              shouldFilter={true} 
+              loop={true}
+              key={`command-${inputValue}`} // Add a key to force re-render
+            >
               <CommandInput 
                 placeholder="Search or create tag..." 
                 ref={inputRef}
@@ -282,7 +287,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
                       key="create-new-option"
                       value="create-new"
                       className="flex items-center gap-2 text-sm"
-                      onSelect={() => handleSelect("create-new")}
+                      onSelect={handleSelect}
                     >
                       <Plus className="h-4 w-4" />
                       Create "{inputValue.trim()}"
