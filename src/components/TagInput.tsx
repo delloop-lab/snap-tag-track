@@ -75,11 +75,11 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
           !selectedTagIds.includes(tag.id)
         );
         
-        setAvailableTags(availableTagsData);
-        setSelectedTags(selectedTagsData);
+        setAvailableTags(availableTagsData || []);
+        setSelectedTags(selectedTagsData || []);
         
         if (onTagsChange) {
-          onTagsChange(selectedTagsData);
+          onTagsChange(selectedTagsData || []);
         }
       } catch (error) {
         console.error("Error fetching tags:", error);
@@ -265,7 +265,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
-          {/* Using a key to force remount of Command component when open state changes */}
+          {/* Only render Command when the popover is open */}
           {open && (
             <Command key={`command-${open}`}>
               <CommandInput 
@@ -276,7 +276,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
               />
               <CommandList>
                 <CommandEmpty>
-                  {inputValue.trim() ? (
+                  {inputValue && inputValue.trim() ? (
                     <CommandItem
                       value="create-new"
                       className="flex items-center gap-2 text-sm"
@@ -289,7 +289,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
                     <p className="py-2 px-4 text-sm">No tags found</p>
                   )}
                 </CommandEmpty>
-                {availableTags.length > 0 && (
+                {availableTags && availableTags.length > 0 && (
                   <CommandGroup heading="Available Tags">
                     {availableTags.map(tag => (
                       <CommandItem 
