@@ -25,8 +25,9 @@ const Index = () => {
           .eq("id", user.id)
           .single();
         if (!error && data) {
-          if (data.first_name) setFirstName(data.first_name);
-          if (data.avatar_url) setAvatarUrl(data.avatar_url);
+          const userData = data as { first_name?: string; avatar_url?: string };
+          if (userData.first_name) setFirstName(userData.first_name);
+          if (userData.avatar_url) setAvatarUrl(userData.avatar_url);
         }
       };
       fetchFirstName();
@@ -96,12 +97,13 @@ const Index = () => {
   return (
     <div className="min-h-screen h-screen flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
       <div className="w-full max-w-3xl md:bg-white md:rounded-2xl md:shadow-2xl p-4 md:p-10 flex flex-col items-center h-full justify-center">
-        <img src="/snap tag logo III.png" alt="SnapTagForget Logo" className="h-12 w-auto mx-auto mt-20 mb-6 block md:hidden" />
+        <img src="/snaptag.png" alt="SnapTagForget Logo" className="h-12 w-auto mx-auto mt-20 mb-6 block md:hidden" />
+        {/* Avatar and welcome message for all screen sizes */}
         {user && avatarUrl && (
           <img
             src={avatarUrl}
             alt="User Avatar"
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 block md:hidden"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-4"
           />
         )}
         <p className="text-xl text-gray-600 mb-8 text-center">

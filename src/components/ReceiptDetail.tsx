@@ -31,6 +31,7 @@ type Receipt = {
   notes?: string | null;
   warranty?: boolean;
   receipt_tags?: { tag_id: string; tags: { id: string; name: string } }[];
+  client_name?: string | null;
 };
 
 const ReceiptDetail = () => {
@@ -47,6 +48,9 @@ const ReceiptDetail = () => {
   const [tagsRefreshKey, setTagsRefreshKey] = useState(0);
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [editedClient, setEditedClient] = useState("");
+  const [allClients, setAllClients] = useState<string[]>([]);
+  const [showNewClientInput, setShowNewClientInput] = useState(false);
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -78,7 +82,8 @@ const ReceiptDetail = () => {
           updated_at: data.updated_at,
           notes: data.notes || "",
           warranty: data.warranty ?? false,
-          receipt_tags: data.receipt_tags || []
+          receipt_tags: data.receipt_tags || [],
+          client_name: data.client_name || "",
         };
         setReceipt(receiptData);
         // Generate signed URL for the image
@@ -100,6 +105,7 @@ const ReceiptDetail = () => {
         if (receiptData.purchase_date) {
           setEditedDate(new Date(receiptData.purchase_date));
         }
+        setEditedClient(receiptData.client_name || "");
       }
     } catch (error) {
       console.error("Error fetching receipt:", error);
@@ -116,6 +122,18 @@ const ReceiptDetail = () => {
 
   useEffect(() => {
     fetchReceipt();
+    // Fetch all unique clients for dropdown
+    const fetchClients = async () => {
+      const { data } = await supabase
+        .from("receipts")
+        .select("client_name")
+        .neq("client_name", null);
+      if (data) {
+        const uniqueClients = Array.from(new Set(data.map(r => r.client_name).filter(Boolean)));
+        setAllClients(uniqueClients);
+      }
+    };
+    fetchClients();
   }, [id, navigate]);
 
   useEffect(() => {
@@ -174,6 +192,7 @@ const ReceiptDetail = () => {
           purchase_date: editedDate ? format(editedDate, 'yyyy-MM-dd') : null,
           notes: editedNotes,
           warranty: editedWarranty,
+          client_name: editedClient || null,
         })
         .eq("id", receipt.id);
       if (error) {
@@ -379,6 +398,40 @@ const ReceiptDetail = () => {
                   className="h-4 w-4"
                 />
                 <label htmlFor="warranty" className="font-medium select-none cursor-pointer">Warranty?</label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="client">Client</Label>
+                <div className="flex gap-2 items-center">
+                  <select
+                    id="client"
+                    className="border rounded px-2 py-1 flex-1"
+                    value={showNewClientInput ? "__new__" : editedClient}
+                    onChange={e => {
+                      if (e.target.value === "__new__") {
+                        setShowNewClientInput(true);
+                        setEditedClient("");
+                      } else {
+                        setShowNewClientInput(false);
+                        setEditedClient(e.target.value);
+                      }
+                    }}
+                  >
+                    <option value="">Select client...</option>
+                    {allClients.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__new__">Add new client...</option>
+                  </select>
+                  {showNewClientInput && (
+                    <Input
+                      className="flex-1"
+                      placeholder="Enter new client name"
+                      value={editedClient}
+                      onChange={e => setEditedClient(e.target.value)}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="flex space-x-2 pt-4">
