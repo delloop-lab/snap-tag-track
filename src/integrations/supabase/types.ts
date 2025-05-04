@@ -53,6 +53,10 @@ export type Database = {
           updated_at: string
           user_id: string
           vendor_name: string | null
+          notes: string | null
+          warranty: boolean
+          type: string | null
+          client_name: string | null
         }
         Insert: {
           created_at?: string
@@ -64,6 +68,10 @@ export type Database = {
           updated_at?: string
           user_id: string
           vendor_name?: string | null
+          notes?: string | null
+          warranty?: boolean
+          type?: string | null
+          client_name?: string | null
         }
         Update: {
           created_at?: string
@@ -75,6 +83,10 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vendor_name?: string | null
+          notes?: string | null
+          warranty?: boolean
+          type?: string | null
+          client_name?: string | null
         }
         Relationships: []
       }

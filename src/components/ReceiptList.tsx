@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,7 @@ import { toast } from "@/components/ui/use-toast";
 import { formatDistanceToNow, format, isAfter, isBefore } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Tag, X, Filter, ChevronDown } from "lucide-react";
+import { Tag, X, Filter, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import {
   Popover,
@@ -21,6 +20,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { getTagColor } from "./TagInput";
 
 type Receipt = {
   id: string;
@@ -33,6 +45,7 @@ type Receipt = {
   created_at: string;
   updated_at: string;
   tags?: { id: string; name: string }[];
+  image_url?: string | null;
 };
 
 type Tag = {
@@ -55,6 +68,9 @@ const ReceiptList = () => {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+
+  const [recentlyDeleted, setRecentlyDeleted] = useState<{receipt: Receipt, timeoutId: NodeJS.Timeout} | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; imagePath: string; tags?: { id: string; name: string }[] } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -79,6 +95,19 @@ const ReceiptList = () => {
   useEffect(() => {
     fetchReceipts();
   }, [user]);
+
+  // Refresh receipts when the page becomes visible (e.g., after upload)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchReceipts();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const fetchReceipts = async () => {
     if (!user) return;
@@ -109,15 +138,26 @@ const ReceiptList = () => {
           console.error("Error fetching tags for receipt:", tagError);
           return {
             ...receipt,
-            tags: []
+            tags: [],
+            image_url: null
           };
         }
 
         const tags = tagData.map(item => item.tags);
-        
+        // Generate signed URL for the image
+        let image_url = null;
+        if (receipt.image_path) {
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(receipt.image_path, 60 * 60); // 1 hour expiry
+          if (signedUrlError) {
+            console.error('Error creating signed URL:', signedUrlError);
+          } else {
+            image_url = signedUrlData?.signedUrl;
+          }
+        }
         return {
           ...receipt,
-          tags
+          tags,
+          image_url
         };
       }));
 
@@ -132,7 +172,8 @@ const ReceiptList = () => {
         purchase_date: item.purchase_date || null,
         created_at: item.created_at,
         updated_at: item.updated_at,
-        tags: item.tags || []
+        tags: item.tags || [],
+        image_url: item.image_url
       }));
 
       setReceipts(completeReceipts);
@@ -148,31 +189,61 @@ const ReceiptList = () => {
     }
   };
 
-  const handleDelete = async (id: string, imagePath: string) => {
-    try {
-      // First delete from database
-      const { error: dbError } = await supabase
-        .from("receipts")
-        .delete()
-        .eq("id", id);
+  const handleDelete = async (id: string, imagePath: string, tags?: { id: string; name: string }[]) => {
+    const deletedReceipt = receipts.find(r => r.id === id);
+    if (!deletedReceipt) return;
 
-      if (dbError) throw dbError;
-      
-      // Update the UI
-      setReceipts((prev) => prev.filter((receipt) => receipt.id !== id));
-
-      toast({
-        title: "Receipt deleted",
-        description: "The receipt has been removed successfully",
-      });
-    } catch (error) {
-      console.error("Error deleting receipt:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete receipt",
-        variant: "destructive",
-      });
+    // If the receipt has tags, show AlertDialog
+    if (tags && tags.length > 0) {
+      setPendingDelete({ id, imagePath, tags });
+      return;
     }
+
+    // Optimistically remove from UI
+    setReceipts((prev) => prev.filter((receipt) => receipt.id !== id));
+
+    // Show toast with Undo
+    let undoClicked = false;
+    const timeoutId = setTimeout(async () => {
+      if (!undoClicked) {
+        // Actually delete from database
+        const { error: dbError } = await supabase
+          .from("receipts")
+          .delete()
+          .eq("id", id);
+        if (dbError) {
+          toast({
+            title: "Error",
+            description: "Failed to delete receipt",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Receipt deleted",
+            description: "The receipt has been removed successfully",
+          });
+        }
+      }
+      setRecentlyDeleted(null);
+    }, 5000);
+
+    setRecentlyDeleted({ receipt: deletedReceipt, timeoutId });
+
+    toast({
+      title: "Receipt deleted",
+      description: (
+        <span>
+          The receipt has been removed. <button className="underline ml-2" onClick={() => {
+            undoClicked = true;
+            clearTimeout(timeoutId);
+            setReceipts((prev) => [deletedReceipt, ...prev]);
+            setRecentlyDeleted(null);
+            toast({ title: "Undo", description: "Receipt restored." });
+          }}>Undo</button>
+        </span>
+      ),
+      duration: 5000,
+    });
   };
 
   const formatCurrency = (amount: number | null) => {
@@ -251,15 +322,44 @@ const ReceiptList = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <p>Loading receipts...</p>
+      <div className="container mx-auto p-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
+          <h2 className="text-2xl font-bold">Your Receipts</h2>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled className="flex items-center gap-1">
+              <Filter className="h-4 w-4" />
+              Filters
+              <ChevronDown className="h-4 w-4 ml-1" />
+            </Button>
+            <Button disabled>Upload New Receipt</Button>
+          </div>
+        </div>
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-4 min-w-[320px]" style={{scrollbarWidth: 'thin'}}>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="border rounded-lg overflow-hidden shadow-sm flex-shrink-0 w-56 bg-white">
+                <Skeleton className="aspect-[3/4] w-full bg-gray-100" />
+                <div className="p-3 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-4 w-1/3" />
+                  <div className="flex gap-1 mt-2">
+                    <Skeleton className="h-4 w-8 rounded" />
+                    <Skeleton className="h-4 w-8 rounded" />
+                  </div>
+                  <Skeleton className="h-8 w-full mt-3 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
         <h2 className="text-2xl font-bold">Your Receipts</h2>
         <div className="flex gap-2">
           <Button 
@@ -423,66 +523,136 @@ const ReceiptList = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredReceipts.map((receipt) => (
-            <div
-              key={receipt.id}
-              className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="aspect-[3/4] bg-gray-100">
-                <img
-                  src={receipt.image_path}
-                  alt="Receipt"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/placeholder.svg";
-                  }}
-                />
-              </div>
-              <div className="p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-lg">{receipt.vendor_name || "Unknown Vendor"}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {receipt.purchase_date ? format(new Date(receipt.purchase_date), 'MMM d, yyyy') : 
-                      formatDistanceToNow(new Date(receipt.updated_at), { addSuffix: true })}
-                    </p>
-                    {receipt.total_amount && (
-                      <p className="mt-1 font-semibold">{formatCurrency(receipt.total_amount)}</p>
-                    )}
-                    
-                    {/* Show tags */}
-                    {receipt.tags && receipt.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {receipt.tags.map((tag) => (
-                          <Badge key={tag.id} variant="outline" className="text-xs">
-                            {tag.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-4 min-w-[320px]" style={{scrollbarWidth: 'thin'}}>
+            {filteredReceipts.map((receipt) => (
+              <div
+                key={receipt.id}
+                className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow flex-shrink-0 w-56 bg-white"
+                style={{ minWidth: '224px', maxWidth: '224px' }}
+              >
+                <div className="aspect-[3/4] bg-gray-100 relative">
+                  <img
+                    src={receipt.image_url || "/placeholder.svg"}
+                    alt="Receipt"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/placeholder.svg";
+                    }}
+                  />
+                  {(!receipt.tags || receipt.tags.length === 0) && (
+                    <span className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-semibold px-2 py-0.5 rounded shadow">Untagged</span>
+                  )}
+                </div>
+                <div className="p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium text-base truncate max-w-[140px]">{receipt.vendor_name || "Unknown Vendor"}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {receipt.purchase_date ? format(new Date(receipt.purchase_date), 'MMM d, yyyy') : 
+                        formatDistanceToNow(new Date(receipt.updated_at), { addSuffix: true })}
+                      </p>
+                      {receipt.total_amount && (
+                        <p className="mt-1 font-semibold text-sm">{formatCurrency(receipt.total_amount)}</p>
+                      )}
+                      {/* Show tags */}
+                      {receipt.tags && receipt.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {receipt.tags.map((tag) => (
+                            <Badge key={tag.id} variant="outline" className={`text-xs ${getTagColor(tag.name)}`}>
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-6 w-6 p-0"
+                      onClick={() => handleDelete(receipt.id, receipt.image_path, receipt.tags)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(receipt.id, receipt.image_path)}
+                    className="w-full mt-3"
+                    onClick={() => navigate(`/receipt/${receipt.id}`)}
                   >
-                    Delete
+                    View Details
                   </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-4"
-                  onClick={() => navigate(`/receipt/${receipt.id}`)}
-                >
-                  View Details
-                </Button>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tagged Receipt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This receipt is tagged. Are you sure you want to delete it? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={async () => {
+                if (!pendingDelete) return;
+                setReceipts((prev) => prev.filter((receipt) => receipt.id !== pendingDelete.id));
+                // ... rest of delete logic (copy from handleDelete) ...
+                let undoClicked = false;
+                const deletedReceipt = receipts.find(r => r.id === pendingDelete.id);
+                const timeoutId = setTimeout(async () => {
+                  if (!undoClicked) {
+                    const { error: dbError } = await supabase
+                      .from("receipts")
+                      .delete()
+                      .eq("id", pendingDelete.id);
+                    if (dbError) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to delete receipt",
+                        variant: "destructive",
+                      });
+                    } else {
+                      toast({
+                        title: "Receipt deleted",
+                        description: "The receipt has been removed successfully",
+                      });
+                    }
+                  }
+                  setRecentlyDeleted(null);
+                }, 5000);
+                setRecentlyDeleted({ receipt: deletedReceipt, timeoutId });
+                toast({
+                  title: "Receipt deleted",
+                  description: (
+                    <span>
+                      The receipt has been removed. <button className="underline ml-2" onClick={() => {
+                        undoClicked = true;
+                        clearTimeout(timeoutId);
+                        setReceipts((prev) => [deletedReceipt, ...prev]);
+                        setRecentlyDeleted(null);
+                        toast({ title: "Undo", description: "Receipt restored." });
+                      }}>Undo</button>
+                    </span>
+                  ),
+                  duration: 5000,
+                });
+                setPendingDelete(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

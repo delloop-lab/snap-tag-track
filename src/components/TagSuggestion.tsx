@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tag, Plus } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/AuthProvider";
+import { getTagColor } from "./TagInput";
 
 interface TagSuggestionProps {
   receiptId: string;
@@ -166,7 +166,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       <p className="text-sm font-medium mb-2">Suggested tags:</p>
       <div className="flex flex-wrap gap-2">
         {suggestedTags.map((tag, index) => (
-          <Badge key={`${tag}-${index}`} variant="success" className="cursor-pointer hover:bg-green-200 transition-colors">
+          <Badge key={`${tag}-${index}`} variant="success" className={`cursor-pointer hover:bg-green-200 transition-colors ${getTagColor(tag)}`}>
             <Tag className="h-3 w-3 mr-1" />
             {tag}
             <Button

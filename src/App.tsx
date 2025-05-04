@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +12,9 @@ import Navbar from "./components/Navbar";
 import ReceiptUpload from "./components/ReceiptUpload";
 import ReceiptList from "./components/ReceiptList";
 import ReceiptDetail from "./components/ReceiptDetail";
+import ReceiptSummaryList from "./components/ReceiptSummaryList";
+import Profile from "./pages/Profile";
+import TagUntagged from "./pages/TagUntagged";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,21 @@ const App = () => (
               <Route path="/receipt/:id" element={
                 <ProtectedRoute>
                   <ReceiptDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/summary" element={
+                <ProtectedRoute>
+                  <ReceiptSummaryList />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/tag-untagged" element={
+                <ProtectedRoute>
+                  <TagUntagged />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />

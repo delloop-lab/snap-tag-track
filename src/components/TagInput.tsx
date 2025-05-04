@@ -1,19 +1,4 @@
-
-import React, { useState, useEffect, useRef } from "react";
-import { 
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check, Plus, Tag, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,199 +16,137 @@ interface TagInputProps {
   onTagsChange?: (tags: Tag[]) => void;
 }
 
+const STANDARD_TAGS = [
+  { name: "Power" },
+  { name: "Water" },
+  { name: "Gas" },
+  { name: "Fuel" },
+  { name: "Groceries" },
+  { name: "Internet" },
+  { name: "Rent" },
+  { name: "Dining" },
+  { name: "Shopping" },
+];
+
+// Consistent color palette for tags
+const tagColors = [
+  'bg-blue-200 text-blue-800',
+  'bg-green-200 text-green-800',
+  'bg-yellow-200 text-yellow-800',
+  'bg-purple-200 text-purple-800',
+  'bg-pink-200 text-pink-800',
+  'bg-red-200 text-red-800',
+  'bg-indigo-200 text-indigo-800',
+  'bg-teal-200 text-teal-800',
+  'bg-orange-200 text-orange-800',
+];
+
+// Deterministically assign a color to a tag name
+export function getTagColor(tagName: string) {
+  let hash = 0;
+  for (let i = 0; i < tagName.length; i++) {
+    hash = tagName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % tagColors.length;
+  return tagColors[idx];
+}
+
 export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
-  const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch available tags and selected tags
-  useEffect(() => {
-    const fetchTags = async () => {
-      if (!user || !receiptId) {
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        // Fetch all user tags
-        const { data: userTags, error: tagError } = await supabase
-          .from("tags")
-          .select("*")
-          .eq("user_id", user.id);
-
-        if (tagError) throw tagError;
-        
-        // Fetch tags already associated with this receipt
-        const { data: receiptTags, error: receiptTagsError } = await supabase
-          .from("receipt_tags")
-          .select("tag_id")
-          .eq("receipt_id", receiptId);
-
-        if (receiptTagsError) throw receiptTagsError;
-        
-        const selectedTagIds = receiptTags?.map(rt => rt.tag_id) || [];
-        
-        const selectedTagsData = (userTags || []).filter(tag => 
-          selectedTagIds.includes(tag.id)
-        );
-        
-        const availableTagsData = (userTags || []).filter(tag => 
-          !selectedTagIds.includes(tag.id)
-        );
-        
-        setAvailableTags(availableTagsData || []);
-        setSelectedTags(selectedTagsData || []);
-        
-        if (onTagsChange) {
-          onTagsChange(selectedTagsData || []);
-        }
-      } catch (error) {
-        console.error("Error fetching tags:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load tags",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTags();
-  }, [user, receiptId, onTagsChange]);
-
-  const createTag = async (name: string) => {
-    if (!user || !name.trim()) return null;
-    
+  // Helper to fetch tags for this receipt
+  const fetchTags = async () => {
+    if (!user || !receiptId) {
+      setLoading(false);
+      return;
+    }
     try {
-      // First check if a tag with this name already exists
+      // Fetch tags already associated with this receipt
+      const { data: receiptTags, error: receiptTagsError } = await supabase
+        .from("receipt_tags")
+        .select("tag_id, tags:tag_id(id, name, user_id)")
+        .eq("receipt_id", receiptId);
+      if (receiptTagsError) throw receiptTagsError;
+      const tags = (receiptTags || []).map((rt: any) => rt.tags);
+      setSelectedTags(tags);
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load tags",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTags();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, receiptId]);
+
+  const createAndAddTag = async () => {
+    if (!user || !inputValue.trim()) return;
+    try {
+      // Check if tag already exists
       const { data: existingTags } = await supabase
         .from("tags")
         .select("*")
-        .eq("name", name.trim())
+        .eq("name", inputValue.trim())
         .eq("user_id", user.id);
-      
-      if (existingTags && existingTags.length > 0) {
-        return existingTags[0];
+      let tag = existingTags && existingTags.length > 0 ? existingTags[0] : null;
+      if (!tag) {
+        // Create new tag
+        const { data: newTag, error: createError } = await supabase
+          .from("tags")
+          .insert({ name: inputValue.trim(), user_id: user.id })
+          .select()
+          .single();
+        if (createError) throw createError;
+        tag = newTag;
       }
-      
-      // Create a new tag
-      const { data, error } = await supabase
-        .from("tags")
-        .insert({ name: name.trim(), user_id: user.id })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Update available tags
-      if (data) {
-        setAvailableTags(prev => [...prev, data]);
-      }
-      
-      return data;
-    } catch (error) {
-      console.error("Error creating tag:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create tag",
-        variant: "destructive",
-      });
-      return null;
-    }
-  };
-
-  const addTagToReceipt = async (tag: Tag) => {
-    if (!tag || !tag.id || !receiptId) return false;
-    
-    try {
-      const { error } = await supabase
+      // Link tag to receipt
+      const { error: linkError } = await supabase
         .from("receipt_tags")
-        .insert({
-          receipt_id: receiptId,
-          tag_id: tag.id,
-        });
-      
-      if (error) throw error;
-      
-      // Update UI
-      setSelectedTags(prev => [...prev, tag]);
-      setAvailableTags(prev => prev.filter(t => t.id !== tag.id));
-      
-      if (onTagsChange) {
-        onTagsChange([...selectedTags, tag]);
-      }
-      
-      return true;
+        .insert({ receipt_id: receiptId, tag_id: tag.id });
+      if (linkError) throw linkError;
+      setInputValue("");
+      await fetchTags(); // Re-fetch tags after adding
+      if (onTagsChange) onTagsChange(selectedTags);
+      toast({ title: "Tag added", description: `Added tag '${tag.name}'` });
     } catch (error) {
-      console.error("Error adding tag to receipt:", error);
+      console.error("Error adding tag:", error);
       toast({
         title: "Error",
-        description: "Failed to add tag to receipt",
+        description: "Failed to add tag",
         variant: "destructive",
       });
-      return false;
     }
   };
 
-  const removeTagFromReceipt = async (tagId: string) => {
-    if (!tagId || !receiptId) return false;
-    
+  const removeTag = async (tagId: string) => {
+    if (!tagId || !receiptId) return;
     try {
       const { error } = await supabase
         .from("receipt_tags")
         .delete()
         .eq("receipt_id", receiptId)
         .eq("tag_id", tagId);
-      
       if (error) throw error;
-      
-      // Update UI
-      const tagToRemove = selectedTags.find(t => t.id === tagId);
-      if (tagToRemove) {
-        setAvailableTags(prev => [...prev, tagToRemove]);
-      }
-      
-      setSelectedTags(prev => prev.filter(t => t.id !== tagId));
-      
-      if (onTagsChange) {
-        onTagsChange(selectedTags.filter(t => t.id !== tagId));
-      }
-      
-      return true;
+      await fetchTags(); // Re-fetch tags after removing
+      if (onTagsChange) onTagsChange(selectedTags);
     } catch (error) {
-      console.error("Error removing tag from receipt:", error);
+      console.error("Error removing tag:", error);
       toast({
         title: "Error",
         description: "Failed to remove tag",
         variant: "destructive",
       });
-      return false;
     }
-  };
-
-  const handleSelect = async (value: string) => {
-    if (!value) return;
-    setOpen(false);
-    
-    if (value === "create-new" && inputValue && inputValue.trim()) {
-      const newTag = await createTag(inputValue);
-      if (newTag) {
-        await addTagToReceipt(newTag);
-      }
-    } else {
-      const selectedTag = availableTags.find(tag => tag.id === value);
-      if (selectedTag) {
-        await addTagToReceipt(selectedTag);
-      }
-    }
-    
-    // Clear input value after selection
-    setInputValue("");
   };
 
   if (loading) {
@@ -234,93 +157,52 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 mb-2">
         {selectedTags.map(tag => (
-          <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
-            <Tag className="h-3 w-3" />
+          <Badge key={tag.id} variant="secondary" className={`flex items-center gap-1 ${getTagColor(tag.name)}`}>
             {tag.name}
-            <button 
+            <button
               className="ml-1 rounded-full outline-none focus:shadow-outline hover:bg-gray-300/20"
-              onClick={() => removeTagFromReceipt(tag.id)}
+              onClick={() => removeTag(tag.id)}
               type="button"
             >
-              <X className="h-3 w-3" />
+              ×
             </button>
           </Badge>
         ))}
       </div>
-      
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button 
-            variant="outline" 
-            role="combobox" 
-            aria-expanded={open} 
-            className="w-full justify-between"
-            onClick={() => {
-              setOpen(true);
-              setTimeout(() => inputRef.current?.focus(), 0);
-            }}
-            type="button"
-          >
-            <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              <span>Add tags...</span>
-            </div>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          {open && (
-            <Command 
-              shouldFilter={true} 
-              loop={true}
-              key={`command-${inputValue}`} // Force re-render when input changes
-            >
-              <CommandInput 
-                placeholder="Search or create tag..." 
-                ref={inputRef}
-                value={inputValue}
-                onValueChange={setInputValue}
-              />
-              <CommandList>
-                <CommandEmpty>
-                  {inputValue && inputValue.trim() ? (
-                    <CommandItem
-                      key="create-new-option"
-                      value="create-new"
-                      className="flex items-center gap-2 text-sm"
-                      onSelect={handleSelect}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Create "{inputValue.trim()}"
-                    </CommandItem>
-                  ) : (
-                    <p className="py-2 px-4 text-sm">No tags found</p>
-                  )}
-                </CommandEmpty>
-                {availableTags && availableTags.length > 0 && (
-                  <CommandGroup heading="Available Tags">
-                    {availableTags.map(tag => (
-                      <CommandItem 
-                        key={tag.id}
-                        value={tag.id}
-                        onSelect={handleSelect}
-                        className="flex items-center gap-2"
-                      >
-                        <Tag className="h-4 w-4 flex-shrink-0" />
-                        {tag.name}
-                        <Check 
-                          className={`ml-auto h-4 w-4 ${
-                            selectedTags.some(t => t.id === tag.id) ? "opacity-100" : "opacity-0"
-                          }`}
-                        />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-              </CommandList>
-            </Command>
-          )}
-        </PopoverContent>
-      </Popover>
+      <div className="flex gap-2 mb-2">
+        <select
+          className="border rounded px-2 py-1"
+          defaultValue=""
+          onChange={async (e) => {
+            const tagName = e.target.value;
+            if (!tagName) return;
+            setInputValue("");
+            // Try to add the standard tag
+            setInputValue(tagName);
+            await createAndAddTag();
+            e.target.value = "";
+          }}
+        >
+          <option value="">Add standard tag...</option>
+          {STANDARD_TAGS.filter(tag =>
+            !selectedTags.some(t => t.name.toLowerCase() === tag.name.toLowerCase())
+          ).map(tag => (
+            <option key={tag.name} value={tag.name}>{tag.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
+          placeholder="Add a tag..."
+          className="border rounded px-2 py-1"
+        />
+        <Button onClick={createAndAddTag} disabled={!inputValue.trim()}>
+          Add Tag
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
+import { createClient } from '@supabase/supabase-js';
 
 const AuthPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,9 +30,23 @@ const AuthPage = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Use sessionStorage if Remember Me is unchecked
+    let authClient = supabase;
+    if (!rememberMe) {
+      authClient = createClient(
+        supabase.supabaseUrl,
+        supabase.supabaseKey,
+        {
+          auth: {
+            storage: window.sessionStorage,
+          },
+        }
+      );
+    }
+
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { error } = await authClient.auth.signUp({
           email,
           password,
         });
@@ -43,7 +58,7 @@ const AuthPage = () => {
           description: "Please check your email to verify your account.",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error } = await authClient.auth.signInWithPassword({
           email,
           password,
         });
@@ -55,7 +70,7 @@ const AuthPage = () => {
           description: "Welcome back!",
         });
         
-        navigate("/receipts");
+        navigate("/");
       }
     } catch (error) {
       console.error("Authentication error:", error);
@@ -104,6 +119,17 @@ const AuthPage = () => {
                 required
                 minLength={6}
               />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={() => setRememberMe(!rememberMe)}
+                className="mr-2"
+              />
+              <Label htmlFor="rememberMe">Remember Me</Label>
             </div>
           </div>
 
