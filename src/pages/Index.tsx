@@ -125,16 +125,16 @@ const Index = () => {
   return (
     <div className="min-h-screen h-screen flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
       {/* Question mark icon below navbar, above all content */}
-      <div className="w-full flex justify-end mt-12 pr-6">
+      <div className="w-full flex justify-end mt-8 md:mt-2 pr-6">
         <HelpCircle
-          className="w-16 h-16 text-red-600 cursor-pointer drop-shadow-lg transition-transform duration-300 hover:scale-110 hover:text-red-800 animate-pulse [animation-duration:2s]"
+          className="w-8 h-8 md:w-16 md:h-16 text-red-600 cursor-pointer drop-shadow-lg transition-transform duration-300 hover:scale-110 hover:text-red-800 animate-pulse [animation-duration:2s]"
           onClick={() => navigate("/landing")}
         />
       </div>
       <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Desktop-only NO image with centered button overlay */}
-        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-64">
+        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-64 mt-[15px]">
           <img src="/no.png" alt="App on PC" className="w-full" />
           <button
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
@@ -216,7 +216,7 @@ const Index = () => {
           Tip: For best OCR, scan receipts on a flat surface with good lighting.
         </div>
         {/* QR code and prompt for mobile app */}
-        <div className="w-full flex flex-col md:flex-row items-center justify-center gap-4 mt-4 mb-8">
+        <div className="hidden md:flex flex-row items-center justify-center gap-4 mt-4 mb-8">
           <img
             src="https://api.qrserver.com/v1/create-qr-code/?data=https://snap-tag-track.lovable.app&size=120x120"
             alt="QR code for SnapTagTrack"

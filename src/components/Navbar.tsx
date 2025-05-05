@@ -148,7 +148,7 @@ const Navbar = () => {
                 </AlertDialog>
               </>
             ) : (
-              <Button size="sm" className="w-full" onClick={() => { setMenuOpen(false); navigate("/auth"); }}>
+              <Button size="sm" className="mx-auto" onClick={() => { setMenuOpen(false); navigate("/auth"); }}>
                 Sign In
               </Button>
             )}

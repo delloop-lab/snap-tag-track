@@ -86,9 +86,9 @@ const AuthPage = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-lg shadow-md">
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-lg shadow-lg border border-gray-200">
         <div className="text-center">
-          <h1 className="text-3xl font-bold">SnapTagForget</h1>
+          <h1 className="text-3xl font-bold">SnapTagTrack</h1>
           <p className="mt-2 text-sm text-gray-600">
             {isSignUp ? "Create your account" : "Sign in to your account"}
           </p>
