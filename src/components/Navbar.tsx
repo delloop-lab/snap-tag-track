@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthProvider";
 import { toast } from "@/components/ui/use-toast";
@@ -19,6 +19,7 @@ import {
 const Navbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
 
@@ -55,9 +56,11 @@ const Navbar = () => {
         </button>
         {/* Desktop menu */}
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-            <Home className="h-5 w-5 mr-1" /> Home
-          </Button>
+          {location.pathname !== "/" && (
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")}> 
+              <Home className="h-5 w-5 mr-1" /> Home
+            </Button>
+          )}
           {user ? (
             <>
               <Link to="/receipts" className="text-sm hover:underline">
@@ -103,9 +106,11 @@ const Navbar = () => {
       {menuOpen && (
         <div className="md:hidden bg-white animate-fade-in-down">
           <div className="flex flex-col gap-2 px-4 py-3">
-            <Button variant="ghost" size="sm" className="justify-start" onClick={() => { setMenuOpen(false); navigate("/"); }}>
-              <Home className="h-5 w-5 mr-1" /> Home
-            </Button>
+            {location.pathname !== "/" && (
+              <Button variant="ghost" size="sm" className="justify-start" onClick={() => { setMenuOpen(false); navigate("/"); }}>
+                <Home className="h-5 w-5 mr-1" /> Home
+              </Button>
+            )}
             {user ? (
               <>
                 <Link to="/receipts" className="text-sm py-2" onClick={() => setMenuOpen(false)}>
