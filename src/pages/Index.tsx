@@ -138,6 +138,17 @@ const Index = () => {
       </div>
       <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
+        {/* Desktop-only NO image with centered button overlay */}
+        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px]">
+          <img src="/no.png" alt="App on PC" className="w-full" />
+          <button
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-full shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
+            type="button"
+            tabIndex={-1}
+          >
+            NO MORE SHOEBOXES FULL OF RECEIPTS
+          </button>
+        </div>
         {/* Avatar and welcome message for all screen sizes */}
         {user && avatarUrl && (
           <img
@@ -153,15 +164,15 @@ const Index = () => {
           <p className="text-base text-gray-400 mb-14 text-center font-normal">{randomMessage.sub}</p>
         )}
         <div className="flex flex-col gap-4 w-full items-center mb-10">
-          <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/upload")}>
+          <Button className="w-1/2 max-w-xs text-4xl py-6 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/upload")}>
             <Camera className="!h-[30px] !w-[30px]" />
             SNAP
           </Button>
-          <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={handleTagClick}>
+          <Button className="w-1/2 max-w-xs text-4xl py-6 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={handleTagClick}>
             <Tag className="!h-[30px] !w-[30px]" />
             TAG
           </Button>
-          <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/summary")}>
+          <Button className="w-1/2 max-w-xs text-4xl py-6 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/summary")}>
             <BarChart3 className="!h-[30px] !w-[30px]" />
             TRACK
           </Button>
