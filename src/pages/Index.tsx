@@ -205,7 +205,12 @@ const Index = () => {
           )}
         </div>
         <div className="w-full text-center text-lg text-muted-foreground mb-2">
-          You've uploaded <span className="font-bold text-primary">{totalThisYear}</span> receipt{totalThisYear === 1 ? "" : "s"} this year.
+          {user
+            ? <>
+                You've uploaded <span className="font-bold text-primary">{totalThisYear}</span> receipt{totalThisYear === 1 ? "" : "s"} this year.
+              </>
+            : "Snap a receipt today!"
+          }
         </div>
         <div className="w-full text-center text-base text-gray-400 mt-8">
           Tip: For best OCR, scan receipts on a flat surface with good lighting.
