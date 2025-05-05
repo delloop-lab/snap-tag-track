@@ -19,27 +19,22 @@ const Index = () => {
   // Punchy, benefit-led, practical, friendly, and confident messages
   const welcomeMessages = [
     {
-      icon: "🔥",
       main: "Receipts you can actually find later.",
       sub: "No more digging through drawers or email threads. Snap, tag, done."
     },
     {
-      icon: "🧠",
       main: "Turn every receipt into a searchable, trackable, organised record.",
       sub: "For spending, warranties, budgeting, or proof when you need it."
     },
     {
-      icon: "🛠️",
       main: "Snap your receipts and let us handle the rest.",
       sub: "Track spending. Save warranties. Be ready at tax time or return time."
     },
     {
-      icon: "🙌",
       main: "Because life's too short to lose receipts.",
       sub: "Snap, tag, and track your purchases in seconds."
     },
     {
-      icon: "🤓",
       main: "The simple way to organise receipts, track spending, and keep your warranties safe.",
       sub: "No spreadsheets. No stress. Just snap it and go."
     }
@@ -139,10 +134,10 @@ const Index = () => {
       <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Desktop-only NO image with centered button overlay */}
-        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px]">
+        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-64">
           <img src="/no.png" alt="App on PC" className="w-full" />
           <button
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-full shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
             type="button"
             tabIndex={-1}
           >
@@ -157,8 +152,8 @@ const Index = () => {
             className="h-20 w-20 rounded-full object-cover mx-auto mb-4"
           />
         )}
-        <p className="text-xl text-gray-600 mb-2 text-center font-semibold flex items-center justify-center gap-2">
-          {user && firstName ? `Welcome, ${firstName}!` : <><span className="text-2xl mr-2">{randomMessage.icon}</span>{randomMessage.main}</>}
+        <p className="text-xl text-gray-600 mb-2 text-center font-semibold">
+          {user && firstName ? `Welcome, ${firstName}!` : randomMessage.main}
         </p>
         {!user && (
           <p className="text-base text-gray-400 mb-14 text-center font-normal">{randomMessage.sub}</p>
@@ -214,6 +209,15 @@ const Index = () => {
         </div>
         <div className="w-full text-center text-base text-gray-400 mt-8">
           Tip: For best OCR, scan receipts on a flat surface with good lighting.
+        </div>
+        {/* QR code and prompt for mobile app */}
+        <div className="w-full flex flex-col md:flex-row items-center justify-center gap-4 mt-4 mb-8">
+          <img
+            src="https://api.qrserver.com/v1/create-qr-code/?data=https://snap-tag-track.lovable.app&size=120x120"
+            alt="QR code for SnapTagTrack"
+            className="w-24 h-24"
+          />
+          <span className="text-base text-gray-700 font-medium">Want SnapTagTrack on your phone?</span>
         </div>
       </div>
       <footer className="w-full text-center text-xs text-gray-400 mt-8 mb-2">
