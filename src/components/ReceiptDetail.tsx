@@ -22,6 +22,7 @@ type Receipt = {
   id: string;
   user_id: string;
   image_path: string;
+  product_image_path?: string | null;
   text_content: string | null;
   vendor_name: string | null;
   total_amount: number | null;
@@ -32,12 +33,14 @@ type Receipt = {
   warranty?: boolean;
   receipt_tags?: { tag_id: string; tags: { id: string; name: string } }[];
   client_name?: string | null;
+  type?: string;
 };
 
 const ReceiptDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedVendor, setEditedVendor] = useState("");
@@ -51,6 +54,7 @@ const ReceiptDetail = () => {
   const [editedClient, setEditedClient] = useState("");
   const [allClients, setAllClients] = useState<string[]>([]);
   const [showNewClientInput, setShowNewClientInput] = useState(false);
+  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -70,10 +74,11 @@ const ReceiptDetail = () => {
         .single();
       if (error) throw error;
       if (data) {
-        const receiptData = {
+        const receiptData: Receipt = {
           id: data.id,
           user_id: data.user_id,
           image_path: data.image_path,
+          product_image_path: data.product_image_path || null,
           text_content: data.text_content,
           vendor_name: data.vendor_name,
           total_amount: data.total_amount,
@@ -84,6 +89,7 @@ const ReceiptDetail = () => {
           warranty: data.warranty ?? false,
           receipt_tags: data.receipt_tags || [],
           client_name: data.client_name || "",
+          type: data.type || "",
         };
         setReceipt(receiptData);
         // Generate signed URL for the image
@@ -135,6 +141,28 @@ const ReceiptDetail = () => {
     };
     fetchClients();
   }, [id, navigate]);
+
+  // Add effect to fetch product image URL when receipt changes
+  useEffect(() => {
+    const fetchProductImageUrl = async () => {
+      if (receipt?.product_image_path) {
+        const { data, error } = await supabase.storage
+          .from('receipts')
+          .createSignedUrl(receipt.product_image_path, 60 * 60);
+        
+        if (error) {
+          console.error("Error fetching product image URL:", error);
+          setProductImageUrl(null);
+        } else {
+          setProductImageUrl(data?.signedUrl || null);
+        }
+      } else {
+        setProductImageUrl(null);
+      }
+    };
+
+    fetchProductImageUrl();
+  }, [receipt?.product_image_path]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -234,6 +262,49 @@ const ReceiptDetail = () => {
     setTagsRefreshKey(prev => prev + 1);
   };
 
+  const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !receipt) return;
+
+    try {
+      setIsUploadingProductImage(true);
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${receipt.user_id}/${receipt.id}/product.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Update receipt with product image path
+      const { error: updateError } = await supabase
+        .from('receipts')
+        .update({ product_image_path: filePath } as Partial<Receipt>)
+        .eq('id', receipt.id);
+
+      if (updateError) throw updateError;
+
+      // Refresh receipt data
+      await fetchReceipt();
+      
+      toast({
+        title: "Product image uploaded",
+        description: "The product image has been added successfully",
+      });
+    } catch (error) {
+      console.error("Error uploading product image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload product image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingProductImage(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-4 max-w-4xl">
@@ -304,15 +375,59 @@ const ReceiptDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-1">
-        <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
-          <img
-            src={imageUrl || "/placeholder.svg"}
-            alt="Receipt"
-            className="w-full h-auto object-contain bg-gray-50 print:max-h-[500px]"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/placeholder.svg";
-            }}
-          />
+        <div className="space-y-4">
+          <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
+            <img
+              src={imageUrl || "/placeholder.svg"}
+              alt="Receipt"
+              className="w-full h-auto object-contain bg-gray-50 print:max-h-[500px]"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/placeholder.svg";
+              }}
+            />
+          </div>
+          
+          {receipt?.warranty && (
+            <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
+              <div className="p-4 bg-gray-50">
+                <h3 className="text-lg font-semibold mb-2">Product Image</h3>
+                {productImageUrl ? (
+                  <div className="space-y-4">
+                    <img
+                      src={productImageUrl}
+                      alt="Product"
+                      className="w-full h-auto object-contain bg-white"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">No product image uploaded</p>
+                    {isEditing && (
+                      <div className="flex flex-col items-center gap-2">
+                        <input
+                          type="file"
+                          id="product-image-upload"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleProductImageUpload}
+                          disabled={isUploadingProductImage}
+                        />
+                        <label
+                          htmlFor="product-image-upload"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90"
+                        >
+                          {isUploadingProductImage ? "Uploading..." : "Upload Product Image"}
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4 print:space-y-6">

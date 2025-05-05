@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { Camera, Tag, BarChart3 } from "lucide-react";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -97,7 +98,7 @@ const Index = () => {
   return (
     <div className="min-h-screen h-screen flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
       <div className="w-full max-w-3xl md:bg-white md:rounded-2xl md:shadow-2xl p-4 md:p-10 flex flex-col items-center h-full justify-center">
-        <img src="/snaptag.png" alt="SnapTagForget Logo" className="h-12 w-auto mx-auto mt-20 mb-6 block md:hidden" />
+        <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Avatar and welcome message for all screen sizes */}
         {user && avatarUrl && (
           <img
@@ -110,9 +111,18 @@ const Index = () => {
           {user && firstName ? `Welcome, ${firstName}!` : "Welcome! Capture receipts, extract text, and never worry about losing them again."}
         </p>
         <div className="flex flex-col md:flex-row gap-4 w-full mb-10">
-          <Button className="flex-1 text-2xl py-6 bg-orange-500 hover:bg-orange-600 text-white border-none rounded-full" size="lg" onClick={() => navigate("/upload")}>SNAP</Button>
-          <Button className="flex-1 text-2xl py-6 bg-blue-600 hover:bg-blue-700 text-white border-none rounded-full" size="lg" onClick={handleTagClick}>TAG</Button>
-          <Button className="flex-1 text-lg py-6" size="lg" variant="outline" onClick={() => navigate("/summary")}>Summary</Button>
+          <Button className="flex-1 text-4xl py-6 bg-[#FF9500] hover:bg-[#E68500] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={() => navigate("/upload")}>
+            <Camera className="!h-[40px] !w-[40px]" />
+            SNAP
+          </Button>
+          <Button className="flex-1 text-4xl py-6 bg-[#4A8AE6] hover:bg-[#3A7AD6] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={handleTagClick}>
+            <Tag className="!h-[40px] !w-[40px]" />
+            TAG
+          </Button>
+          <Button className="flex-1 text-4xl py-6 bg-[#7CB87E] hover:bg-[#6CA66E] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={() => navigate("/summary")}>
+            <BarChart3 className="!h-[40px] !w-[40px]" />
+            TRACK
+          </Button>
         </div>
         {user && (
           <>
