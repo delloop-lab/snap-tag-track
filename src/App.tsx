@@ -15,6 +15,7 @@ import ReceiptDetail from "./components/ReceiptDetail";
 import ReceiptSummaryList from "./components/ReceiptSummaryList";
 import Profile from "./pages/Profile";
 import TagUntagged from "./pages/TagUntagged";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
                   <TagUntagged />
                 </ProtectedRoute>
               } />
+              <Route path="/landing" element={<Landing />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

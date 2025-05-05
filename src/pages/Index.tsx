@@ -97,7 +97,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen h-screen flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
-      <div className="w-full max-w-3xl md:bg-white md:rounded-2xl md:shadow-2xl p-4 md:p-10 flex flex-col items-center h-full justify-center">
+      <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Avatar and welcome message for all screen sizes */}
         {user && avatarUrl && (
@@ -110,28 +110,26 @@ const Index = () => {
         <p className="text-xl text-gray-600 mb-8 text-center">
           {user && firstName ? `Welcome, ${firstName}!` : "Welcome! Capture receipts, extract text, and never worry about losing them again."}
         </p>
-        <div className="flex flex-col md:flex-row gap-4 w-full mb-10">
-          <Button className="flex-1 text-4xl py-6 bg-[#FF9500] hover:bg-[#E68500] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={() => navigate("/upload")}>
+        <div className="flex flex-col gap-4 w-full items-center mb-10">
+          <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/upload")}>
             <Camera className="!h-[30px] !w-[30px]" />
             SNAP
           </Button>
-          <Button className="flex-1 text-4xl py-6 bg-[#4A8AE6] hover:bg-[#3A7AD6] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={handleTagClick}>
+          <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={handleTagClick}>
             <Tag className="!h-[30px] !w-[30px]" />
             TAG
           </Button>
-          <Button className="flex-1 text-4xl py-6 bg-[#7CB87E] hover:bg-[#6CA66E] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={() => navigate("/summary")}>
+          <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/summary")}>
             <BarChart3 className="!h-[30px] !w-[30px]" />
             TRACK
           </Button>
-        </div>
-        {user && (
-          <>
-            <div className="w-full mb-10 hidden md:block">
-              <h2 className="text-2xl font-semibold mb-4">Recent Receipts</h2>
+          {user && (
+            <div className="w-full flex flex-col items-center mb-10">
+              <h2 className="text-2xl font-semibold mb-4 text-center">Recent Receipts</h2>
               {recentReceipts.length === 0 ? (
-                <p className="text-muted-foreground text-base">No receipts yet. <Button variant="link" onClick={() => navigate("/upload")}>Upload your first receipt</Button></p>
+                <p className="text-muted-foreground text-base text-center">No receipts yet. <Button variant="link" onClick={() => navigate("/upload")}>Upload your first receipt</Button></p>
               ) : (
-                <div className="flex gap-6 overflow-x-auto pb-2">
+                <div className="flex gap-6 overflow-x-auto pb-2 justify-center">
                   {recentReceipts.map(r => (
                     <div
                       key={r.id}
@@ -156,14 +154,20 @@ const Index = () => {
                 </div>
               )}
             </div>
-            <div className="w-full text-center text-lg text-muted-foreground mb-2">
-              You've uploaded <span className="font-bold text-primary">{totalThisYear}</span> receipt{totalThisYear === 1 ? "" : "s"} this year.
-            </div>
-          </>
-        )}
+          )}
+        </div>
+        <div className="w-full text-center text-lg text-muted-foreground mb-2">
+          You've uploaded <span className="font-bold text-primary">{totalThisYear}</span> receipt{totalThisYear === 1 ? "" : "s"} this year.
+        </div>
         <div className="w-full text-center text-base text-gray-400 mt-8">
           Tip: For best OCR, scan receipts on a flat surface with good lighting.
         </div>
+        <Button
+          className="hidden md:block mx-auto mt-8 mb-8 w-1/4 bg-gradient-to-r from-blue-500 to-blue-700 text-white border-none rounded-full py-3 font-semibold shadow-lg hover:from-blue-600 hover:to-blue-800 transition z-40"
+          onClick={() => navigate("/landing")}
+        >
+          How does it work?
+        </Button>
       </div>
       <footer className="w-full text-center text-xs text-gray-400 mt-8 mb-2">
         Copyright (c) 2025 The Novita Group
