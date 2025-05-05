@@ -112,15 +112,15 @@ const Index = () => {
         </p>
         <div className="flex flex-col md:flex-row gap-4 w-full mb-10">
           <Button className="flex-1 text-4xl py-6 bg-[#FF9500] hover:bg-[#E68500] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={() => navigate("/upload")}>
-            <Camera className="!h-[40px] !w-[40px]" />
+            <Camera className="!h-[30px] !w-[30px]" />
             SNAP
           </Button>
           <Button className="flex-1 text-4xl py-6 bg-[#4A8AE6] hover:bg-[#3A7AD6] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={handleTagClick}>
-            <Tag className="!h-[40px] !w-[40px]" />
+            <Tag className="!h-[30px] !w-[30px]" />
             TAG
           </Button>
           <Button className="flex-1 text-4xl py-6 bg-[#7CB87E] hover:bg-[#6CA66E] text-white border-none rounded-full flex items-center justify-center gap-2" size="lg" onClick={() => navigate("/summary")}>
-            <BarChart3 className="!h-[40px] !w-[40px]" />
+            <BarChart3 className="!h-[30px] !w-[30px]" />
             TRACK
           </Button>
         </div>
