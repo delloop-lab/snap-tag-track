@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Camera, Tag, BarChart3 } from "lucide-react";
+import { Camera, Tag, BarChart3, HelpCircle, Info, InfoIcon } from "lucide-react";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -15,6 +15,38 @@ const Index = () => {
   const [totalThisYear, setTotalThisYear] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+
+  // Punchy, benefit-led, practical, friendly, and confident messages
+  const welcomeMessages = [
+    {
+      icon: "🔥",
+      main: "Receipts you can actually find later.",
+      sub: "No more digging through drawers or email threads. Snap, tag, done."
+    },
+    {
+      icon: "🧠",
+      main: "Turn every receipt into a searchable, trackable, organised record.",
+      sub: "For spending, warranties, budgeting, or proof when you need it."
+    },
+    {
+      icon: "🛠️",
+      main: "Snap your receipts and let us handle the rest.",
+      sub: "Track spending. Save warranties. Be ready at tax time or return time."
+    },
+    {
+      icon: "🙌",
+      main: "Because life's too short to lose receipts.",
+      sub: "Snap, tag, and track your purchases in seconds."
+    },
+    {
+      icon: "🤓",
+      main: "The simple way to organise receipts, track spending, and keep your warranties safe.",
+      sub: "No spreadsheets. No stress. Just snap it and go."
+    }
+  ];
+  // Pick a random message on each refresh
+  const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
+  const randomMessage = welcomeMessages[randomIndex];
 
   useEffect(() => {
     if (!loading && user) {
@@ -97,6 +129,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen h-screen flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
+      {/* Question mark icon below navbar, above all content */}
+      <div className="w-full flex justify-end mt-12 pr-6">
+        <HelpCircle
+          className="w-16 h-16 text-red-600 cursor-pointer drop-shadow-lg transition-transform duration-300 hover:scale-110 hover:text-red-800 animate-pulse [animation-duration:2s]"
+          onClick={() => navigate("/landing")}
+        />
+      </div>
       <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Avatar and welcome message for all screen sizes */}
@@ -107,9 +146,12 @@ const Index = () => {
             className="h-20 w-20 rounded-full object-cover mx-auto mb-4"
           />
         )}
-        <p className="text-xl text-gray-600 mb-8 text-center">
-          {user && firstName ? `Welcome, ${firstName}!` : "Welcome! Capture receipts, extract text, and never worry about losing them again."}
+        <p className="text-xl text-gray-600 mb-2 text-center font-semibold flex items-center justify-center gap-2">
+          {user && firstName ? `Welcome, ${firstName}!` : <><span className="text-2xl mr-2">{randomMessage.icon}</span>{randomMessage.main}</>}
         </p>
+        {!user && (
+          <p className="text-base text-gray-400 mb-14 text-center font-normal">{randomMessage.sub}</p>
+        )}
         <div className="flex flex-col gap-4 w-full items-center mb-10">
           <Button className="w-1/2 text-4xl py-6 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/upload")}>
             <Camera className="!h-[30px] !w-[30px]" />
@@ -162,12 +204,6 @@ const Index = () => {
         <div className="w-full text-center text-base text-gray-400 mt-8">
           Tip: For best OCR, scan receipts on a flat surface with good lighting.
         </div>
-        <Button
-          className="hidden md:block mx-auto mt-8 mb-8 w-1/4 bg-gradient-to-r from-blue-500 to-blue-700 text-white border-none rounded-full py-3 font-semibold shadow-lg hover:from-blue-600 hover:to-blue-800 transition z-40"
-          onClick={() => navigate("/landing")}
-        >
-          How does it work?
-        </Button>
       </div>
       <footer className="w-full text-center text-xs text-gray-400 mt-8 mb-2">
         Copyright (c) 2025 The Novita Group
