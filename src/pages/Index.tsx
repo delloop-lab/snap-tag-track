@@ -123,9 +123,17 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen h-screen flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
+    <div className="flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
       {/* Question mark icon below navbar, above all content */}
-      <div className="w-full flex justify-end mt-8 md:mt-2 pr-6">
+      <div className="w-full flex justify-end mt-8 md:mt-2 pr-6 gap-4 items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-gray-600 hover:text-gray-800"
+          onClick={() => navigate("/landing")}
+        >
+          About SnapTagTrack
+        </Button>
         <HelpCircle
           className="w-8 h-8 md:w-16 md:h-16 text-red-600 cursor-pointer drop-shadow-lg transition-transform duration-300 hover:scale-110 hover:text-red-800 animate-pulse [animation-duration:2s]"
           onClick={() => navigate("/landing")}
@@ -184,13 +192,22 @@ const Index = () => {
                       className="md:border md:rounded-xl md:bg-gray-50 flex-shrink-0 w-48 p-3 flex flex-col items-center md:shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
                       onClick={() => handleRecentClick(r.id)}
                     >
-                      <div className="aspect-[3/4] w-full bg-gray-200 rounded-lg mb-3 overflow-hidden">
-                        <img
-                          src={recentImages[r.id] || "/placeholder.svg"}
-                          alt="Receipt"
-                          className="w-full h-full object-cover"
-                          onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"}
-                        />
+                      <div className="aspect-[3/4] w-full bg-gray-200 rounded-lg mb-3 overflow-hidden relative">
+                        {!recentImages[r.id] ? (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200 animate-pulse">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-400 rounded-full animate-spin" />
+                              <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <img
+                            src={recentImages[r.id] || "/placeholder.svg"}
+                            alt="Receipt"
+                            className="w-full h-full object-cover"
+                            onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"}
+                          />
+                        )}
                       </div>
                       <div className="w-full text-center">
                         <div className="font-medium text-base truncate">{r.vendor_name || "Unknown"}</div>
@@ -225,7 +242,10 @@ const Index = () => {
           <span className="text-base text-gray-700 font-medium">Want SnapTagTrack on your phone?</span>
         </div>
       </div>
-      <footer className="w-full text-center text-xs text-gray-400 mt-8 mb-2">
+      <footer
+        className="w-full text-center text-xs text-gray-400 mt-16 md:mt-[46px] pb-2 md:pb-5"
+        style={{ paddingTop: 5 }}
+      >
         Copyright (c) 2025 The Novita Group
       </footer>
     </div>

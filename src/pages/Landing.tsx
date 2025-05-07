@@ -1,10 +1,11 @@
+import React from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Landing() {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen relative">
       {/* Hero Section */}
       <section className="w-full bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 text-white py-6 flex justify-center relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
@@ -29,20 +30,20 @@ export default function Landing() {
             </button>
           </div>
           {/* Phone and PC images on the right */}
-          <div className="w-full md:w-1/2 flex flex-row justify-center items-center gap-4 mt-8 md:mt-0 px-4 animate-fade-in-up">
+          <div className="w-full md:w-1/2 flex justify-center items-center mt-8 md:mt-0">
             <img
-              src="/phone.png"
-              alt="App on phone"
-              className="w-32 md:w-44 rounded-xl transition-transform duration-300 hover:scale-105"
-            />
-            <img
-              src="/pc.png"
-              alt="App on PC"
-              className="w-40 md:w-56 rounded-xl transition-transform duration-300 hover:scale-105"
+              src="/assets/images/hero-image.png"
+              alt="App Preview"
+              className="w-full max-w-lg transform hover:scale-105 transition-transform duration-300"
             />
           </div>
         </div>
       </section>
+
+      {/* Version Number */}
+      <div className="absolute bottom-4 right-4 text-gray-400 text-sm">
+        V0.9.01
+      </div>
 
       {/* How It Works */}
       <section className="max-w-5xl mx-auto py-6 px-4">

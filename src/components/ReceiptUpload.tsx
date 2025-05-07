@@ -38,6 +38,7 @@ const ReceiptUpload = () => {
   const [showTagModal, setShowTagModal] = useState(false);
   const [newReceiptId, setNewReceiptId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showNewClientInput, setShowNewClientInput] = useState(false);
 
   // Helper to detect mobile/responsive
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -300,16 +301,36 @@ const ReceiptUpload = () => {
       {receiptType === "Business" && (
         <div className="w-full max-w-md mb-4">
           <label className="block mb-2 font-medium">Client Name</label>
-          <select
-            className="border rounded px-2 py-1 w-full"
-            value={clientName}
-            onChange={e => setClientName(e.target.value)}
-          >
-            <option value="">Select client...</option>
-            {FAKE_CLIENTS.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              className="border rounded px-2 py-1 flex-1"
+              value={clientName}
+              onChange={e => {
+                if (e.target.value === "__new__") {
+                  setShowNewClientInput(true);
+                  setClientName("");
+                } else {
+                  setShowNewClientInput(false);
+                  setClientName(e.target.value);
+                }
+              }}
+            >
+              <option value="">Select client...</option>
+              {FAKE_CLIENTS.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value="__new__">Add new client...</option>
+            </select>
+            {showNewClientInput && (
+              <input
+                type="text"
+                className="border rounded px-2 py-1 flex-1"
+                placeholder="Enter new client name"
+                value={clientName}
+                onChange={e => setClientName(e.target.value)}
+              />
+            )}
+          </div>
         </div>
       )}
       <div className="w-full max-w-md mb-4">

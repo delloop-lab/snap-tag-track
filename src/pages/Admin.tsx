@@ -3,6 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Calendar, Users, Receipt, ShieldCheck, Tag, BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
+
+interface User {
+  id: string;
+  email: string;
+  created_at: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+}
+
+interface Client {
+  name: string;
+  receiptCount: number;
+}
 
 const Admin = () => {
   const [stats, setStats] = useState({
@@ -12,6 +28,10 @@ const Admin = () => {
     tagCounts: [] as { tag: string; count: number }[],
     loading: true,
   });
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -24,18 +44,31 @@ const Admin = () => {
         // Fetch all receipts
         const { data: receipts } = await supabase
           .from("receipts")
-          .select("id, warranty, purchase_date");
-
-        // Fetch all receipt tags
-        const { data: receiptTags } = await supabase
-          .from("receipt_tags")
-          .select("tag_id, tags(name)");
+          .select("id, warranty, purchase_date, client_name");
 
         // Total receipts
         const totalReceipts = receipts?.length || 0;
 
         // Total warranties
         const totalWarranties = receipts?.filter(r => r.warranty).length || 0;
+
+        // Client counts
+        const clientMap: Record<string, number> = {};
+        receipts?.forEach(r => {
+          if (r.client_name) {
+            clientMap[r.client_name] = (clientMap[r.client_name] || 0) + 1;
+          }
+        });
+        const clientList = Object.entries(clientMap)
+          .map(([name, count]) => ({ name, receiptCount: count }))
+          .sort((a, b) => b.receiptCount - a.receiptCount);
+        setClients(clientList);
+        setClientsLoading(false);
+
+        // Fetch all receipt tags
+        const { data: receiptTags } = await supabase
+          .from("receipt_tags")
+          .select("tag_id, tags(name)");
 
         // Tag counts
         const tagMap: Record<string, number> = {};
@@ -59,7 +92,25 @@ const Admin = () => {
         setStats(prev => ({ ...prev, loading: false }));
       }
     };
+
+    const fetchUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
     fetchStats();
+    fetchUsers();
   }, []);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -72,37 +123,31 @@ const Admin = () => {
           <div className="w-96 h-96 bg-blue-400 opacity-20 rounded-full blur-3xl absolute -top-32 -left-32 animate-pulse"></div>
           <div className="w-96 h-96 bg-blue-800 opacity-20 rounded-full blur-3xl absolute -bottom-32 -right-32 animate-pulse"></div>
         </div>
-        <div className="relative z-10 text-center px-4">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 drop-shadow-lg animate-fade-in">
-            Admin Dashboard
-          </h1>
-          <p className="text-xl md:text-2xl mb-8 opacity-90 max-w-2xl mx-auto animate-fade-in-up">
-            Monitor your application's performance and user engagement with real-time analytics
-          </p>
-          <div className="flex flex-col md:flex-row gap-4 justify-center items-center animate-fade-in-up">
-            <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-              <Users className="h-6 w-6" />
-              <span>User Analytics</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-              <Receipt className="h-6 w-6" />
-              <span>Receipt Management</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-              <Tag className="h-6 w-6" />
-              <span>Tag Analytics</span>
-            </div>
+        
+        <h1 className="text-5xl md:text-7xl font-bold mb-6 drop-shadow-lg animate-fade-in">
+          Admin Dashboard
+        </h1>
+        <p className="text-xl md:text-2xl mb-8 opacity-90 max-w-2xl mx-auto animate-fade-in-up">
+          Monitor your application's performance and user engagement with real-time analytics
+        </p>
+        <div className="flex flex-col md:flex-row gap-4 justify-center items-center animate-fade-in-up">
+          <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+            <Users className="h-6 w-6" />
+            <span>User Analytics</span>
           </div>
-        </div>
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
+          <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+            <Receipt className="h-6 w-6" />
+            <span>Receipt Management</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+            <Tag className="h-6 w-6" />
+            <span>Tag Analytics</span>
+          </div>
         </div>
       </div>
 
       {/* Analytics Content */}
-      <div className="py-8 px-4 md:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
             Analytics Overview
@@ -148,15 +193,102 @@ const Admin = () => {
                 </Card>
               </div>
 
+              {/* User List */}
+              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-blue-500" />
+                    User List
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {usersLoading ? (
+                    <div className="text-center text-gray-400">Loading users...</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Joined</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {user.avatar_url && (
+                                  <img
+                                    src={user.avatar_url}
+                                    alt=""
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                )}
+                                <div>
+                                  {user.first_name || user.last_name ? (
+                                    <div className="font-medium">
+                                      {[user.first_name, user.last_name].filter(Boolean).join(" ")}
+                                    </div>
+                                  ) : (
+                                    <div className="text-gray-500 italic">No name set</div>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>{format(new Date(user.created_at), "MMM d, yyyy")}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Client List */}
+              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-green-500" />
+                    Client List
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {clientsLoading ? (
+                    <div className="text-center text-gray-400">Loading clients...</div>
+                  ) : clients.length === 0 ? (
+                    <div className="text-center text-gray-500">No clients found</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Client Name</TableHead>
+                          <TableHead className="text-right">Receipt Count</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {clients.map((client) => (
+                          <TableRow key={client.name}>
+                            <TableCell className="font-medium">{client.name}</TableCell>
+                            <TableCell className="text-right">{client.receiptCount}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Tag Distribution Chart */}
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 p-6 pb-0">
                     <BarChart3 className="h-5 w-5 text-blue-500" />
                     Tag Distribution
                   </h2>
-                  <div className="h-[300px]">
+                  <div className="h-[300px] p-6">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={stats.tagCounts}>
                         <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
@@ -177,12 +309,12 @@ const Admin = () => {
                 </Card>
 
                 {/* Tag Pie Chart */}
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 p-6 pb-0">
                     <PieChartIcon className="h-5 w-5 text-purple-500" />
                     Tag Usage
                   </h2>
-                  <div className="h-[300px]">
+                  <div className="h-[300px] p-6">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie

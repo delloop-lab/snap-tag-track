@@ -134,7 +134,7 @@ const ReceiptSummaryList = () => {
               urls[r.id] = r.image_path;
               setLoadingImages(prev => ({ ...prev, [r.id]: false }));
             } else if (r.image_path) {
-              const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
+              const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60 * 24); // 24 hours
               if (data?.signedUrl) {
                 urls[r.id] = data.signedUrl;
                 setLoadingImages(prev => ({ ...prev, [r.id]: false }));
@@ -370,6 +370,12 @@ const ReceiptSummaryList = () => {
                       <Skeleton className={`h-3 ${expanded[r.id] ? 'w-3/4' : 'w-1/2'}`} />
                       <Skeleton className={`h-2 ${expanded[r.id] ? 'w-1/2' : 'w-1/3'}`} />
                       <Skeleton className={`h-3 ${expanded[r.id] ? 'w-1/3' : 'w-1/4'}`} />
+                      {expanded[r.id] && (
+                        <>
+                          <Skeleton className="h-2 w-2/3" />
+                          <Skeleton className="h-2 w-1/2" />
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-end">
@@ -383,8 +389,11 @@ const ReceiptSummaryList = () => {
                   <div className="flex items-start gap-2 justify-between">
                     <div className={`flex-shrink-0 bg-gray-100 rounded-md overflow-hidden relative aspect-square ${expanded[r.id] ? 'w-20 h-20' : 'w-12 h-12'}`}>
                       {!imageLoaded[r.id] && r.image_path && (
-                        <div className="w-full h-full rounded-md aspect-square absolute top-0 left-0 flex items-center justify-center animate-pulse" style={{ zIndex: 1 }}>
-                          <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
+                        <div className="w-full h-full rounded-md aspect-square absolute top-0 left-0 flex items-center justify-center bg-gray-200 animate-pulse" style={{ zIndex: 1 }}>
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-400 rounded-full animate-spin" />
+                            <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
+                          </div>
                         </div>
                       )}
                       {r.image_path && imageUrls[r.id] && (
@@ -395,6 +404,7 @@ const ReceiptSummaryList = () => {
                           onLoad={() => setImageLoaded(prev => ({ ...prev, [r.id]: true }))}
                           onError={e => {
                             (e.target as HTMLImageElement).src = "/placeholder.svg";
+                            setImageLoaded(prev => ({ ...prev, [r.id]: true }));
                           }}
                           style={{ zIndex: 2 }}
                         />

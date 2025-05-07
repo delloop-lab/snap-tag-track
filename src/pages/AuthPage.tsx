@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { createClient } from '@supabase/supabase-js';
+import { Eye, EyeOff } from "lucide-react";
 
 const AuthPage = () => {
   const [email, setEmail] = useState("");
@@ -13,6 +14,7 @@ const AuthPage = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -86,18 +88,26 @@ const AuthPage = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">SnapTagTrack</h1>
-          <p className="mt-2 text-sm text-gray-600">
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-2xl border border-gray-200 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-50 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-orange-50 rounded-full blur-3xl opacity-50"></div>
+        
+        <div className="text-center relative">
+          <img 
+            src="/SnapTagTrack.png" 
+            alt="SnapTagTrack Logo" 
+            className="w-48 h-auto mx-auto mb-4"
+          />
+          <p className="mt-2 text-sm text-gray-600 font-medium">
             {isSignUp ? "Create your account" : "Sign in to your account"}
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleAuth}>
+        <form className="mt-8 space-y-6 relative" onSubmit={handleAuth}>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -105,20 +115,35 @@ const AuthPage = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
                 required
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                required
-                minLength={6}
-              />
+              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  required
+                  minLength={6}
+                  className="h-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center">
@@ -127,24 +152,29 @@ const AuthPage = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={() => setRememberMe(!rememberMe)}
-                className="mr-2"
+                className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <Label htmlFor="rememberMe">Remember Me</Label>
+              <Label htmlFor="rememberMe" className="text-sm">Remember Me</Label>
             </div>
           </div>
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             disabled={loading}
           >
-            {loading ? "Processing..." : isSignUp ? "Sign Up" : "Sign In"}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Processing...
+              </div>
+            ) : isSignUp ? "Sign Up" : "Sign In"}
           </Button>
 
           <div className="text-center">
             <button
               type="button"
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
               onClick={() => setIsSignUp(!isSignUp)}
             >
               {isSignUp
