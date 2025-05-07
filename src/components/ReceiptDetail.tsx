@@ -92,9 +92,9 @@ const ReceiptDetail = () => {
           type: data.type || "",
         };
         setReceipt(receiptData);
-        // Generate signed URL for the image
+        // Generate signed URL for the image with longer expiry
         if (data.image_path) {
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.image_path, 60 * 60);
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.image_path, 60 * 60 * 24); // 24 hours
           if (signedUrlError) {
             setImageUrl(null);
           } else {
@@ -558,6 +558,12 @@ const ReceiptDetail = () => {
             <div className="space-y-4 print:space-y-6">
               <div className="print:border-b print:pb-4">
                 <h3 className="text-xl font-semibold print:text-2xl">{receipt.vendor_name || "Unknown Vendor"}</h3>
+                {receipt.client_name && (
+                  <div className="mt-1 print:mt-2">
+                    <span className="font-medium">Client:</span>
+                    <span className="ml-2">{receipt.client_name}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mt-2">
                   <span className="font-medium">Warranty:</span>
                   {receipt.warranty ? (
