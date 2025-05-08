@@ -128,7 +128,7 @@ const Index = () => {
       <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Desktop-only NO image with centered button overlay */}
-        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-24 mt-[15px]">
+        {/* <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-24 mt-[15px]">
           <img src="/no.png" alt="App on PC" className="w-full" />
           <button
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
@@ -137,7 +137,7 @@ const Index = () => {
           >
             NO MORE SHOEBOXES FULL OF RECEIPTS
           </button>
-        </div>
+        </div> */}
         {/* Avatar and welcome message for all screen sizes */}
         {user && avatarUrl && (
           <img
