@@ -42,7 +42,7 @@ const Navbar = () => {
   return (
     <nav className="bg-white md:bg-white md:shadow-sm sticky top-0 z-30">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+        <Link to="/landing2" className="flex items-center gap-2 font-bold text-xl">
           <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-1/2 h-auto ml-2 hidden md:block" />
           <span className="sr-only">SnapTagForget</span>
         </Link>
