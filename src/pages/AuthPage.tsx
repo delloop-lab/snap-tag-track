@@ -22,7 +22,7 @@ const AuthPage = () => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate("/receipts");
+        navigate("/");
       }
     };
     checkUser();
@@ -51,34 +51,27 @@ const AuthPage = () => {
         const { error } = await authClient.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth`,
+          },
         });
-
         if (error) throw error;
-
         toast({
-          title: "Registration successful",
-          description: "Please check your email to verify your account.",
+          title: "Check your email",
+          description: "We've sent you a confirmation link to complete your registration.",
         });
       } else {
         const { error } = await authClient.auth.signInWithPassword({
           email,
           password,
         });
-
         if (error) throw error;
-
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
-        
         navigate("/");
       }
     } catch (error) {
-      console.error("Authentication error:", error);
       toast({
-        title: "Authentication failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        title: "Error",
+        description: error.message,
         variant: "destructive",
       });
     } finally {

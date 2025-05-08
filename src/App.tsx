@@ -2,11 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
-import { AuthProvider } from "./components/AuthProvider";
+import { AuthProvider, useAuth } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import ReceiptUpload from "./components/ReceiptUpload";
@@ -23,14 +23,15 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   const location = useLocation();
-  const showNavbar = !location.pathname.includes('/landing2');
+  const { user } = useAuth();
+  const showNavbar = user || location.pathname !== "/";
 
   return (
     <>
       {showNavbar && <Navbar />}
       <div className="pt-4">
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={user ? <Index /> : <LandingPage2 />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/upload" element={
             <ProtectedRoute>

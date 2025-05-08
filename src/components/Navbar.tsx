@@ -57,10 +57,19 @@ const Navbar = () => {
         {/* Desktop menu */}
         <div className="hidden md:flex items-center gap-4">
           {location.pathname !== "/" && (
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")}> 
+            <Link 
+              to="/" 
+              className="inline-flex items-center text-sm hover:underline"
+            >
               <Home className="h-5 w-5 mr-1" /> Home
-            </Button>
+            </Link>
           )}
+          <a 
+            href="mailto:help@snaptagtrack.com" 
+            className="text-sm font-semibold hover:underline text-red-600 px-2"
+          >
+            HELP
+          </a>
           {user ? (
             <>
               <Link to="/receipts" className="text-sm hover:underline">
@@ -107,10 +116,21 @@ const Navbar = () => {
         <div className="md:hidden bg-white animate-fade-in-down">
           <div className="flex flex-col gap-2 px-4 py-3">
             {location.pathname !== "/" && (
-              <Button variant="ghost" size="sm" className="justify-start" onClick={() => { setMenuOpen(false); navigate("/"); }}>
+              <Link 
+                to="/" 
+                className="inline-flex items-center text-sm py-2 hover:underline"
+                onClick={() => setMenuOpen(false)}
+              >
                 <Home className="h-5 w-5 mr-1" /> Home
-              </Button>
+              </Link>
             )}
+            <a 
+              href="mailto:help@snaptagtrack.com" 
+              className="text-sm font-semibold py-2 text-red-600 px-2" 
+              onClick={() => setMenuOpen(false)}
+            >
+              HELP
+            </a>
             {user ? (
               <>
                 <Link to="/receipts" className="text-sm py-2" onClick={() => setMenuOpen(false)}>

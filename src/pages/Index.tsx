@@ -62,12 +62,13 @@ const Index = () => {
       // Fetch recent receipts and stats
       const fetchRecent = async () => {
         const year = new Date().getFullYear();
+        const isMobile = window.innerWidth < 768;
         const { data: receipts } = await supabase
           .from("receipts")
           .select("id, vendor_name, total_amount, purchase_date, image_path")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(5);
+          .limit(isMobile ? 3 : 5);
         setRecentReceipts(receipts || []);
         // Fetch signed URLs for images
         if (receipts && receipts.length > 0) {
@@ -124,25 +125,10 @@ const Index = () => {
 
   return (
     <div className="flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
-      {/* Question mark icon below navbar, above all content */}
-      <div className="w-full flex justify-end mt-8 md:mt-2 pr-6 gap-4 items-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-gray-600 hover:text-gray-800"
-          onClick={() => navigate("/landing")}
-        >
-          About SnapTagTrack
-        </Button>
-        <HelpCircle
-          className="w-8 h-8 md:w-16 md:h-16 text-red-600 cursor-pointer drop-shadow-lg transition-transform duration-300 hover:scale-110 hover:text-red-800 animate-pulse [animation-duration:2s]"
-          onClick={() => navigate("/landing")}
-        />
-      </div>
       <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
         <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
         {/* Desktop-only NO image with centered button overlay */}
-        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-64 mt-[15px]">
+        <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-24 mt-[15px]">
           <img src="/no.png" alt="App on PC" className="w-full" />
           <button
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
