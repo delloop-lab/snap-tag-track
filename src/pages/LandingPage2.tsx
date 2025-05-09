@@ -32,7 +32,7 @@ const LandingPage2 = () => {
                 The easiest way to stay on top of your receipts, spending, and warranties—no matter who you are or what you buy. The MORE you use it the SMARTER it gets.
               </p>
               <p className="mb-2 md:mb-3">
-                No need to download an APP – it works on any device with a browser.
+                No app to download. Just open it in any browser on any device.
               </p>
             </div>
             
