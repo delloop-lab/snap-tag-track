@@ -17,6 +17,7 @@ import { Calendar as CalendarIcon, Edit, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/components/AuthProvider";
 
 type Receipt = {
   id: string;
@@ -29,15 +30,16 @@ type Receipt = {
   purchase_date: string | null;
   created_at: string;
   updated_at: string;
-  notes?: string | null;
-  warranty?: boolean;
-  receipt_tags?: { tag_id: string; tags: { id: string; name: string } }[];
-  client_name?: string | null;
-  type?: string;
+  notes: string | null;
+  warranty: boolean;
+  receipt_tags: { tag_id: string; tags: { id: string; name: string } }[];
+  client_name: string | null;
+  type: string | null;
 };
 
 const ReceiptDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
@@ -64,55 +66,69 @@ const ReceiptDetail = () => {
       const { data, error } = await supabase
         .from("receipts")
         .select(`
-          *,
+          id,
+          user_id,
+          image_path,
+          text_content,
+          vendor_name,
+          total_amount,
+          purchase_date,
+          created_at,
+          updated_at,
+          notes,
+          warranty,
+          client_name,
+          type,
           receipt_tags(
             tag_id,
             tags:tag_id(id, name)
           )
         `)
         .eq("id", id)
+        .eq("user_id", user?.id)
         .single();
       if (error) throw error;
-      if (data) {
-        const receiptData: Receipt = {
-          id: data.id,
-          user_id: data.user_id,
-          image_path: data.image_path,
-          product_image_path: data.product_image_path || null,
-          text_content: data.text_content,
-          vendor_name: data.vendor_name,
-          total_amount: data.total_amount,
-          purchase_date: data.purchase_date,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          notes: data.notes || "",
-          warranty: data.warranty ?? false,
-          receipt_tags: data.receipt_tags || [],
-          client_name: data.client_name || "",
-          type: data.type || "",
-        };
-        setReceipt(receiptData);
-        // Generate signed URL for the image with longer expiry
-        if (data.image_path) {
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.image_path, 60 * 60 * 24); // 24 hours
-          if (signedUrlError) {
-            setImageUrl(null);
-          } else {
-            setImageUrl(signedUrlData?.signedUrl || null);
-          }
-        } else {
-          setImageUrl(null);
-        }
-        // Initialize edit fields with current values
-        setEditedVendor(receiptData.vendor_name || "");
-        setEditedAmount(receiptData.total_amount?.toString() || "");
-        setEditedNotes(receiptData.notes || "");
-        setEditedWarranty(!!receiptData.warranty);
-        if (receiptData.purchase_date) {
-          setEditedDate(new Date(receiptData.purchase_date));
-        }
-        setEditedClient(receiptData.client_name || "");
+      if (!data) {
+        throw new Error("Receipt not found or access denied");
       }
+      const receiptData: Receipt = {
+        id: data.id,
+        user_id: data.user_id,
+        image_path: data.image_path,
+        product_image_path: null,
+        text_content: data.text_content,
+        vendor_name: data.vendor_name,
+        total_amount: data.total_amount,
+        purchase_date: data.purchase_date,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        notes: data.notes || "",
+        warranty: data.warranty ?? false,
+        receipt_tags: data.receipt_tags || [],
+        client_name: data.client_name || "",
+        type: data.type || "",
+      };
+      setReceipt(receiptData);
+      // Generate signed URL for the image with longer expiry
+      if (data.image_path) {
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.image_path, 60 * 60 * 24); // 24 hours
+        if (signedUrlError) {
+          setImageUrl(null);
+        } else {
+          setImageUrl(signedUrlData?.signedUrl || null);
+        }
+      } else {
+        setImageUrl(null);
+      }
+      // Initialize edit fields with current values
+      setEditedVendor(receiptData.vendor_name || "");
+      setEditedAmount(receiptData.total_amount?.toString() || "");
+      setEditedNotes(receiptData.notes || "");
+      setEditedWarranty(!!receiptData.warranty);
+      if (receiptData.purchase_date) {
+        setEditedDate(new Date(receiptData.purchase_date));
+      }
+      setEditedClient(receiptData.client_name || "");
     } catch (error) {
       console.error("Error fetching receipt:", error);
       toast({

@@ -17,6 +17,7 @@ import Profile from "./pages/Profile";
 import TagUntagged from "./pages/TagUntagged";
 import LandingPage2 from "./pages/LandingPage2";
 import Admin from "./pages/Admin";
+import AdminReceipts from "./pages/AdminReceipts";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const AppContent = () => {
           <Route path="/landing" element={<LandingPage2 />} />
           <Route path="/landing2" element={<LandingPage2 />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/receipts" element={<AdminReceipts />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>

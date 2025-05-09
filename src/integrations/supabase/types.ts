@@ -124,16 +124,25 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          first_name: string | null
+          last_name: string | null
+          avatar_url: string | null
         }
         Insert: {
           created_at?: string
           email: string
           id: string
+          first_name?: string | null
+          last_name?: string | null
+          avatar_url?: string | null
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
+          first_name?: string | null
+          last_name?: string | null
+          avatar_url?: string | null
         }
         Relationships: []
       }

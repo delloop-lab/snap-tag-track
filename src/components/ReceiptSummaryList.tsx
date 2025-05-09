@@ -80,12 +80,14 @@ const ReceiptSummaryList = () => {
   const [showMobileBanner, setShowMobileBanner] = useState(true);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchDeltaX, setTouchDeltaX] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   // Get the highlight ID from URL query params
   const highlightId = new URLSearchParams(location.search).get("highlight");
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     const fetchData = async () => {
       const { data: receiptsData } = await supabase
         .from("receipts")
@@ -97,53 +99,9 @@ const ReceiptSummaryList = () => {
         .select("*")
         .eq("user_id", user.id);
 
-      // Add a fake test receipt with a slow-loading external image
-      const testReceipt = {
-        id: 'test-image',
-        user_id: user.id,
-        image_path: 'https://via.placeholder.com/1500x1500?text=Test+Image',
-        vendor_name: 'Test Vendor',
-        purchase_date: '2025-01-01',
-        total_amount: 123.45,
-        warranty: false,
-        receipt_tags: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        notes: '',
-        type: 'Personal',
-        client_name: '',
-        text_content: '',
-      };
-      const allReceipts = (receiptsData || []).concat([testReceipt]);
-      setReceipts(allReceipts);
+      setReceipts(receiptsData || []);
       setAllTags(tagsData || []);
-
-      // Initialize loading state for all images
-      if (allReceipts) {
-        const loadingStates: { [key: string]: boolean } = {};
-        allReceipts.forEach(r => {
-          if (r.image_path) loadingStates[r.id] = true;
-        });
-        setLoadingImages(loadingStates);
-
-        // Fetch signed URLs for all images, or use direct URL for external images
-        const urls: { [key: string]: string } = {};
-        await Promise.all(
-          allReceipts.map(async (r) => {
-            if (r.image_path && r.image_path.startsWith('http')) {
-              urls[r.id] = r.image_path;
-              setLoadingImages(prev => ({ ...prev, [r.id]: false }));
-            } else if (r.image_path) {
-              const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60 * 24); // 24 hours
-              if (data?.signedUrl) {
-                urls[r.id] = data.signedUrl;
-                setLoadingImages(prev => ({ ...prev, [r.id]: false }));
-              }
-            }
-          })
-        );
-        setImageUrls(urls);
-      }
+      setLoading(false);
     };
     fetchData();
   }, [user]);
@@ -337,7 +295,7 @@ const ReceiptSummaryList = () => {
           </div>
         )}
         {/* Loading state */}
-        {receipts.length === 0 ? (
+        {loading ? (
           <div className="flex flex-col gap-3">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="bg-white rounded-lg shadow p-3 flex flex-col gap-2">
@@ -355,8 +313,14 @@ const ReceiptSummaryList = () => {
               </div>
             ))}
           </div>
+        ) : receipts.length === 0 ? (
+          <div className="text-center text-muted-foreground py-10 text-lg">
+            There Are No Receipts to Show
+          </div>
         ) : filteredReceipts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10">No receipts match your filters.</div>
+          <div className="text-center text-muted-foreground py-10 text-lg">
+            There Are No Receipts to Show
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
             {filteredReceipts.map(r => (
@@ -559,75 +523,81 @@ const ReceiptSummaryList = () => {
       <div className="mb-4 text-lg font-semibold">
         Total for filtered receipts: <span className="text-primary">${totalFiltered.toFixed(2)}</span>
       </div>
-      <div className="overflow-x-auto w-full">
-        <table className="min-w-full border text-xs md:text-sm">
-          <thead>
-            <tr className="bg-muted">
-              <th className="p-1 md:p-2 border">Vendor</th>
-              <th className="p-1 md:p-2 border">Date</th>
-              <th className="p-1 md:p-2 border">Total</th>
-              <th className="p-1 md:p-2 border">Type</th>
-              <th className="p-1 md:p-2 border">Client</th>
-              <th className="p-1 md:p-2 border">Tags</th>
-              <th className="p-1 md:p-2 border">Warranty</th>
-              {showWarrantyEndDate && <th className="p-1 md:p-2 border">Warranty End Date</th>}
-              <th className="p-1 md:p-2 border">Image</th>
-              <th className="p-1 md:p-2 border">Text</th>
-              <th className="p-1 md:p-2 border">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredReceipts.map(r => (
-              <tr 
-                key={r.id}
-                className={highlightId === r.id ? "bg-blue-50 cursor-pointer" : "cursor-pointer"}
-                onClick={() => navigate(`/receipt/${r.id}`)}
-              >
-                <td className="p-1 md:p-2 border">{r.vendor_name || "-"}</td>
-                <td className="p-1 md:p-2 border">{r.purchase_date ? format(new Date(r.purchase_date), "PPP") : "-"}</td>
-                <td className="p-1 md:p-2 border">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</td>
-                <td className="p-1 md:p-2 border">{r.type || "-"}</td>
-                <td className="p-1 md:p-2 border">{r.client_name || "-"}</td>
-                <td className="p-1 md:p-2 border">
-                  {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
-                    <Badge key={rt.tags.id} variant="outline" className={`text-xs ${getTagColor(rt.tags.name)}`}>
-                      {rt.tags.name}
-                    </Badge>
-                  ))}
-                </td>
-                <td className="p-1 md:p-2 border text-center">
-                  {r.warranty ? <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Yes</span> : <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">No</span>}
-                </td>
-                {showWarrantyEndDate && (
-                  <td className="p-1 md:p-2 border text-center">
-                    {r.warranty && r.purchase_date && isValid(new Date(r.purchase_date))
-                      ? format(addYears(new Date(r.purchase_date), 3), "PPP")
-                      : "-"}
-                  </td>
-                )}
-                <td className="p-1 md:p-2 border">
-                  <Button size="sm" variant="outline" onClick={async () => {
-                    if (r.image_path) {
-                      const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
-                      if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-                    }
-                  }}>View Image</Button>
-                </td>
-                <td className="p-1 md:p-2 border">
-                  <Button size="sm" variant="outline" onClick={() => handleViewText(r.text_content || "No text extracted")}>View Text</Button>
-                </td>
-                <td className="p-1 md:p-2 border">
-                  {r.notes ? (
-                    <Button size="sm" variant="outline" onClick={() => handleViewNotes(r.notes)}>View Notes</Button>
-                  ) : (
-                    "-"
-                  )}
-                </td>
+      {filteredReceipts.length === 0 ? (
+        <div className="text-center text-muted-foreground py-10 text-lg">
+          There Are No Receipts to Show
+        </div>
+      ) : (
+        <div className="overflow-x-auto w-full">
+          <table className="min-w-full border text-xs md:text-sm">
+            <thead>
+              <tr className="bg-muted">
+                <th className="p-1 md:p-2 border">Vendor</th>
+                <th className="p-1 md:p-2 border">Date</th>
+                <th className="p-1 md:p-2 border">Total</th>
+                <th className="p-1 md:p-2 border">Type</th>
+                <th className="p-1 md:p-2 border">Client</th>
+                <th className="p-1 md:p-2 border">Tags</th>
+                <th className="p-1 md:p-2 border">Warranty</th>
+                {showWarrantyEndDate && <th className="p-1 md:p-2 border">Warranty End Date</th>}
+                <th className="p-1 md:p-2 border">Image</th>
+                <th className="p-1 md:p-2 border">Text</th>
+                <th className="p-1 md:p-2 border">Notes</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filteredReceipts.map(r => (
+                <tr 
+                  key={r.id}
+                  className={highlightId === r.id ? "bg-blue-50 cursor-pointer" : "cursor-pointer"}
+                  onClick={() => navigate(`/receipt/${r.id}`)}
+                >
+                  <td className="p-1 md:p-2 border">{r.vendor_name || "-"}</td>
+                  <td className="p-1 md:p-2 border">{r.purchase_date ? format(new Date(r.purchase_date), "PPP") : "-"}</td>
+                  <td className="p-1 md:p-2 border">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</td>
+                  <td className="p-1 md:p-2 border">{r.type || "-"}</td>
+                  <td className="p-1 md:p-2 border">{r.client_name || "-"}</td>
+                  <td className="p-1 md:p-2 border">
+                    {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
+                      <Badge key={rt.tags.id} variant="outline" className={`text-xs ${getTagColor(rt.tags.name)}`}>
+                        {rt.tags.name}
+                      </Badge>
+                    ))}
+                  </td>
+                  <td className="p-1 md:p-2 border text-center">
+                    {r.warranty ? <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Yes</span> : <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">No</span>}
+                  </td>
+                  {showWarrantyEndDate && (
+                    <td className="p-1 md:p-2 border text-center">
+                      {r.warranty && r.purchase_date && isValid(new Date(r.purchase_date))
+                        ? format(addYears(new Date(r.purchase_date), 3), "PPP")
+                        : "-"}
+                    </td>
+                  )}
+                  <td className="p-1 md:p-2 border">
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      if (r.image_path) {
+                        const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                      }
+                    }}>View Image</Button>
+                  </td>
+                  <td className="p-1 md:p-2 border">
+                    <Button size="sm" variant="outline" onClick={() => handleViewText(r.text_content || "No text extracted")}>View Text</Button>
+                  </td>
+                  <td className="p-1 md:p-2 border">
+                    {r.notes ? (
+                      <Button size="sm" variant="outline" onClick={() => handleViewNotes(r.notes)}>View Notes</Button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow-lg max-w-lg w-full">

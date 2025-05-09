@@ -50,86 +50,50 @@ function levenshteinDistance(a: string, b: string): number {
 }
 
 // Function to find similar receipts and suggest vendor name
-async function findSimilarReceipt(textContent: string, userId: string): Promise<{ vendorName: string | null, tags: { id: string, name: string }[] }> {
+async function findSimilarReceipt(textContent: string, userId: string): Promise<string | null> {
   try {
-    console.log("Searching for similar receipts for user:", userId);
-    // Get all previous receipts for the user with their tags
+    // Get all previous receipts for the user
     const { data: previousReceipts, error } = await supabase
       .from("receipts")
-      .select(`
-        text_content,
-        vendor_name,
-        receipt_tags(
-          tags:tag_id(
-            id,
-            name
-          )
-        )
-      `)
+      .select("text_content, vendor_name")
       .eq("user_id", userId)
       .not("vendor_name", "is", null);
 
-    if (error) {
-      console.error("Error fetching receipts:", error);
-      throw error;
-    }
-    if (!previousReceipts || previousReceipts.length === 0) {
-      console.log("No previous receipts found for user");
-      return { vendorName: null, tags: [] };
-    }
-
-    console.log("Found", previousReceipts.length, "previous receipts");
-    console.log("Previous receipts:", previousReceipts);
+    if (error) throw error;
+    if (!previousReceipts || previousReceipts.length === 0) return null;
 
     // Get the first few lines of the new receipt's text
     const newReceiptLines = textContent.split('\n').slice(0, 3).join('\n').toLowerCase();
-    console.log("New receipt first 3 lines:", newReceiptLines);
     
     let bestMatch = {
       similarity: 0,
-      vendorName: null as string | null,
-      tags: [] as { id: string, name: string }[]
+      vendorName: null as string | null
     };
 
     // Compare with each previous receipt
     for (const receipt of previousReceipts) {
-      if (!receipt.text_content) {
-        console.log("Skipping receipt with no text content");
-        continue;
-      }
+      if (!receipt.text_content) continue;
       
       const prevReceiptLines = receipt.text_content.split('\n').slice(0, 3).join('\n').toLowerCase();
-      console.log("Previous receipt first 3 lines:", prevReceiptLines);
-      console.log("Previous receipt vendor:", receipt.vendor_name);
       
       // Calculate similarity using Levenshtein distance
       const maxLength = Math.max(newReceiptLines.length, prevReceiptLines.length);
       const distance = levenshteinDistance(newReceiptLines, prevReceiptLines);
       const similarity = 1 - (distance / maxLength);
-      console.log("Similarity score:", similarity, "for vendor:", receipt.vendor_name);
-      console.log("Distance:", distance, "Max length:", maxLength);
 
-      // Lower threshold to 0.4 (40%) to be even more lenient
-      if (similarity > 0.4 && similarity > bestMatch.similarity) {
+      // If similarity is high enough and better than current best match
+      if (similarity > 0.8 && similarity > bestMatch.similarity) {
         bestMatch = {
           similarity,
-          vendorName: receipt.vendor_name,
-          tags: receipt.receipt_tags?.map(rt => rt.tags) || []
+          vendorName: receipt.vendor_name
         };
-        console.log("New best match found:", bestMatch);
       }
     }
 
-    if (bestMatch.vendorName) {
-      console.log("Returning best match vendor:", bestMatch.vendorName, "with similarity:", bestMatch.similarity, "and tags:", bestMatch.tags);
-    } else {
-      console.log("No matching receipt found above threshold");
-    }
-
-    return { vendorName: bestMatch.vendorName, tags: bestMatch.tags };
+    return bestMatch.vendorName;
   } catch (error) {
     console.error("Error finding similar receipt:", error);
-    return { vendorName: null, tags: [] };
+    return null;
   }
 }
 
@@ -275,16 +239,6 @@ const ReceiptUpload = () => {
           }
         }
         
-        // Try to find similar receipt and get suggested vendor name
-        const { vendorName: suggestedVendorName, tags: suggestedTags } = await findSimilarReceipt(textContent, user.id);
-        if (suggestedVendorName) {
-          vendorName = suggestedVendorName;
-          toast({
-            title: "Similar receipt found",
-            description: `Auto-filled vendor name from a similar receipt: ${suggestedVendorName}`,
-          });
-        }
-        
         // Extract potential total amount using regex pattern
         let totalAmount = null;
         const amountRegex = /(?:total|amount|sum)[:\s]*[$€£]?\s*(\d+(?:[.,]\d{1,2})?)/i;
@@ -315,6 +269,16 @@ const ReceiptUpload = () => {
           }
         }
         
+        // After getting textContent, try to find similar receipt
+        const suggestedVendorName = await findSimilarReceipt(textContent, user.id);
+        if (suggestedVendorName) {
+          vendorName = suggestedVendorName;
+          toast({
+            title: "Similar receipt found",
+            description: `Auto-filled vendor name from a similar receipt: ${suggestedVendorName}`,
+          });
+        }
+        
         // Store receipt data in the database
         const { data: insertData, error: insertError } = await supabase
           .from("receipts")
@@ -329,36 +293,14 @@ const ReceiptUpload = () => {
             client_name: receiptType === "Business" ? clientName : null,
             notes: notes || null,
             warranty: warranty,
-            file_type: file.type
+            file_type: file.type,
           })
           .select();
-
+        
         if (insertError) {
           console.error("DB insertion error:", insertError);
           setIsLoading(false);
           return;
-        }
-
-        // If we have a new receipt and suggested tags, add them
-        if (insertData && insertData.length > 0 && suggestedTags.length > 0) {
-          const receiptId = insertData[0].id;
-          const tagInserts = suggestedTags.map(tag => ({
-            receipt_id: receiptId,
-            tag_id: tag.id
-          }));
-
-          const { error: tagError } = await supabase
-            .from("receipt_tags")
-            .insert(tagInserts);
-
-          if (tagError) {
-            console.error("Error adding tags:", tagError);
-          } else {
-            toast({
-              title: "Tags copied",
-              description: `Copied ${suggestedTags.length} tags from the similar receipt`,
-            });
-          }
         }
         
         if (!isImage) {

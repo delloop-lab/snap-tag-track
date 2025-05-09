@@ -5,6 +5,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Calendar, Users, Receipt, ShieldCheck, Tag, BarChart3, PieChart as PieChartIcon } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: string;
@@ -32,6 +34,7 @@ const Admin = () => {
   const [usersLoading, setUsersLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -176,8 +179,14 @@ const Admin = () => {
                     <Receipt className="h-4 w-4 text-green-500" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{stats.totalReceipts}</div>
-                    <p className="text-xs text-gray-500">Uploaded receipts</p>
+                    <Button 
+                      variant="ghost" 
+                      className="p-0 h-auto hover:bg-transparent"
+                      onClick={() => navigate("/admin/receipts")}
+                    >
+                      <div className="text-3xl font-bold">{stats.totalReceipts}</div>
+                      <p className="text-xs text-gray-500">Uploaded receipts</p>
+                    </Button>
                   </CardContent>
                 </Card>
 

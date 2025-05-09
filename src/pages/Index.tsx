@@ -15,6 +15,7 @@ const Index = () => {
   const [totalThisYear, setTotalThisYear] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   // Punchy, benefit-led, practical, friendly, and confident messages
   const welcomeMessages = [
@@ -62,7 +63,6 @@ const Index = () => {
       // Fetch recent receipts and stats
       const fetchRecent = async () => {
         const year = new Date().getFullYear();
-        const isMobile = window.innerWidth < 768;
         const { data: receipts } = await supabase
           .from("receipts")
           .select("id, vendor_name, total_amount, purchase_date, image_path")
@@ -94,6 +94,12 @@ const Index = () => {
       fetchRecent();
     }
   }, [user, loading]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleRecentClick = (id) => {
     navigate(`/summary?highlight=${id}`);
@@ -171,8 +177,8 @@ const Index = () => {
               {recentReceipts.length === 0 ? (
                 <p className="text-muted-foreground text-base text-center">No receipts yet. <Button variant="link" onClick={() => navigate("/upload")}>Upload your first receipt</Button></p>
               ) : (
-                <div className="flex gap-6 overflow-x-auto pb-2 justify-center">
-                  {recentReceipts.map(r => (
+                <div className="flex gap-6 overflow-x-auto pb-2 justify-center w-full md:max-w-[calc(5*192px+4*24px)] md:scrollbar-thin md:scrollbar-thumb-gray-300 md:scrollbar-track-gray-100">
+                  {recentReceipts.slice(0, isMobile ? 3 : 5).map(r => (
                     <div
                       key={r.id}
                       className="md:border md:rounded-xl md:bg-gray-50 flex-shrink-0 w-48 p-3 flex flex-col items-center md:shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
