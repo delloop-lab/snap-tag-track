@@ -27,12 +27,12 @@ const LandingPage2 = () => {
               GET STARTED IT'S FREE
             </Link>
             
-            <div className="text-sm md:text-base text-[#222] mb-4 mt-6 md:mt-[50px]">
+            <div className="text-sm md:text-base text-[#222] mb-4 mt-4 md:mt-[35px]">
               <p className="mb-2 md:mb-3">
-                The easiest way to stay on top of your receipts, spending, and warranties—no matter who you are or what you buy.
+                The easiest way to stay on top of your receipts, spending, and warranties—no matter who you are or what you buy. The MORE you use it the SMARTER it gets.
               </p>
               <p className="mb-2 md:mb-3">
-                No need to download an APP – it works on any device you have a browser.
+                No need to download an APP – it works on any device with a browser.
               </p>
             </div>
             
