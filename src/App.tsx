@@ -18,6 +18,7 @@ import TagUntagged from "./pages/TagUntagged";
 import LandingPage2 from "./pages/LandingPage2";
 import Admin from "./pages/Admin";
 import AdminReceipts from "./pages/AdminReceipts";
+import VersionNumber from "./components/VersionNumber";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -71,6 +72,7 @@ const AppContent = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
+      <VersionNumber />
     </>
   );
 };
