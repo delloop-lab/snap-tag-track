@@ -35,6 +35,9 @@ type Receipt = {
   receipt_tags: { tag_id: string; tags: { id: string; name: string } }[];
   client_name: string | null;
   type: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_name: string | null;
 };
 
 const ReceiptDetail = () => {
@@ -69,6 +72,7 @@ const ReceiptDetail = () => {
           id,
           user_id,
           image_path,
+          product_image_path,
           text_content,
           vendor_name,
           total_amount,
@@ -79,6 +83,9 @@ const ReceiptDetail = () => {
           warranty,
           client_name,
           type,
+          latitude,
+          longitude,
+          location_name,
           receipt_tags(
             tag_id,
             tags:tag_id(id, name)
@@ -95,7 +102,7 @@ const ReceiptDetail = () => {
         id: data.id,
         user_id: data.user_id,
         image_path: data.image_path,
-        product_image_path: null,
+        product_image_path: data.product_image_path ?? null,
         text_content: data.text_content,
         vendor_name: data.vendor_name,
         total_amount: data.total_amount,
@@ -107,6 +114,9 @@ const ReceiptDetail = () => {
         receipt_tags: data.receipt_tags || [],
         client_name: data.client_name || "",
         type: data.type || "",
+        latitude: data.latitude,
+        longitude: data.longitude,
+        location_name: data.location_name || "",
       };
       setReceipt(receiptData);
       // Generate signed URL for the image with longer expiry
@@ -119,6 +129,17 @@ const ReceiptDetail = () => {
         }
       } else {
         setImageUrl(null);
+      }
+      // Generate signed URL for product image if present
+      if (data.product_image_path) {
+        const { data: signedProductUrl, error: signedProductUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.product_image_path, 60 * 60 * 24);
+        if (signedProductUrlError) {
+          setProductImageUrl(null);
+        } else {
+          setProductImageUrl(signedProductUrl?.signedUrl || null);
+        }
+      } else {
+        setProductImageUrl(null);
       }
       // Initialize edit fields with current values
       setEditedVendor(receiptData.vendor_name || "");
@@ -403,7 +424,8 @@ const ReceiptDetail = () => {
             />
           </div>
           
-          {receipt?.warranty && (
+          {/* Product Image Upload in Edit Mode if Warranty is checked */}
+          {isEditing && editedWarranty && (
             <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
               <div className="p-4 bg-gray-50">
                 <h3 className="text-lg font-semibold mb-2">Product Image</h3>
@@ -421,24 +443,46 @@ const ReceiptDetail = () => {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">No product image uploaded</p>
-                    {isEditing && (
-                      <div className="flex flex-col items-center gap-2">
-                        <input
-                          type="file"
-                          id="product-image-upload"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleProductImageUpload}
-                          disabled={isUploadingProductImage}
-                        />
-                        <label
-                          htmlFor="product-image-upload"
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90"
-                        >
-                          {isUploadingProductImage ? "Uploading..." : "Upload Product Image"}
-                        </label>
-                      </div>
-                    )}
+                    <div className="flex flex-col items-center gap-2">
+                      <input
+                        type="file"
+                        id="product-image-upload"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleProductImageUpload}
+                        disabled={isUploadingProductImage}
+                      />
+                      <label
+                        htmlFor="product-image-upload"
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90"
+                      >
+                        {isUploadingProductImage ? "Uploading..." : "Upload Product Image"}
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {/* Product Image in View Mode */}
+          {!isEditing && receipt?.warranty && (
+            <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
+              <div className="p-4 bg-gray-50">
+                <h3 className="text-lg font-semibold mb-2">Product Image</h3>
+                {productImageUrl ? (
+                  <div className="space-y-4">
+                    <img
+                      src={productImageUrl}
+                      alt="Product"
+                      className="w-full h-auto object-contain bg-white"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">No product image uploaded</p>
                   </div>
                 )}
               </div>
@@ -514,6 +558,41 @@ const ReceiptDetail = () => {
                 <p className="font-medium print:text-lg">
                   {receipt.created_at ? format(new Date(receipt.created_at), "PPp") : "Not available"}
                 </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground print:text-base print:text-black">Location</p>
+                {receipt.location_name ? (
+                  <div className="space-y-2">
+                    <p className="font-medium print:text-lg">{receipt.location_name}</p>
+                    {receipt.latitude && receipt.longitude && (
+                      <>
+                        <div className="w-full h-48 rounded-lg overflow-hidden border">
+                          <iframe
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            scrolling="no"
+                            marginHeight={0}
+                            marginWidth={0}
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${receipt.longitude - 0.01},${receipt.latitude - 0.01},${receipt.longitude + 0.01},${receipt.latitude + 0.01}&layer=mapnik&marker=${receipt.latitude},${receipt.longitude}`}
+                            className="no-print"
+                          />
+                        </div>
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          View on OpenStreetMap
+                        </a>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-medium print:text-lg">Not available</p>
+                )}
               </div>
 
               <div className="mb-6">
@@ -623,9 +702,44 @@ const ReceiptDetail = () => {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground print:text-base print:text-black">Uploaded on</p>
                   <p className="font-medium print:text-lg">
-                    {format(new Date(receipt.created_at), "PPp")}
+                    {receipt.created_at ? format(new Date(receipt.created_at), "PPp") : "Not available"}
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground print:text-base print:text-black">Location</p>
+                {receipt.location_name ? (
+                  <div className="space-y-2">
+                    <p className="font-medium print:text-lg">{receipt.location_name}</p>
+                    {receipt.latitude && receipt.longitude && (
+                      <>
+                        <div className="w-full h-48 rounded-lg overflow-hidden border">
+                          <iframe
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            scrolling="no"
+                            marginHeight={0}
+                            marginWidth={0}
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${receipt.longitude - 0.01},${receipt.latitude - 0.01},${receipt.longitude + 0.01},${receipt.latitude + 0.01}&layer=mapnik&marker=${receipt.latitude},${receipt.longitude}`}
+                            className="no-print"
+                          />
+                        </div>
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          View on OpenStreetMap
+                        </a>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-medium print:text-lg">Not available</p>
+                )}
               </div>
 
               <div className="space-y-2 print:space-y-3">

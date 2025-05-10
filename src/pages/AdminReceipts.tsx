@@ -36,6 +36,9 @@ type Receipt = {
     };
   }[];
   user_email?: string;
+  latitude: number | null;
+  longitude: number | null;
+  location_name: string | null;
 };
 
 const AdminReceipts = () => {
@@ -224,6 +227,28 @@ const AdminReceipts = () => {
                 <p className="text-sm text-gray-600">Type</p>
                 <p className="font-medium">{foundReceipt.type || "-"}</p>
               </div>
+              <div>
+                <p className="text-sm text-gray-600">Location</p>
+                <div className="font-medium">
+                  {foundReceipt.location_name ? (
+                    <>
+                      <p>{foundReceipt.location_name}</p>
+                      {foundReceipt.latitude && foundReceipt.longitude && (
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${foundReceipt.latitude}&mlon=${foundReceipt.longitude}&zoom=15`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          View on Map
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -284,6 +309,7 @@ const AdminReceipts = () => {
               <TableHead>Total</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Client</TableHead>
+              <TableHead>Location</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead>Warranty</TableHead>
             </TableRow>
@@ -306,6 +332,25 @@ const AdminReceipts = () => {
                 </TableCell>
                 <TableCell>{receipt.type || "-"}</TableCell>
                 <TableCell>{receipt.client_name || "-"}</TableCell>
+                <TableCell>
+                  {receipt.location_name ? (
+                    <div className="flex flex-col">
+                      <span className="text-sm">{receipt.location_name}</span>
+                      {receipt.latitude && receipt.longitude && (
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          View on Map
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {receipt.receipt_tags?.map((rt) => (

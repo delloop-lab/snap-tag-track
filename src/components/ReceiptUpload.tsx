@@ -9,6 +9,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tag, Clock, Camera } from "lucide-react";
+import exifr from 'exifr';
 
 // Add this at the top of the file for TypeScript to recognize cv as a global
 // @ts-ignore
@@ -133,6 +134,17 @@ async function findSimilarReceipt(textContent: string, userId: string): Promise<
   }
 }
 
+async function hasExifData(file: File): Promise<boolean> {
+  try {
+    const exifData = await exifr.parse(file);
+    console.log('EXIF data:', exifData);
+    return !!exifData && Object.keys(exifData).length > 0;
+  } catch (error) {
+    console.error('Error reading EXIF data:', error);
+    return false;
+  }
+}
+
 const ReceiptUpload = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -147,6 +159,9 @@ const ReceiptUpload = () => {
   const [newReceiptId, setNewReceiptId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showNewClientInput, setShowNewClientInput] = useState(false);
+  const [showAutoFillDialog, setShowAutoFillDialog] = useState(false);
+  const [autoFilledVendor, setAutoFilledVendor] = useState<string | null>(null);
+  const [pendingNavigateId, setPendingNavigateId] = useState<string | null>(null);
 
   // Helper to detect mobile/responsive
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -155,6 +170,81 @@ const ReceiptUpload = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const extractLocationFromExif = async (file: File): Promise<{ latitude: number | null; longitude: number | null; locationName: string | null }> => {
+    try {
+      console.log("Starting EXIF extraction for file:", file.name);
+      // Parse EXIF data including GPS coordinates
+      const exifData = await exifr.parse(file, { gps: true });
+      console.log("Full EXIF data extracted:", JSON.stringify(exifData, null, 2));
+      
+      if (exifData?.latitude && exifData?.longitude) {
+        console.log("GPS coordinates found:", { latitude: exifData.latitude, longitude: exifData.longitude });
+        // Try to get location name using reverse geocoding
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${exifData.latitude}&lon=${exifData.longitude}&zoom=18&addressdetails=1`
+          );
+          const data = await response.json();
+          console.log("Reverse geocoding result:", data);
+          return {
+            latitude: exifData.latitude,
+            longitude: exifData.longitude,
+            locationName: data.display_name || null
+          };
+        } catch (error) {
+          console.error("Error fetching location name:", error);
+          return {
+            latitude: exifData.latitude,
+            longitude: exifData.longitude,
+            locationName: null
+          };
+        }
+      } else {
+        console.log("No GPS coordinates found in EXIF data. Attempting browser geolocation fallback.");
+        // Fallback: Use browser geolocation API
+        if (navigator.geolocation) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+            });
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            console.log("Browser geolocation obtained:", { latitude, longitude });
+            // Try to get location name using reverse geocoding
+            try {
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+              );
+              const data = await response.json();
+              console.log("Reverse geocoding result (browser geolocation):", data);
+              return {
+                latitude,
+                longitude,
+                locationName: data.display_name || null
+              };
+            } catch (error) {
+              console.error("Error fetching location name (browser geolocation):", error);
+              return {
+                latitude,
+                longitude,
+                locationName: null
+              };
+            }
+          } catch (geoError) {
+            console.error("Browser geolocation failed:", geoError);
+          }
+        } else {
+          console.log("Browser geolocation not available.");
+        }
+      }
+      
+      return { latitude: null, longitude: null, locationName: null };
+    } catch (error) {
+      console.error("Error extracting EXIF data:", error);
+      return { latitude: null, longitude: null, locationName: null };
+    }
+  };
 
   const processReceipt = async (file: File) => {
     if (!user) {
@@ -180,6 +270,18 @@ const ReceiptUpload = () => {
     setIsLoading(true);
     setNonImageWarning("");
     try {
+      // Check for EXIF data
+      const hasExif = await hasExifData(file);
+      if (!hasExif) {
+        toast({
+          title: "No EXIF data found",
+          description: "This photo does not contain any metadata. Location may not be available.",
+          variant: "default",
+        });
+      }
+      // Extract location data from EXIF (and fallback)
+      const { latitude, longitude, locationName } = await extractLocationFromExif(file);
+
       // Create unique file name
       const fileExt = file.name.split(".").pop();
       const fileName = `${uuidv4()}.${fileExt}`;
@@ -277,12 +379,12 @@ const ReceiptUpload = () => {
         
         // Try to find similar receipt and get suggested vendor name
         const { vendorName: suggestedVendorName, tags: suggestedTags } = await findSimilarReceipt(textContent, user.id);
+        let matched = false;
         if (suggestedVendorName) {
           vendorName = suggestedVendorName;
-          toast({
-            title: "Similar receipt found",
-            description: `Auto-filled vendor name from a similar receipt: ${suggestedVendorName}`,
-          });
+          setAutoFilledVendor(suggestedVendorName);
+          setShowAutoFillDialog(true);
+          matched = true;
         }
         
         // Extract potential total amount using regex pattern
@@ -329,7 +431,10 @@ const ReceiptUpload = () => {
             client_name: receiptType === "Business" ? clientName : null,
             notes: notes || null,
             warranty: warranty,
-            file_type: file.type
+            file_type: file.type,
+            latitude,
+            longitude,
+            location_name: locationName
           })
           .select();
 
@@ -376,7 +481,11 @@ const ReceiptUpload = () => {
             setNewReceiptId(insertData[0].id);
             return insertData[0].id;
           } else {
-            navigate(`/receipt/${insertData[0].id}`);
+            if (matched) {
+              setPendingNavigateId(insertData[0].id);
+            } else {
+              navigate(`/receipt/${insertData[0].id}`);
+            }
           }
         } else {
           navigate("/receipts");
@@ -424,6 +533,15 @@ const ReceiptUpload = () => {
     }
   };
   
+  // Handle dialog OK click
+  const handleAutoFillDialogOk = () => {
+    setShowAutoFillDialog(false);
+    if (pendingNavigateId) {
+      navigate(`/receipt/${pendingNavigateId}`);
+      setPendingNavigateId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center gap-4 p-4">
       <h2 className="text-2xl font-bold mb-4">{isMobile ? "New Receipt" : "Upload Receipt"}</h2>
@@ -616,6 +734,21 @@ const ReceiptUpload = () => {
               <Clock className="w-5 h-5" /> LATER
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showAutoFillDialog}>
+        <DialogContent className="max-w-xs w-full flex flex-col items-center gap-6 p-8 bg-white rounded-2xl shadow-2xl animate-scale-in">
+          <div className="text-xl font-bold text-center mb-2">Receipt Details Auto-Filled</div>
+          <div className="text-gray-600 text-center mb-4">
+            We recognized this receipt and have auto-filled the vendor and tags for you.<br />
+            You can review or edit the details below, but you're good to go!
+          </div>
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-full shadow transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            onClick={handleAutoFillDialogOk}
+          >
+            OK
+          </button>
         </DialogContent>
       </Dialog>
     </div>

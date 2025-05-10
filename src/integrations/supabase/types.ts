@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
       receipt_tags: {
@@ -44,51 +44,67 @@ export type Database = {
       }
       receipts: {
         Row: {
-          created_at: string
           id: string
-          image_path: string
-          purchase_date: string | null
-          text_content: string | null
-          total_amount: number | null
-          updated_at: string
           user_id: string
-          vendor_name: string | null
+          image_path: string
+          text_content: string
+          vendor_name: string
+          total_amount: number
+          purchase_date: string
+          created_at: string
+          updated_at: string
           notes: string | null
           warranty: boolean
-          type: string | null
-          client_name: string | null
+          client_name: string
+          type: string
+          latitude: number | null
+          longitude: number | null
+          location_name: string | null
         }
         Insert: {
-          created_at?: string
           id?: string
-          image_path: string
-          purchase_date?: string | null
-          text_content?: string | null
-          total_amount?: number | null
-          updated_at?: string
           user_id: string
-          vendor_name?: string | null
+          image_path: string
+          text_content: string
+          vendor_name: string
+          total_amount: number
+          purchase_date: string
+          created_at?: string
+          updated_at?: string
           notes?: string | null
           warranty?: boolean
-          type?: string | null
-          client_name?: string | null
+          client_name: string
+          type: string
+          latitude?: number | null
+          longitude?: number | null
+          location_name?: string | null
         }
         Update: {
-          created_at?: string
           id?: string
-          image_path?: string
-          purchase_date?: string | null
-          text_content?: string | null
-          total_amount?: number | null
-          updated_at?: string
           user_id?: string
-          vendor_name?: string | null
+          image_path?: string
+          text_content?: string
+          vendor_name?: string
+          total_amount?: number
+          purchase_date?: string
+          created_at?: string
+          updated_at?: string
           notes?: string | null
           warranty?: boolean
-          type?: string | null
-          client_name?: string | null
+          client_name?: string
+          type?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "receipts_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       tags: {
         Row: {

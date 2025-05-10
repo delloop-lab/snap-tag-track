@@ -8,7 +8,7 @@ import { format, addYears, isValid } from "date-fns";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { HelpCircle, ChevronDown, ChevronUp, Loader2, ShieldCheck, Tag, X } from "lucide-react";
+import { HelpCircle, ChevronDown, ChevronUp, Loader2, ShieldCheck, Tag, X, Printer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTagColor } from "./TagInput";
 
@@ -113,11 +113,8 @@ const ReceiptSummaryList = () => {
   }, []);
 
   useEffect(() => {
-    if (isMobile && showMobileBanner) {
-      const timer = setTimeout(() => setShowMobileBanner(false), 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [isMobile, showMobileBanner]);
+    if (isMobile) setShowMobileBanner(true);
+  }, [isMobile]);
 
   // Get unique client names from receipts for client filter
   const clients = Array.from(new Set(receipts.map(r => r.client_name).filter(Boolean)));
@@ -215,7 +212,7 @@ const ReceiptSummaryList = () => {
             style={{ transform: touchDeltaX < 0 ? `translateX(${touchDeltaX}px)` : undefined, transition: 'transform 0.2s' }}
           >
             <p className="text-yellow-800 text-sm">
-              For the best experience, we recommend viewing the receipt summary on a larger screen.
+              For the best experience, we recommend viewing the receipt summary on a larger screen.<br />
               You can still view and filter your receipts here, but some features may be limited.
             </p>
           </div>
@@ -300,7 +297,7 @@ const ReceiptSummaryList = () => {
             {[...Array(3)].map((_, i) => (
               <div key={i} className="bg-white rounded-lg shadow p-3 flex flex-col gap-2">
                 <div className="flex items-start gap-3">
-                  <Skeleton className="w-16 h-16 rounded-md" />
+                  {/* No image skeleton in mobile */}
                   <div className="flex-1 min-w-0 space-y-2">
                     <Skeleton className="h-4 w-3/4" />
                     <Skeleton className="h-3 w-1/2" />
@@ -324,89 +321,38 @@ const ReceiptSummaryList = () => {
         ) : (
           <div className="flex flex-col gap-3">
             {filteredReceipts.map(r => (
-              loadingImages[r.id] ? (
-                <div key={r.id} className={`bg-white rounded-lg shadow p-2 flex flex-col gap-1 max-h-[120px] overflow-hidden transition-all duration-300 cursor-pointer ${expanded[r.id] ? 'p-4 gap-2 max-h-none' : ''}`}
-                  onClick={() => setExpanded(e => ({ ...e, [r.id]: !e[r.id] }))}
-                >
-                  <div className="flex items-start gap-2">
-                    <Skeleton className={`rounded-md ${expanded[r.id] ? 'w-20 h-20' : 'w-12 h-12'}`} />
-                    <div className={`flex-1 min-w-0 space-y-1 ${expanded[r.id] ? 'space-y-2' : ''}`}>
-                      <Skeleton className={`h-3 ${expanded[r.id] ? 'w-3/4' : 'w-1/2'}`} />
-                      <Skeleton className={`h-2 ${expanded[r.id] ? 'w-1/2' : 'w-1/3'}`} />
-                      <Skeleton className={`h-3 ${expanded[r.id] ? 'w-1/3' : 'w-1/4'}`} />
-                      {expanded[r.id] && (
-                        <>
-                          <Skeleton className="h-2 w-2/3" />
-                          <Skeleton className="h-2 w-1/2" />
-                        </>
-                      )}
+              <div key={r.id} className="bg-white rounded-lg shadow p-2 flex flex-col gap-1 transition-all duration-300 cursor-pointer"
+                onClick={() => setExpanded(e => ({ ...e, [r.id]: !e[r.id] }))}
+              >
+                <div className="flex items-start gap-2 justify-between">
+                  {/* No image in mobile summary */}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate">{r.vendor_name || "Unknown Vendor"}</div>
+                    <div className="text-xs text-muted-foreground truncate">{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "No date"}</div>
+                    <div className="font-bold mt-1 text-xs">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
+                    {r.warranty && <span className="inline-flex items-center gap-1 text-green-700 bg-green-100 rounded px-2 py-0.5 text-xs mt-1"><ShieldCheck className="w-3 h-3" /> Warranty</span>}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
+                        <Badge key={rt.tags.id} variant="outline" className={`text-xs ${getTagColor(rt.tags.name)}`}>
+                          {rt.tags.name}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex justify-end">
-                    <Skeleton className={`h-6 ${expanded[r.id] ? 'w-20' : 'w-12'}`} />
-                  </div>
+                  <Button 
+                    size={expanded[r.id] ? "sm" : "sm"}
+                    variant="outline" 
+                    className={expanded[r.id] ? "text-base ml-2" : "text-xs ml-2"}
+                    onClick={e => {
+                      e.stopPropagation();
+                      sessionStorage.setItem('scrollPosition', window.scrollY.toString());
+                      navigate(`/receipt/${r.id}`, { state: { fromSummary: true } });
+                    }}
+                  >
+                    Show Details
+                  </Button>
                 </div>
-              ) : (
-                <div key={r.id} className={`bg-white rounded-lg shadow p-2 flex flex-col gap-1 transition-all duration-300 cursor-pointer ${expanded[r.id] ? 'p-4 gap-2 max-h-none' : 'max-h-[120px] overflow-hidden'}`}
-                  onClick={() => setExpanded(e => ({ ...e, [r.id]: !e[r.id] }))}
-                >
-                  <div className="flex items-start gap-2 justify-between">
-                    <div className={`flex-shrink-0 bg-gray-100 rounded-md overflow-hidden relative aspect-square ${expanded[r.id] ? 'w-20 h-20' : 'w-12 h-12'}`}>
-                      {!imageLoaded[r.id] && r.image_path && (
-                        <div className="w-full h-full rounded-md aspect-square absolute top-0 left-0 flex items-center justify-center bg-gray-200 animate-pulse" style={{ zIndex: 1 }}>
-                          <div className="flex flex-col items-center gap-1">
-                            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-400 rounded-full animate-spin" />
-                            <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
-                          </div>
-                        </div>
-                      )}
-                      {r.image_path && imageUrls[r.id] && (
-                        <img
-                          src={imageUrls[r.id]}
-                          alt="Receipt"
-                          className={`w-full h-full object-cover rounded-md aspect-square absolute top-0 left-0 transition-opacity duration-300 ${imageLoaded[r.id] ? 'opacity-100' : 'opacity-0'}`}
-                          onLoad={() => setImageLoaded(prev => ({ ...prev, [r.id]: true }))}
-                          onError={e => {
-                            (e.target as HTMLImageElement).src = "/placeholder.svg";
-                            setImageLoaded(prev => ({ ...prev, [r.id]: true }));
-                          }}
-                          style={{ zIndex: 2 }}
-                        />
-                      )}
-                      {!r.image_path && (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md aspect-square absolute top-0 left-0" style={{ zIndex: 3 }}>
-                          <span className="text-xs text-gray-400">No image</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-semibold ${expanded[r.id] ? 'text-base' : 'text-sm'} truncate`}>{r.vendor_name || "Unknown Vendor"}</div>
-                      <div className={`text-xs text-muted-foreground ${expanded[r.id] ? '' : 'truncate'}`}>{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "No date"}</div>
-                      <div className={`font-bold mt-1 ${expanded[r.id] ? 'text-base' : 'text-xs'}`}>{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
-                      {r.warranty && <span className="inline-flex items-center gap-1 text-green-700 bg-green-100 rounded px-2 py-0.5 text-xs mt-1"><ShieldCheck className="w-3 h-3" /> Warranty</span>}
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
-                          <Badge key={rt.tags.id} variant="outline" className={`text-xs ${getTagColor(rt.tags.name)}`}>
-                            {rt.tags.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <Button 
-                      size={expanded[r.id] ? "sm" : "sm"}
-                      variant="outline" 
-                      className={expanded[r.id] ? "text-base ml-2" : "text-xs ml-2"}
-                      onClick={e => {
-                        e.stopPropagation();
-                        sessionStorage.setItem('scrollPosition', window.scrollY.toString());
-                        navigate(`/receipt/${r.id}`, { state: { fromSummary: true } });
-                      }}
-                    >
-                      Show Details
-                    </Button>
-                  </div>
-                </div>
-              )
+              </div>
             ))}
           </div>
         )}
@@ -518,6 +464,13 @@ const ReceiptSummaryList = () => {
               <TooltipContent>Show only receipts with a warranty. Warranty end date is purchase date + 3 years.</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          <Button
+            variant="default"
+            className="h-9 min-w-[120px] mt-2 md:mt-0 ml-2 bg-blue-600 hover:bg-blue-700 text-white font-bold"
+            onClick={() => window.print()}
+          >
+            <Printer className="w-4 h-4 mr-2" /> Print
+          </Button>
         </div>
       </div>
       <div className="mb-4 text-lg font-semibold">

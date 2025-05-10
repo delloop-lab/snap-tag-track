@@ -130,30 +130,18 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center bg-white py-8 md:py-12 px-2 md:px-4">
-      <div className="w-full p-4 md:p-10 flex flex-col items-center h-full justify-center">
-        <img src="/SnapTagTrack.png" alt="SnapTagForget Logo" className="w-3/4 h-auto mx-auto mt-10 mb-12 block md:hidden" />
-        {/* Desktop-only NO image with centered button overlay */}
-        {/* <div className="hidden md:block relative mx-auto mb-6 w-72 md:w-[392px] -mt-24 mt-[15px]">
-          <img src="/no.png" alt="App on PC" className="w-full" />
-          <button
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg text-lg tracking-wide hover:bg-red-700 transition"
-            type="button"
-            tabIndex={-1}
-          >
-            NO MORE SHOEBOXES FULL OF RECEIPTS
-          </button>
-        </div> */}
+    <div className="flex flex-col items-center justify-center bg-white py-4 md:py-12 px-2 md:px-4">
+      <div className="w-full p-0 md:p-0 flex flex-col items-center h-full justify-center">
         {/* Avatar and welcome message for all screen sizes */}
         {user && avatarUrl && (
           <img
             src={avatarUrl}
             alt="User Avatar"
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 hidden md:block"
           />
         )}
         <p className="text-xl text-gray-600 mb-2 text-center font-semibold">
-          {user && firstName ? `Welcome, ${firstName}!` : randomMessage.main}
+          {user && firstName ? `Welcome back, ${firstName}!` : randomMessage.main}
         </p>
         {!user && (
           <p className="text-base text-gray-400 mb-14 text-center font-normal">{randomMessage.sub}</p>
@@ -171,49 +159,49 @@ const Index = () => {
             <BarChart3 className="!h-[30px] !w-[30px]" />
             TRACK
           </Button>
-          {user && (
-            <div className="w-full flex flex-col items-center mb-10">
-              <h2 className="text-2xl font-semibold mb-4 text-center">Recent Receipts</h2>
-              {recentReceipts.length === 0 ? (
-                <p className="text-muted-foreground text-base text-center">No receipts yet. <Button variant="link" onClick={() => navigate("/upload")}>Upload your first receipt</Button></p>
-              ) : (
-                <div className="flex gap-6 overflow-x-auto pb-2 justify-center w-full md:max-w-[calc(5*192px+4*24px)] md:scrollbar-thin md:scrollbar-thumb-gray-300 md:scrollbar-track-gray-100">
-                  {recentReceipts.slice(0, isMobile ? 3 : 5).map(r => (
-                    <div
-                      key={r.id}
-                      className="md:border md:rounded-xl md:bg-gray-50 flex-shrink-0 w-48 p-3 flex flex-col items-center md:shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
-                      onClick={() => handleRecentClick(r.id)}
-                    >
-                      <div className="aspect-[3/4] w-full bg-gray-200 rounded-lg mb-3 overflow-hidden relative">
-                        {!recentImages[r.id] ? (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200 animate-pulse">
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-400 rounded-full animate-spin" />
-                              <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <img
-                            src={recentImages[r.id] || "/placeholder.svg"}
-                            alt="Receipt"
-                            className="w-full h-full object-cover"
-                            onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"}
-                          />
-                        )}
-                      </div>
-                      <div className="w-full text-center">
-                        <div className="font-medium text-base truncate">{r.vendor_name || "Unknown"}</div>
-                        <div className="text-xs text-muted-foreground">{r.purchase_date ? format(new Date(r.purchase_date), "MMM d, yyyy") : "-"}</div>
-                        <div className="text-sm font-semibold mt-1">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
-        <div className="w-full text-center text-lg text-muted-foreground mb-2">
+        {user && (
+          <div className="w-full flex flex-col items-center mb-2">
+            <h2 className="text-2xl font-semibold mb-1 text-center">Recent Receipts</h2>
+            {recentReceipts.length === 0 ? (
+              <p className="text-muted-foreground text-base text-center">No receipts yet. <Button variant="link" onClick={() => navigate("/upload")}>Upload your first receipt</Button></p>
+            ) : (
+              <div className="flex gap-6 overflow-x-auto pb-0 justify-center w-full md:max-w-[calc(5*192px+4*24px)] md:scrollbar-thin md:scrollbar-thumb-gray-300 md:scrollbar-track-gray-100">
+                {recentReceipts.slice(0, isMobile ? 2 : 5).map(r => (
+                  <div
+                    key={r.id}
+                    className="border border-gray-300 rounded-xl bg-white flex-shrink-0 w-48 p-3 flex flex-col items-center shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
+                    onClick={() => handleRecentClick(r.id)}
+                  >
+                    <div className="aspect-[3/4] w-full bg-gray-200 rounded-lg mb-3 overflow-hidden relative">
+                      {!recentImages[r.id] ? (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 animate-pulse">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-400 rounded-full animate-spin" />
+                            <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={recentImages[r.id] || "/placeholder.svg"}
+                          alt="Receipt"
+                          className="w-full h-full object-cover"
+                          onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"}
+                        />
+                      )}
+                    </div>
+                    <div className="w-full text-center">
+                      <div className="font-medium text-base truncate">{r.vendor_name || "Unknown"}</div>
+                      <div className="text-xs text-muted-foreground">{r.purchase_date ? format(new Date(r.purchase_date), "MMM d, yyyy") : "-"}</div>
+                      <div className="text-sm font-semibold mt-1">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="w-full text-center text-lg text-muted-foreground mt-0 mb-0 md:mt-1 md:mb-2">
           {user
             ? <>
                 You've uploaded <span className="font-bold text-primary">{totalThisYear}</span> receipt{totalThisYear === 1 ? "" : "s"} this year.
@@ -221,13 +209,13 @@ const Index = () => {
             : "Snap a receipt today!"
           }
         </div>
-        <div className="w-full text-center text-base text-gray-400 mt-8">
+        <div className="w-full text-center text-base text-gray-400 mt-1 md:mt-8">
           Tip: For best OCR, scan receipts on a flat surface with good lighting.
         </div>
         {/* QR code and prompt for mobile app */}
         <div className="hidden md:flex flex-row items-center justify-center gap-4 mt-4 mb-8">
           <img
-            src="https://api.qrserver.com/v1/create-qr-code/?data=https://snap-tag-track.lovable.app&size=120x120"
+            src="https://api.qrserver.com/v1/create-qr-code/?data=https://www.snaptagtrack.com&size=120x120"
             alt="QR code for SnapTagTrack"
             className="w-24 h-24"
           />
@@ -235,8 +223,8 @@ const Index = () => {
         </div>
       </div>
       <footer
-        className="w-full text-center text-xs text-gray-400 mt-16 md:mt-[46px] pb-2 md:pb-5"
-        style={{ paddingTop: 5 }}
+        className="w-full text-center text-xs text-gray-400 mt-2 md:mt-[46px] pb-2 md:pb-5"
+        style={{ paddingTop: 2 }}
       >
         Copyright (c) 2025 The Novita Group
       </footer>

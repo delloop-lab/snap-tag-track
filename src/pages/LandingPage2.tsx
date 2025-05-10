@@ -86,7 +86,7 @@ const LandingPage2 = () => {
                   alt="QR Code" 
                   className="w-24 h-24 md:w-32 md:h-32 mb-2"
                 />
-                <span className="text-xs md:text-sm text-gray-600 block text-center">Mobile Version</span>
+                <span className="text-xs md:text-sm text-gray-600 block text-center">Phone-friendly</span>
               </div>
             </div>
           </div>
