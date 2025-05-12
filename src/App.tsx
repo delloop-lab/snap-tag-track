@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -67,6 +68,7 @@ const AppContent = () => {
           } />
           <Route path="/landing" element={<LandingPage2 />} />
           <Route path="/landing2" element={<LandingPage2 />} />
+          {/* Make Admin route accessible without the ProtectedRoute wrapper */}
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/receipts" element={<AdminReceipts />} />
           <Route path="*" element={<NotFound />} />
