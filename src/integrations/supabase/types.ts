@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       receipt_tags: {
@@ -44,67 +44,66 @@ export interface Database {
       }
       receipts: {
         Row: {
-          id: string
-          user_id: string
-          image_path: string
-          text_content: string
-          vendor_name: string
-          total_amount: number
-          purchase_date: string
+          client_name: string | null
           created_at: string
-          updated_at: string
-          notes: string | null
-          warranty: boolean
-          client_name: string
-          type: string
+          file_type: string | null
+          id: string
+          image_path: string
           latitude: number | null
-          longitude: number | null
           location_name: string | null
+          longitude: number | null
+          notes: string | null
+          product_image_path: string | null
+          purchase_date: string | null
+          text_content: string | null
+          total_amount: number | null
+          type: string | null
+          updated_at: string
+          user_id: string
+          vendor_name: string | null
+          warranty: boolean
         }
         Insert: {
-          id?: string
-          user_id: string
-          image_path: string
-          text_content: string
-          vendor_name: string
-          total_amount: number
-          purchase_date: string
+          client_name?: string | null
           created_at?: string
-          updated_at?: string
-          notes?: string | null
-          warranty?: boolean
-          client_name: string
-          type: string
+          file_type?: string | null
+          id?: string
+          image_path: string
           latitude?: number | null
-          longitude?: number | null
           location_name?: string | null
+          longitude?: number | null
+          notes?: string | null
+          product_image_path?: string | null
+          purchase_date?: string | null
+          text_content?: string | null
+          total_amount?: number | null
+          type?: string | null
+          updated_at?: string
+          user_id: string
+          vendor_name?: string | null
+          warranty?: boolean
         }
         Update: {
-          id?: string
-          user_id?: string
-          image_path?: string
-          text_content?: string
-          vendor_name?: string
-          total_amount?: number
-          purchase_date?: string
+          client_name?: string | null
           created_at?: string
-          updated_at?: string
-          notes?: string | null
-          warranty?: boolean
-          client_name?: string
-          type?: string
+          file_type?: string | null
+          id?: string
+          image_path?: string
           latitude?: number | null
-          longitude?: number | null
           location_name?: string | null
+          longitude?: number | null
+          notes?: string | null
+          product_image_path?: string | null
+          purchase_date?: string | null
+          text_content?: string | null
+          total_amount?: number | null
+          type?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_name?: string | null
+          warranty?: boolean
         }
-        Relationships: [
-          {
-            foreignKeyName: "receipts_user_id_fkey"
-            columns: ["user_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       tags: {
         Row: {
@@ -137,28 +136,28 @@ export interface Database {
       }
       users: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string
-          id: string
           first_name: string | null
+          id: string
           last_name: string | null
-          avatar_url: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email: string
-          id: string
           first_name?: string | null
+          id: string
           last_name?: string | null
-          avatar_url?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string
-          id?: string
           first_name?: string | null
+          id?: string
           last_name?: string | null
-          avatar_url?: string | null
         }
         Relationships: []
       }
@@ -167,6 +166,20 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
+      get_receipts_per_month: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          month: string
+          receipts_count: number
+        }[]
+      }
+      get_tag_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          tag: string
+          count: number
+        }[]
+      }
       has_role: {
         Args: { role_param: string }
         Returns: boolean

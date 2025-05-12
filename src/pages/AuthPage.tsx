@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,23 +49,39 @@ const AuthPage = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await authClient.auth.signUp({
+        const { data, error } = await authClient.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth`,
           },
         });
+        
         if (error) throw error;
+        
+        // Instead of showing email verification message, log them in directly
+        // This assumes email verification is disabled in Supabase settings
+        const { error: signInError } = await authClient.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (signInError) throw signInError;
+        
+        // Redirect to home page immediately
+        navigate("/");
+        
         toast({
-          title: "Check your email",
-          description: "We've sent you a confirmation link to complete your registration.",
+          title: "Account created successfully",
+          description: "Welcome to SnapTagTrack!",
         });
       } else {
+        // Regular sign in flow
         const { error } = await authClient.auth.signInWithPassword({
           email,
           password,
         });
+        
         if (error) throw error;
         navigate("/");
       }
