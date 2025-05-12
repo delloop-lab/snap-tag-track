@@ -36,9 +36,10 @@ const AuthPage = () => {
     // Use sessionStorage if Remember Me is unchecked
     let authClient = supabase;
     if (!rememberMe) {
+      // Create a new Supabase client with session storage
       authClient = createClient(
-        supabase.supabaseUrl,
-        supabase.supabaseKey,
+        import.meta.env.VITE_SUPABASE_URL || '',
+        import.meta.env.VITE_SUPABASE_ANON_KEY || '',
         {
           auth: {
             storage: window.sessionStorage,
