@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,7 +169,7 @@ const AuthPage = () => {
 
           <Button
             type="submit"
-            className="w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            className="w-full h-11 bg-gradient-to-r from-[#0066FF] to-[#0052CC] hover:from-[#0052CC] hover:to-[#0047B3] text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             disabled={loading}
           >
             {loading ? (
