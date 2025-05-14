@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,9 +36,10 @@ const AuthPage = () => {
     // Use sessionStorage if Remember Me is unchecked
     let authClient = supabase;
     if (!rememberMe) {
+      // Create a new Supabase client with session storage
       authClient = createClient(
-        supabase.supabaseUrl,
-        supabase.supabaseKey,
+        import.meta.env.VITE_SUPABASE_URL || '',
+        import.meta.env.VITE_SUPABASE_ANON_KEY || '',
         {
           auth: {
             storage: window.sessionStorage,
@@ -48,27 +50,42 @@ const AuthPage = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await authClient.auth.signUp({
+        // For sign up, first register the user
+        const { data, error } = await authClient.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth`,
-          },
         });
+        
         if (error) throw error;
-        toast({
-          title: "Check your email",
-          description: "We've sent you a confirmation link to complete your registration.",
+        
+        // Immediately sign in the user after signup
+        const { error: signInError } = await authClient.auth.signInWithPassword({
+          email,
+          password,
         });
+        
+        if (signInError) throw signInError;
+        
+        toast({
+          title: "Account created successfully",
+          description: "Welcome to SnapTagTrack!",
+        });
+        
+        // Redirect to home page
+        navigate("/");
       } else {
+        // Regular sign in flow
         const { error } = await authClient.auth.signInWithPassword({
           email,
           password,
         });
+        
         if (error) throw error;
+        
+        // Redirect to home page after successful sign in
         navigate("/");
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
