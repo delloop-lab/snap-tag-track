@@ -92,11 +92,6 @@ const LandingPage2 = () => {
           </div>
         </section>
       </div>
-
-      {/* Version Number */}
-      <div className="absolute bottom-4 right-4 text-gray-400 text-sm">
-        V0.9.01
-      </div>
     </main>
   );
 };
