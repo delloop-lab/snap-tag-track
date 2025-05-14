@@ -1,302 +1,228 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
-import { toast } from "@/components/ui/use-toast";
-import { Menu, X, Home, Receipt, FileText } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+import { Home, Receipt, Settings, LogOut, User, FileText, Menu, X, HelpCircle } from "lucide-react";
+import { ExpandableTabs } from "./ui/expandable-tabs";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { toast } from "@/components/ui/use-toast";
 
-const Navbar = () => {
+export default function Navbar() {
   const { user, signOut } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
-  const [userName, setUserName] = useState("");
-  const [recentReceipts, setRecentReceipts] = useState([]);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [showProfilePrompt, setShowProfilePrompt] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   useEffect(() => {
-    if (user) {
-      const fetchUserName = async () => {
-        try {
-          const { data } = await supabase
-            .from("users")
-            .select("first_name, last_name")
-            .eq("id", user.id)
-            .single();
-          
-          if (data) {
-            const userData = data as { first_name: string | null; last_name: string | null };
-            const name = [userData.first_name, userData.last_name].filter(Boolean).join(" ");
-            setUserName(name || "");
-          }
-        } catch (error) {
-          console.error("Error fetching user name:", error);
-        }
-      };
-      fetchUserName();
+    if (!user) {
+      setFirstName("");
+      return;
     }
+    if (user.user_metadata && user.user_metadata.first_name) {
+      setFirstName(user.user_metadata.first_name);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("users")
+        .select("first_name, last_name, avatar_url")
+        .eq("id", user.id)
+        .single();
+      
+      setFirstName(data?.first_name || "");
+      
+      // Check if profile is incomplete
+      if (!data?.first_name || !data?.last_name || !data?.avatar_url) {
+        setShowProfilePrompt(true);
+        // Hide prompt after 5 seconds
+        const timer = setTimeout(() => {
+          setShowProfilePrompt(false);
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+    })();
   }, [user]);
 
-  useEffect(() => {
-    if (user) {
-      const fetchRecentReceipts = async () => {
-        const { data } = await supabase
-          .from("receipts")
-          .select("id, vendor_name, total_amount, purchase_date, image_path")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(5);
-        setRecentReceipts(data || []);
-      };
-      fetchRecentReceipts();
-    }
-  }, [user]);
+  const handleHelpClick = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const subject = encodeURIComponent("Snap Tag Track Support");
+    const body = firstName
+      ? encodeURIComponent(`Hi, my name is ${firstName} and I need help with ...`)
+      : encodeURIComponent("I need help with ...");
+    window.location.href = `mailto:help@snaptagtrack.com?subject=${subject}&body=${body}`;
+    if (isMobile) setIsMenuOpen(false);
+  };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate("/auth");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
+  const tabs = [
+    { title: "Home", icon: Home, type: "tab" as const },
+    { title: "Receipts", icon: Receipt, type: "tab" as const },
+    { title: "Summary", icon: FileText, type: "tab" as const },
+    { type: "separator" as const },
+    { title: "Profile", icon: User, type: "tab" as const },
+    { title: "Help", icon: HelpCircle, type: "tab" as const },
+  ];
+
+  const handleTabChange = (index: number | null) => {
+    if (index === null) return;
+    
+    const routes = ['/', '/receipts', '/summary', '/profile', '/help'];
+    const routeIndex = index > 3 ? index - 1 : index;
+    if (routes[routeIndex] === '/help') {
+      handleHelpClick();
+      return;
+    }
+    if (routeIndex < routes.length) {
+      navigate(routes[routeIndex]);
+      if (isMobile) {
+        setIsMenuOpen(false);
+      }
     }
   };
 
+  const getCurrentTabIndex = () => {
+    const routes = ['/', '/receipts', '/summary', '/profile', '/help'];
+    const routeIndex = routes.indexOf(location.pathname);
+    return routeIndex > 3 ? routeIndex + 1 : routeIndex;
+  };
+
   return (
-    <nav className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <Link to={user ? "/landing2" : "/"} className="flex items-center">
-                <img
-                  src="/SnapTagTrack.png"
-                  alt="SnapTagTrack Logo"
-                  className="h-8 w-auto"
-                />
-              </Link>
-            </div>
-          </div>
-          <div className="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-4">
-            <a 
-              href={`mailto:help@snaptagtrack.com?subject=I am having issue with SnapTagTrack&body=${userName ? `Hi SnapTagTrak Team.%0D%0A%0D%0AMy name is ${userName} and my issue is ` : `Hello SnapTagTrack Team.%0D%0A%0D%0AI am having an issue, let me tell you what it is.%0D%0A%0D%0A`}`}
-              className="text-sm font-semibold hover:underline text-red-600 px-2"
+    <nav className="bg-white shadow-md dark:bg-gray-800">
+      {showProfilePrompt && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-blue-50 border border-blue-500 text-blue-600 px-4 py-3 rounded shadow-lg">
+          <div className="flex items-center">
+            <User className="h-5 w-5 mr-2" />
+            <p>Complete your profile to get the most out of SnapTagTrack!</p>
+            <button 
+              onClick={() => navigate('/profile')}
+              className="ml-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1 rounded text-sm"
             >
-              HELP
-            </a>
-            <Link
-              to="/"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                location.pathname === "/"
-                  ? "border-blue-500 text-gray-900"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              <Home className="h-4 w-4 mr-1" />
-              Home
-            </Link>
-            <Link
-              to="/summary"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                location.pathname === "/summary"
-                  ? "border-blue-500 text-gray-900"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              <FileText className="h-4 w-4 mr-1" />
-              Summary
-            </Link>
-            <Link
-              to="/receipts"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                location.pathname === "/receipts"
-                  ? "border-blue-500 text-gray-900"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              <Receipt className="h-4 w-4 mr-1" />
-              Receipts
-            </Link>
-            {user && (
-              <div className="flex items-center space-x-4">
-                <Link
-                  to="/profile"
-                  className="text-sm font-medium text-gray-500 hover:text-gray-700"
-                >
-                  Profile
-                </Link>
-                <AlertDialog open={signOutDialogOpen} onOpenChange={setSignOutDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Sign Out
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Sign Out</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to sign out?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleSignOut}>
-                        Sign Out
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            )}
-          </div>
-          <div className="-mr-2 flex items-center sm:hidden">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-            >
-              <span className="sr-only">Open main menu</span>
-              {menuOpen ? (
-                <X className="block h-6 w-6" aria-hidden="true" />
-              ) : (
-                <Menu className="block h-6 w-6" aria-hidden="true" />
-              )}
+              Complete Now
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Mobile menu */}
-      {menuOpen && (
-        <div className="sm:hidden">
-          <div className="pt-2 pb-3 space-y-1">
-            {/* Remove the first Summary link here */}
+      )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/landing2" className="flex-shrink-0 flex items-center">
+              <img
+                className="h-8 w-auto"
+                src="/SnapTagTrack.png"
+                alt="Receipt App"
+              />
+            </Link>
           </div>
-          <div className="pt-4 pb-3 border-t border-gray-200">
-            {user && (
-              <div className="space-y-1">
-                <Link
-                  to="/profile"
-                  className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Profile
-                </Link>
-                <a 
-                  href={`mailto:help@snaptagtrack.com?subject=I am having issue with SnapTagTrack&body=${userName ? `Hi SnapTagTrak Team.%0D%0A%0D%0AMy name is ${userName} and my issue is ` : `Hello SnapTagTrack Team.%0D%0A%0D%0AI am having an issue, let me tell you what it is.%0D%0A%0D%0A`}`}
-                  className="text-sm font-semibold py-2 text-red-600 px-2" 
-                  onClick={() => setMenuOpen(false)}
-                >
-                  HELP
-                </a>
-                <Link
-                  to="/"
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    location.pathname === "/"
-                      ? "bg-blue-50 border-blue-500 text-blue-700"
-                      : "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <div className="flex items-center">
-                    <Home className="h-5 w-5 mr-2" />
-                    Home
+
+          <div className="flex items-center">
+            {user ? (
+              <>
+                {/* Desktop Navigation */}
+                <div className="hidden md:flex items-center space-x-4">
+                  <ExpandableTabs 
+                    tabs={tabs}
+                    className="border-gray-200 dark:border-gray-700"
+                    activeColor="text-blue-500"
+                    onChange={handleTabChange}
+                    defaultSelected={getCurrentTabIndex()}
+                  />
+                  <button
+                    onClick={signOut}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </button>
+                </div>
+
+                {/* Mobile Menu Button */}
+                <div className="md:hidden">
+                  <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  >
+                    <span className="sr-only">Open main menu</span>
+                    {isMenuOpen ? (
+                      <X className="block h-6 w-6" aria-hidden="true" />
+                    ) : (
+                      <Menu className="block h-6 w-6" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Mobile Menu */}
+                {isMenuOpen && (
+                  <div className="md:hidden absolute top-16 left-0 right-0 bg-white dark:bg-gray-800 shadow-lg z-50">
+                    <div className="px-2 pt-2 pb-3 space-y-1">
+                      {tabs.map((tab, index) => {
+                        if (tab.type === "separator") {
+                          return <div key={`separator-${index}`} className="border-t border-gray-200 dark:border-gray-700 my-2" />;
+                        }
+                        const Icon = tab.icon;
+                        if (tab.title === "Help") {
+                          return (
+                            <button
+                              key={tab.title}
+                              onClick={handleHelpClick}
+                              className={`w-full flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                                getCurrentTabIndex() === index
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
+                                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              <Icon className="h-5 w-5 mr-3" />
+                              {tab.title}
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            key={tab.title}
+                            onClick={() => handleTabChange(index)}
+                            className={`w-full flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                              getCurrentTabIndex() === index
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
+                                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <Icon className="h-5 w-5 mr-3" />
+                            {tab.title}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={signOut}
+                        className="w-full flex items-center px-3 py-2 rounded-md text-sm font-medium text-orange-500 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900"
+                      >
+                        <LogOut className="h-5 w-5 mr-3" />
+                        Logout
+                      </button>
+                    </div>
                   </div>
-                </Link>
-                <Link
-                  to="/summary"
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    location.pathname === "/summary"
-                      ? "bg-blue-50 border-blue-500 text-blue-700"
-                      : "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <div className="flex items-center">
-                    <FileText className="h-5 w-5 mr-2" />
-                    Summary
-                  </div>
-                </Link>
-                <Link
-                  to="/receipts"
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    location.pathname === "/receipts"
-                      ? "bg-blue-50 border-blue-500 text-blue-700"
-                      : "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <div className="flex items-center">
-                    <Receipt className="h-5 w-5 mr-2" />
-                    Receipts
-                  </div>
-                </Link>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setSignOutDialogOpen(true);
-                  }}
-                  className="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
-                >
-                  Sign Out
-                </button>
-              </div>
+                )}
+              </>
+            ) : (
+              <Link
+                to="/auth"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              >
+                Login
+              </Link>
             )}
           </div>
-          {user && recentReceipts.length > 0 && (
-            <div className="pt-4 pb-3 border-t border-gray-200">
-              <h2 className="text-lg font-semibold mb-2 text-center">Recent Receipts</h2>
-              {/* Mobile: show 3, Desktop: show 5 with scroll */}
-              {isMobile ? (
-                <div className="flex flex-col gap-2">
-                  {recentReceipts.slice(0, 3).map(r => (
-                    <div key={r.id} className="flex flex-col items-center border rounded-lg p-2 bg-gray-50">
-                      <div className="font-medium text-sm truncate w-full text-center">{r.vendor_name || "Unknown Vendor"}</div>
-                      <div className="text-xs text-gray-500">{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "-"}</div>
-                      <div className="text-sm font-semibold">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {recentReceipts.map(r => (
-                    <div key={r.id} className="flex-shrink-0 w-48 flex flex-col items-center border rounded-lg p-2 bg-gray-50">
-                      <div className="font-medium text-sm truncate w-full text-center">{r.vendor_name || "Unknown Vendor"}</div>
-                      <div className="text-xs text-gray-500">{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "-"}</div>
-                      <div className="text-sm font-semibold">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
-      )}
+      </div>
     </nav>
   );
-};
-
-export default Navbar;
+}
 
