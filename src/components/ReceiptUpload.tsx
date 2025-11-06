@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tag, Clock, Camera } from "lucide-react";
 import exifr from 'exifr';
+import OpenAI from 'openai';
 
 // Add this at the top of the file for TypeScript to recognize cv as a global
 // @ts-ignore
@@ -134,6 +135,68 @@ async function findSimilarReceipt(textContent: string, userId: string): Promise<
   }
 }
 
+// AI-powered vendor name extraction from receipt image
+async function extractVendorNameWithAI(canvas: HTMLCanvasElement): Promise<string | null> {
+  try {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn("OpenAI API key not found, falling back to traditional extraction");
+      return null;
+    }
+
+    // Crop top 30% of the image for vendor name detection
+    const croppedCanvas = document.createElement('canvas');
+    const cropHeight = Math.floor(canvas.height * 0.3);
+    croppedCanvas.width = canvas.width;
+    croppedCanvas.height = cropHeight;
+    const ctx = croppedCanvas.getContext('2d');
+    if (!ctx) return null;
+    
+    ctx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+    
+    // Convert to base64
+    const base64Image = croppedCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    
+    console.log("Sending cropped receipt image to OpenAI Vision API...");
+    
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: true // Note: For production, move to backend
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Using the cheaper mini model
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "What is the store or vendor name on this receipt? Look for the business name, usually at the top. Return ONLY the vendor/store name, nothing else. If you cannot determine it, return 'Unknown Vendor'."
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`,
+                detail: "low" // Use low detail for cost savings
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 50
+    });
+
+    const vendorName = response.choices[0]?.message?.content?.trim();
+    console.log("AI-detected vendor name:", vendorName);
+    
+    return vendorName && vendorName !== "Unknown Vendor" ? vendorName : null;
+  } catch (error) {
+    console.error("Error extracting vendor name with AI:", error);
+    return null;
+  }
+}
+
 async function hasExifData(file: File): Promise<boolean> {
   try {
     const exifData = await exifr.parse(file);
@@ -162,6 +225,8 @@ const ReceiptUpload = () => {
   const [showAutoFillDialog, setShowAutoFillDialog] = useState(false);
   const [autoFilledVendor, setAutoFilledVendor] = useState<string | null>(null);
   const [pendingNavigateId, setPendingNavigateId] = useState<string | null>(null);
+  const [productImageFile, setProductImageFile] = useState<File | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
 
   // Helper to detect mobile/responsive
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -324,6 +389,8 @@ const ReceiptUpload = () => {
         const isImage = file.type.startsWith('image/');
         let textContent = '';
         
+        let originalCanvas: HTMLCanvasElement | null = null;
+        
         if (isImage) {
           // Preprocess image with OpenCV.js before OCR
           // Create an image element and a hidden canvas
@@ -336,6 +403,16 @@ const ReceiptUpload = () => {
           canvas.height = img.height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0);
+          
+          // Store original canvas for AI vendor extraction
+          originalCanvas = document.createElement('canvas');
+          originalCanvas.width = canvas.width;
+          originalCanvas.height = canvas.height;
+          const originalCtx = originalCanvas.getContext('2d');
+          if (originalCtx) {
+            originalCtx.drawImage(canvas, 0, 0);
+          }
+          
           // Wait for OpenCV.js to be ready
           if (window.cv) {
             let src = window.cv.imread(canvas);
@@ -368,12 +445,31 @@ const ReceiptUpload = () => {
           setNonImageWarning("You uploaded a non-image file. Only images can be processed for receipts. Please upload a photo or scan of your receipt.");
         }
         
-        // Extract potential vendor name from the first non-empty line of text
+        // Extract vendor name using AI first, then fall back to traditional method
         let vendorName = "Unknown Vendor";
-        if (textContent) {
+        
+        // Try AI extraction first (only for images)
+        if (originalCanvas) {
+          try {
+            console.log("Attempting AI vendor extraction...");
+            const aiVendorName = await extractVendorNameWithAI(originalCanvas);
+            if (aiVendorName) {
+              vendorName = aiVendorName;
+              console.log("✅ Using AI-extracted vendor name:", vendorName);
+            } else {
+              console.log("⚠️ AI extraction returned null, falling back to traditional method");
+            }
+          } catch (aiError) {
+            console.error("❌ AI extraction failed:", aiError);
+          }
+        }
+        
+        // Fall back to traditional extraction if AI didn't work
+        if (vendorName === "Unknown Vendor" && textContent) {
           const firstLines = textContent.split('\n').filter(line => line.trim().length > 0);
           if (firstLines.length > 0) {
             vendorName = firstLines[0].trim().substring(0, 100); // Limit to 100 chars
+            console.log("📝 Using traditional vendor name extraction:", vendorName);
           }
         }
         
@@ -389,11 +485,16 @@ const ReceiptUpload = () => {
         
         // Extract potential total amount using regex pattern
         let totalAmount = null;
-        const amountRegex = /(?:total|amount|sum)[:\s]*[$€£]?\s*(\d+(?:[.,]\d{1,2})?)/i;
+        // Match formats like: "Total: $50.00", "Total 50,00 €", "Total: 50.00", "240,00 E"
+        const amountRegex = /(?:total|amount|sum|t[o0]tal)[:\s]*[$€£]?\s*(\d+(?:[.,]\d{1,2})?)\s*[$€£eE]?/i;
         const amountMatch = textContent.match(amountRegex);
         if (amountMatch && amountMatch[1]) {
           // Convert to number and handle different decimal separators
-          totalAmount = parseFloat(amountMatch[1].replace(',', '.'));
+          const numStr = amountMatch[1].replace(',', '.');
+          totalAmount = parseFloat(numStr);
+          console.log("💰 Extracted amount:", totalAmount, "from match:", amountMatch[0]);
+        } else {
+          console.log("⚠️ No amount found in text");
         }
         
         // Try to extract date from the text content
@@ -466,6 +567,30 @@ const ReceiptUpload = () => {
           }
         }
         
+        // Upload product image if provided
+        if (insertData && insertData.length > 0 && productImageFile) {
+          const receiptId = insertData[0].id;
+          const fileExt = productImageFile.name.split('.').pop();
+          const productImagePath = `${user.id}/${receiptId}/product.${fileExt}`;
+          
+          const { error: productUploadError } = await supabase.storage
+            .from('receipts')
+            .upload(productImagePath, productImageFile);
+          
+          if (!productUploadError) {
+            await supabase
+              .from('receipts')
+              .update({ product_image_path: productImagePath })
+              .eq('id', receiptId);
+            
+            // Clear product image state
+            setProductImageFile(null);
+            setProductImagePreview(null);
+          } else {
+            console.error("Error uploading product image:", productUploadError);
+          }
+        }
+        
         if (!isImage) {
           setIsLoading(false);
           return; // Do not navigate away or show success for non-image
@@ -510,7 +635,15 @@ const ReceiptUpload = () => {
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
+    
+    console.log("File selected:", file.name, file.type, file.size);
+    
+    // Reset the input value so the same file can be selected again
+    e.target.value = '';
     
     // Check file type
     const fileType = file.type;
@@ -526,9 +659,11 @@ const ReceiptUpload = () => {
     }
     
     if (isMobile) {
+      console.log("Mobile: Setting pending file and showing tag modal");
       setPendingFile(file);
       setShowTagModal(true);
     } else {
+      console.log("Desktop: Processing receipt directly");
       processReceipt(file);
     }
   };
@@ -613,6 +748,60 @@ const ReceiptUpload = () => {
         />
         <label htmlFor="warranty" className="font-medium select-none cursor-pointer">Warranty?</label>
       </div>
+      
+      {/* Product Image Upload - shown when warranty is checked */}
+      {warranty && (
+        <div className="w-full max-w-md mb-4 p-4 border rounded-lg bg-gray-50">
+          <label className="block mb-2 font-medium">Product Image (Optional)</label>
+          <p className="text-sm text-gray-600 mb-3">Take a photo of the product for warranty reference</p>
+          {productImagePreview ? (
+            <div className="mb-3">
+              <img src={productImagePreview} alt="Product preview" className="w-full h-32 object-contain bg-white rounded border" />
+              <button
+                type="button"
+                onClick={() => {
+                  setProductImageFile(null);
+                  setProductImagePreview(null);
+                }}
+                className="mt-2 text-sm text-red-600 hover:text-red-700"
+                disabled={isLoading}
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                id="product-image-upload-initial"
+                type="file"
+                className="hidden"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setProductImageFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setProductImagePreview(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <label
+                htmlFor="product-image-upload-initial"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                {isMobile ? "Take Product Photo" : "Upload Product Image"}
+              </label>
+            </>
+          )}
+        </div>
+      )}
+      
       <input
         id="receipt-upload"
         type="file"
@@ -697,24 +886,45 @@ const ReceiptUpload = () => {
       </div>
       <Dialog open={showTagModal} onOpenChange={(open) => {
         if (!open) {
+          console.log("⚠️ Modal dismissed by user (click outside or back button)");
           setShowTagModal(false);
-          navigate("/");
+          setPendingFile(null);
+          // Don't navigate away - stay on the upload page
         }
       }}>
-        <DialogContent className="max-w-xs w-full flex flex-col items-center gap-8 p-8 bg-white rounded-2xl shadow-2xl animate-scale-in">
+        <DialogContent 
+          className="max-w-xs w-full flex flex-col items-center gap-8 p-8 bg-white rounded-2xl shadow-2xl animate-scale-in"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking outside on mobile
+            console.log("🚫 Prevented modal close from outside click");
+            e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            // Prevent closing with escape key
+            console.log("🚫 Prevented modal close from escape key");
+            e.preventDefault();
+          }}
+        >
           <div className="text-xl font-bold text-center mb-2">What would you like to do next?</div>
           <div className="text-gray-500 text-center mb-4">You can tag this receipt now, or do it later.</div>
           <div className="flex flex-col gap-4 w-full">
             <button
               className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white text-xl font-bold py-4 rounded-full shadow-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-green-400 w-full"
               onClick={() => {
+                console.log("TAG NOW clicked, pendingFile:", pendingFile?.name);
                 setShowTagModal(false);
                 if (pendingFile) {
                   setIsLoading(true);
                   processReceipt(pendingFile).then((receiptId) => {
+                    console.log("Receipt processed, ID:", receiptId);
                     if (receiptId) navigate(`/receipt/${receiptId}`);
+                  }).catch((error) => {
+                    console.error("Error in TAG NOW:", error);
+                    setIsLoading(false);
                   });
                   setPendingFile(null);
+                } else {
+                  console.error("No pending file!");
                 }
               }}
             >
@@ -723,9 +933,12 @@ const ReceiptUpload = () => {
             <button
               className="flex items-center justify-center gap-2 border-2 border-red-500 text-red-600 hover:bg-red-50 text-lg font-semibold py-3 rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-red-300 w-full"
               onClick={() => {
+                console.log("LATER clicked, pendingFile:", pendingFile?.name);
                 setShowTagModal(false);
                 if (pendingFile) {
-                  processReceipt(pendingFile);
+                  processReceipt(pendingFile).catch((error) => {
+                    console.error("Error in LATER:", error);
+                  });
                   setPendingFile(null);
                 }
                 navigate("/");

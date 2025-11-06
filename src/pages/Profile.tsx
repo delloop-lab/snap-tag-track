@@ -11,7 +11,8 @@ const Profile = () => {
   const { user } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarPath, setAvatarPath] = useState(""); // Store file path, not signed URL
+  const [avatarUrl, setAvatarUrl] = useState(""); // Display signed URL
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -28,8 +29,22 @@ const Profile = () => {
       if (data) {
         setFirstName(data.first_name || "");
         setLastName(data.last_name || "");
-        setAvatarUrl(data.avatar_url || "");
-        console.log("Fetched avatarUrl from DB:", data.avatar_url);
+        const storedPath = data.avatar_url || "";
+        setAvatarPath(storedPath);
+        
+        // Generate signed URL if we have a path
+        if (storedPath) {
+          const { data: signedData, error: signedError } = await supabase.storage
+            .from(AVATAR_BUCKET)
+            .createSignedUrl(storedPath, 60 * 60); // 1 hour expiry
+          
+          if (!signedError && signedData?.signedUrl) {
+            setAvatarUrl(signedData.signedUrl);
+          } else {
+            console.error("Error generating signed URL for avatar:", signedError);
+            setAvatarUrl(""); // Clear if can't generate
+          }
+        }
       }
     };
     fetchProfile();
@@ -42,7 +57,7 @@ const Profile = () => {
     setError("");
     const { error } = await supabase
       .from("users")
-      .update({ first_name: firstName, last_name: lastName, avatar_url: avatarUrl })
+      .update({ first_name: firstName, last_name: lastName, avatar_url: avatarPath })
       .eq("id", user.id);
     setLoading(false);
     if (error) {
@@ -68,8 +83,11 @@ const Profile = () => {
       setLoading(false);
       return;
     }
-    // Get signed URL for private bucket
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from(AVATAR_BUCKET).createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days expiry
+    // Store the file path (not signed URL)
+    setAvatarPath(filePath);
+    
+    // Generate signed URL for display
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from(AVATAR_BUCKET).createSignedUrl(filePath, 60 * 60); // 1 hour expiry
     if (signedUrlError) {
       setError("Failed to generate avatar URL.");
       setLoading(false);

@@ -449,6 +449,7 @@ const ReceiptDetail = () => {
                         id="product-image-upload"
                         className="hidden"
                         accept="image/*"
+                        capture="environment"
                         onChange={handleProductImageUpload}
                         disabled={isUploadingProductImage}
                       />
@@ -456,7 +457,7 @@ const ReceiptDetail = () => {
                         htmlFor="product-image-upload"
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90"
                       >
-                        {isUploadingProductImage ? "Uploading..." : "Upload Product Image"}
+                        {isUploadingProductImage ? "Uploading..." : isMobile ? "Take Photo" : "Upload Product Image"}
                       </label>
                     </div>
                   </div>

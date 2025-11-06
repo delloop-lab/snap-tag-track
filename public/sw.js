@@ -1,4 +1,4 @@
-const CACHE_NAME = 'receipt-images-v1';
+const CACHE_NAME = 'receipt-images-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -19,7 +19,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/storage/v1/object/sign/')) {
+  // Only cache GET requests for signed URLs
+  if (event.request.method === 'GET' && event.request.url.includes('/storage/v1/object/sign/')) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
         return cache.match(event.request).then((response) => {
@@ -27,8 +28,14 @@ self.addEventListener('fetch', (event) => {
             return response;
           }
           return fetch(event.request).then((networkResponse) => {
-            cache.put(event.request, networkResponse.clone());
+            // Only cache successful responses
+            if (networkResponse.ok) {
+              cache.put(event.request, networkResponse.clone());
+            }
             return networkResponse;
+          }).catch((error) => {
+            console.error('Fetch failed:', error);
+            throw error;
           });
         });
       })

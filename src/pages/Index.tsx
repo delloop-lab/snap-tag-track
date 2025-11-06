@@ -56,7 +56,17 @@ const Index = () => {
         if (!error && data) {
           const userData = data as { first_name?: string; avatar_url?: string };
           if (userData.first_name) setFirstName(userData.first_name);
-          if (userData.avatar_url) setAvatarUrl(userData.avatar_url);
+          
+          // Generate signed URL if avatar_url is a path
+          if (userData.avatar_url) {
+            const { data: signedData } = await supabase.storage
+              .from('avatars')
+              .createSignedUrl(userData.avatar_url, 60 * 60); // 1 hour expiry
+            
+            if (signedData?.signedUrl) {
+              setAvatarUrl(signedData.signedUrl);
+            }
+          }
         }
       };
       fetchFirstName();
