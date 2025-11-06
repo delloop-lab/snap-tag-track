@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
@@ -44,6 +44,39 @@ const Index = () => {
   const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
   const randomMessage = welcomeMessages[randomIndex];
 
+  // Fetch recent receipts and stats function
+  const fetchRecent = useCallback(async () => {
+    if (!user) return;
+    const year = new Date().getFullYear();
+    const { data: receipts } = await supabase
+      .from("receipts")
+      .select("id, vendor_name, total_amount, purchase_date, image_path")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(isMobile ? 3 : 5);
+    setRecentReceipts(receipts || []);
+    // Fetch signed URLs for images
+    if (receipts && receipts.length > 0) {
+      const imageUrls: { [id: string]: string } = {};
+      await Promise.all(
+        receipts.map(async (r) => {
+          if (r.image_path) {
+            const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
+            if (data?.signedUrl) imageUrls[r.id] = data.signedUrl;
+          }
+        })
+      );
+      setRecentImages(imageUrls);
+    }
+    // Stat: total receipts this year
+    const { count } = await supabase
+      .from("receipts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", `${year}-01-01`);
+    setTotalThisYear(count || 0);
+  }, [user, isMobile]);
+
   useEffect(() => {
     if (!loading && user) {
       // Fetch first name from user profile
@@ -70,40 +103,42 @@ const Index = () => {
         }
       };
       fetchFirstName();
-      // Fetch recent receipts and stats
-      const fetchRecent = async () => {
-        const year = new Date().getFullYear();
-        const { data: receipts } = await supabase
-          .from("receipts")
-          .select("id, vendor_name, total_amount, purchase_date, image_path")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(isMobile ? 3 : 5);
-        setRecentReceipts(receipts || []);
-        // Fetch signed URLs for images
-        if (receipts && receipts.length > 0) {
-          const imageUrls: { [id: string]: string } = {};
-          await Promise.all(
-            receipts.map(async (r) => {
-              if (r.image_path) {
-                const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
-                if (data?.signedUrl) imageUrls[r.id] = data.signedUrl;
-              }
-            })
-          );
-          setRecentImages(imageUrls);
-        }
-        // Stat: total receipts this year
-        const { count } = await supabase
-          .from("receipts")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .gte("created_at", `${year}-01-01`);
-        setTotalThisYear(count || 0);
-      };
       fetchRecent();
     }
-  }, [user, loading]);
+  }, [user, loading, location.pathname]); // Re-fetch when returning to home page
+
+  // Refresh receipts when the page becomes visible or when a receipt is added
+  useEffect(() => {
+    if (!user) return;
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchRecent();
+      }
+    };
+    
+    // Listen for custom event when a receipt is added
+    const handleReceiptAdded = () => {
+      fetchRecent();
+    };
+    
+    // Refresh when window gains focus (user navigates back)
+    const handleFocus = () => {
+      if (location.pathname === '/') {
+        fetchRecent();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('receiptAdded', handleReceiptAdded);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('receiptAdded', handleReceiptAdded);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user, location.pathname, fetchRecent]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);

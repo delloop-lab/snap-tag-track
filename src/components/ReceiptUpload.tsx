@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -227,14 +227,30 @@ const ReceiptUpload = () => {
   const [pendingNavigateId, setPendingNavigateId] = useState<string | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const productImageInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper to detect mobile/responsive
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  // Helper to detect mobile/responsive - use user agent for reliable mobile detection
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    // Primary check: user agent (more reliable for actual mobile devices)
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Secondary check: screen width for responsive behavior
+    const isNarrowScreen = window.innerWidth < 768;
+    return isMobileDevice || isNarrowScreen;
+  });
+  
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isNarrowScreen = window.innerWidth < 768;
+      setIsMobile(isMobileDevice || isNarrowScreen);
+    };
+    handleResize(); // Check once on mount to ensure correct initial state
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
 
   const extractLocationFromExif = async (file: File): Promise<{ latitude: number | null; longitude: number | null; locationName: string | null }> => {
     try {
@@ -399,10 +415,75 @@ const ReceiptUpload = () => {
           img.src = blobUrl;
           await new Promise((resolve) => { img.onload = resolve; });
           const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
           const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
+
+          // Correct EXIF orientation if present
+          try {
+            const exif = await exifr.parse(file);
+            const orientation = exif?.Orientation || exif?.orientation || 1;
+            let drawWidth = img.width;
+            let drawHeight = img.height;
+
+            // Optional upscale for better OCR (cap longest side to ~2000px)
+            const maxDim = 2000;
+            const scale = Math.min(1, Math.max(img.width, img.height) > maxDim ? maxDim / Math.max(img.width, img.height) : 1);
+            drawWidth = Math.round(img.width * scale);
+            drawHeight = Math.round(img.height * scale);
+
+            // Set canvas size based on orientation
+            if (orientation === 5 || orientation === 6 || orientation === 7 || orientation === 8) {
+              canvas.width = drawHeight;
+              canvas.height = drawWidth;
+            } else {
+              canvas.width = drawWidth;
+              canvas.height = drawHeight;
+            }
+
+            if (ctx) {
+              // Apply orientation transforms
+              switch (orientation) {
+                case 2: // Mirror horizontal
+                  ctx.translate(canvas.width, 0);
+                  ctx.scale(-1, 1);
+                  break;
+                case 3: // Rotate 180
+                  ctx.translate(canvas.width, canvas.height);
+                  ctx.rotate(Math.PI);
+                  break;
+                case 4: // Mirror vertical
+                  ctx.translate(0, canvas.height);
+                  ctx.scale(1, -1);
+                  break;
+                case 5: // Mirror horizontal and rotate 90 CW
+                  ctx.rotate(0.5 * Math.PI);
+                  ctx.translate(0, -canvas.width);
+                  ctx.scale(1, -1);
+                  break;
+                case 6: // Rotate 90 CW
+                  ctx.rotate(0.5 * Math.PI);
+                  ctx.translate(0, -canvas.width);
+                  break;
+                case 7: // Mirror horizontal and rotate 270 CW
+                  ctx.rotate(1.5 * Math.PI);
+                  ctx.translate(-canvas.height, 0);
+                  ctx.scale(1, -1);
+                  break;
+                case 8: // Rotate 270 CW
+                  ctx.rotate(1.5 * Math.PI);
+                  ctx.translate(-canvas.height, 0);
+                  break;
+                default:
+                  // No transform
+                  break;
+              }
+              ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
+            }
+          } catch (e) {
+            // Fallback: simple draw without orientation handling
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx?.drawImage(img, 0, 0);
+          }
           
           // Store original canvas for AI vendor extraction
           originalCanvas = document.createElement('canvas');
@@ -416,8 +497,26 @@ const ReceiptUpload = () => {
           // Wait for OpenCV.js to be ready
           if (window.cv) {
             let src = window.cv.imread(canvas);
-            window.cv.cvtColor(src, src, window.cv.COLOR_RGBA2GRAY, 0); // Grayscale
-            window.cv.adaptiveThreshold(src, src, 255, window.cv.ADAPTIVE_THRESH_GAUSSIAN_C, window.cv.THRESH_BINARY, 11, 2); // Increase contrast
+            // Convert to grayscale
+            window.cv.cvtColor(src, src, window.cv.COLOR_RGBA2GRAY, 0);
+            // Gentle blur to reduce noise while preserving edges
+            const ksize = new window.cv.Size(3, 3);
+            window.cv.GaussianBlur(src, src, ksize, 0, 0, window.cv.BORDER_DEFAULT);
+            // Adaptive threshold with larger neighborhood and bias for receipts
+            window.cv.adaptiveThreshold(
+              src,
+              src,
+              255,
+              window.cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+              window.cv.THRESH_BINARY,
+              21,
+              10
+            );
+            // Morphological opening to remove small specks
+            const morphKernel = window.cv.Mat.ones(2, 2, window.cv.CV_8U);
+            window.cv.morphologyEx(src, src, window.cv.MORPH_OPEN, morphKernel);
+            morphKernel.delete();
+            // Show result back on canvas
             window.cv.imshow(canvas, src);
             src.delete();
           }
@@ -431,6 +530,15 @@ const ReceiptUpload = () => {
             });
             await worker.loadLanguage('eng');
             await worker.initialize('eng');
+            // Tune Tesseract for dense receipt blocks
+            try {
+              // PSM 6: Assume a single uniform block of text
+              // preserve_interword_spaces helps keep spacing for amounts
+              await (worker as any).setParameters?.({
+                tessedit_pageseg_mode: '6',
+                preserve_interword_spaces: '1'
+              });
+            } catch {}
             const { data } = await worker.recognize(canvas.toDataURL('image/png'));
             textContent = data.text;
             await worker.terminate();
@@ -485,37 +593,158 @@ const ReceiptUpload = () => {
         
         // Extract potential total amount using regex pattern
         let totalAmount = null;
-        // Match formats like: "Total: $50.00", "Total 50,00 €", "Total: 50.00", "240,00 E"
-        const amountRegex = /(?:total|amount|sum|t[o0]tal)[:\s]*[$€£]?\s*(\d+(?:[.,]\d{1,2})?)\s*[$€£eE]?/i;
-        const amountMatch = textContent.match(amountRegex);
-        if (amountMatch && amountMatch[1]) {
-          // Convert to number and handle different decimal separators
-          const numStr = amountMatch[1].replace(',', '.');
-          totalAmount = parseFloat(numStr);
-          console.log("💰 Extracted amount:", totalAmount, "from match:", amountMatch[0]);
+        
+        // First, try to find "Total" or similar keywords followed by a number
+        // Match formats like: "Total: $50.00", "Total 50,00 €", "Total: 50.00", "240,00 E", "TOTAL 123.45"
+        const amountRegex = /(?:total|amount|sum|t[o0]tal|grand\s*total|subtotal)[:\s]*[$€£]?\s*(\d+[.,]\d+|\d+)\s*[$€£eE]?/gi;
+        
+        // Try to find all matches and pick the largest (likely the total)
+        const matches = Array.from(textContent.matchAll(amountRegex));
+        const amounts: number[] = [];
+        
+        for (const match of matches) {
+          if (match[1]) {
+            // Handle European format (comma as decimal separator)
+            const numStr = match[1].replace(',', '.');
+            const amount = parseFloat(numStr);
+            if (!isNaN(amount) && amount > 0) {
+              amounts.push(amount);
+              console.log("💵 Found amount:", amount, "from:", match[0].trim());
+            }
+          }
+        }
+        
+        if (amounts.length > 0) {
+          // Pick the largest amount (usually the total)
+          totalAmount = Math.max(...amounts);
+          console.log("💰 Selected total amount:", totalAmount);
         } else {
-          console.log("⚠️ No amount found in text");
+          console.log("⚠️ No amount found with keyword. Trying fallback...");
+          
+          // Fallback: Look for any number with 2 decimal places (likely a price)
+          const fallbackRegex = /(\d+[.,]\d{2})\s*[$€£eE]?/g;
+          const fallbackMatches = Array.from(textContent.matchAll(fallbackRegex));
+          const fallbackAmounts: number[] = [];
+          
+          for (const match of fallbackMatches) {
+            const numStr = match[1].replace(',', '.');
+            const amount = parseFloat(numStr);
+            if (!isNaN(amount) && amount > 0) {
+              fallbackAmounts.push(amount);
+            }
+          }
+          
+          if (fallbackAmounts.length > 0) {
+            totalAmount = Math.max(...fallbackAmounts);
+            console.log("💰 Fallback: Selected largest amount:", totalAmount);
+          } else {
+            console.log("❌ No amount found at all");
+            console.log("📄 First 500 chars of text:", textContent.substring(0, 500));
+          }
         }
         
         // Try to extract date from the text content
+        // PRIORITY: Extract from receipt text FIRST (most accurate), then fall back to EXIF
         let purchaseDate = null;
-        const dateRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/;
-        const dateMatch = textContent.match(dateRegex);
-        if (dateMatch) {
-          try {
-            // Always interpret as DD/MM/YYYY (European format)
-            let day = dateMatch[1].padStart(2, '0');
-            let month = dateMatch[2].padStart(2, '0');
-            let year = dateMatch[3];
-            if (year.length === 2) {
-              year = '20' + year; // Assume 20xx for 2-digit years
+        
+        // First, try to extract date from the receipt text (this is the actual purchase date)
+        if (textContent) {
+          console.log("🔍 Searching for date in text content...");
+          
+          // Multiple date patterns to try (in order of preference)
+          // Each pattern has: [regex, dayIndex, monthIndex, yearIndex, isMonthName]
+          const datePatterns: Array<[RegExp, number, number, number, boolean]> = [
+            // Date with label prefix (e.g., "Data: 17-10-2025", "Date: 01/15/2024", "Datum: 17.10.2025")
+            [/(?:data|date|datum|fecha|dato)[:\s]+(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i, 1, 2, 3, false],
+            // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY (European format - most common on receipts)
+            [/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/, 1, 2, 3, false],
+            // YYYY/MM/DD or YYYY-MM-DD or YYYY.MM.DD
+            [/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/, 3, 2, 1, false],
+            // DD MMM YYYY (e.g., "15 Jan 2024")
+            [/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{2,4})/i, 1, 2, 3, true],
+            // MMM DD, YYYY (e.g., "January 15, 2024")
+            [/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{2,4})/i, 2, 1, 3, true],
+            // DD MMM YY (e.g., "15 Jan 24")
+            [/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{2})/i, 1, 2, 3, true],
+          ];
+          
+          const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+          
+          for (const [pattern, dayIdx, monthIdx, yearIdx, isMonthName] of datePatterns) {
+            const match = textContent.match(pattern);
+            if (match) {
+              try {
+                let day: string, month: string, year: string;
+                
+                if (isMonthName) {
+                  // Month name pattern - convert month name to number
+                  const monthName = match[monthIdx].toLowerCase().substring(0, 3);
+                  const monthIndex = monthNames.findIndex(m => monthName.startsWith(m));
+                  
+                  if (monthIndex >= 0) {
+                    day = match[dayIdx].padStart(2, '0');
+                    month = String(monthIndex + 1).padStart(2, '0');
+                    year = match[yearIdx];
+                  } else {
+                    continue; // Skip if month name not recognized
+                  }
+                } else {
+                  // Numeric date pattern
+                  day = match[dayIdx].padStart(2, '0');
+                  month = match[monthIdx].padStart(2, '0');
+                  year = match[yearIdx];
+                }
+                
+                // Handle 2-digit years
+                if (year.length === 2) {
+                  const currentYear = new Date().getFullYear();
+                  const currentCentury = Math.floor(currentYear / 100) * 100;
+                  const twoDigitYear = parseInt(year);
+                  // If year is > 50, assume 1900s, otherwise 2000s
+                  year = twoDigitYear > 50 ? String(currentCentury - 100 + twoDigitYear) : String(currentCentury + twoDigitYear);
+                }
+                
+                // Validate date
+                const testDate = new Date(`${year}-${month}-${day}`);
+                if (!isNaN(testDate.getTime()) && 
+                    parseInt(day) >= 1 && parseInt(day) <= 31 &&
+                    parseInt(month) >= 1 && parseInt(month) <= 12) {
+                  purchaseDate = `${year}-${month}-${day}`;
+                  console.log("✅ Found date:", purchaseDate, "from match:", match[0]);
+                  break; // Use first valid match
+                }
+              } catch (dateError) {
+                console.log("⚠️ Failed to parse date from match:", match[0], dateError);
+                continue; // Try next pattern
+              }
             }
-            // Output as ISO (YYYY-MM-DD)
-            purchaseDate = `${year}-${month}-${day}`;
-          } catch (dateError) {
-            console.error("Failed to parse date (EU format):", dateError);
-            // Keep purchaseDate as null if parsing fails
           }
+          
+          if (!purchaseDate) {
+            console.log("❌ No valid date found in text content");
+          }
+        }
+        
+        // Only use EXIF date as a last resort if no date found in text
+        if (!purchaseDate) {
+          console.log("⚠️ No date found in text, checking EXIF as fallback...");
+          try {
+            const exifData = await exifr.parse(file);
+            if (exifData?.DateTimeOriginal || exifData?.CreateDate || exifData?.ModifyDate) {
+              const exifDate = exifData.DateTimeOriginal || exifData.CreateDate || exifData.ModifyDate;
+              if (exifDate) {
+                const date = new Date(exifDate);
+                if (!isNaN(date.getTime())) {
+                  purchaseDate = date.toISOString().split('T')[0];
+                  console.log("📅 Using date from EXIF (fallback - photo date, not receipt date!):", purchaseDate);
+                }
+              }
+            }
+          } catch (exifError) {
+            console.log("No EXIF date available as fallback");
+          }
+        } else {
+          console.log("✅ Successfully extracted date from receipt text:", purchaseDate);
         }
         
         // Store receipt data in the database
@@ -573,21 +802,36 @@ const ReceiptUpload = () => {
           const fileExt = productImageFile.name.split('.').pop();
           const productImagePath = `${user.id}/${receiptId}/product.${fileExt}`;
           
+          console.log("📸 Uploading product image to:", productImagePath);
+          
           const { error: productUploadError } = await supabase.storage
             .from('receipts')
             .upload(productImagePath, productImageFile);
           
           if (!productUploadError) {
+            console.log("✅ Product image uploaded successfully");
             await supabase
               .from('receipts')
               .update({ product_image_path: productImagePath })
               .eq('id', receiptId);
             
+            console.log("✅ Database updated with product image path");
+            
+            toast({
+              title: "Product image uploaded",
+              description: "Product photo saved with receipt",
+            });
+            
             // Clear product image state
             setProductImageFile(null);
             setProductImagePreview(null);
           } else {
-            console.error("Error uploading product image:", productUploadError);
+            console.error("❌ Error uploading product image:", productUploadError);
+            toast({
+              title: "Product image failed",
+              description: "Receipt saved but product image upload failed",
+              variant: "destructive",
+            });
           }
         }
         
@@ -600,6 +844,9 @@ const ReceiptUpload = () => {
           title: "Receipt uploaded",
           description: "Your receipt has been processed successfully.",
         });
+        
+        // Dispatch custom event to refresh recent receipts on home page
+        window.dispatchEvent(new CustomEvent('receiptAdded'));
         
         if (insertData && insertData.length > 0 && insertData[0].id) {
           if (isMobile) {
@@ -636,14 +883,11 @@ const ReceiptUpload = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
-      console.log("No file selected");
+      console.log("No file selected - camera cancelled");
       return;
     }
     
     console.log("File selected:", file.name, file.type, file.size);
-    
-    // Reset the input value so the same file can be selected again
-    e.target.value = '';
     
     // Check file type
     const fileType = file.type;
@@ -772,11 +1016,12 @@ const ReceiptUpload = () => {
           ) : (
             <>
               <input
+                ref={productImageInputRef}
                 id="product-image-upload-initial"
                 type="file"
                 className="hidden"
                 accept="image/*"
-                capture="environment"
+                capture={isMobile ? "environment" : undefined}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -790,23 +1035,44 @@ const ReceiptUpload = () => {
                 }}
                 disabled={isLoading}
               />
-              <label
-                htmlFor="product-image-upload-initial"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700"
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                {isMobile ? "Take Product Photo" : "Upload Product Image"}
-              </label>
+              {isMobile ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700"
+                  onClick={() => {
+                    if (productImageInputRef.current) {
+                      // Reset input to allow selecting same file again
+                      productImageInputRef.current.value = '';
+                      // Trigger file input click
+                      productImageInputRef.current.click();
+                    }
+                  }}
+                  disabled={isLoading}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Take Product Photo
+                </button>
+              ) : (
+                <label
+                  htmlFor="product-image-upload-initial"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Upload Product Image
+                </label>
+              )}
             </>
           )}
         </div>
       )}
       
       <input
+        ref={fileInputRef}
         id="receipt-upload"
         type="file"
         className="hidden"
         accept="image/jpeg,image/png,image/heic,application/pdf"
+        capture={isMobile ? "environment" : undefined}
         onChange={handleFileChange}
         disabled={isLoading}
       />
@@ -867,7 +1133,12 @@ const ReceiptUpload = () => {
             <button
               type="button"
               className="bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold py-5 px-6 rounded-full w-full shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-orange-400 flex items-center justify-center gap-2"
-              onClick={() => document.getElementById("receipt-upload")?.click()}
+              onClick={() => {
+                // MUST click synchronously for mobile browser security
+                if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }}
               disabled={isLoading}
             >
               <Camera className="w-6 h-6 -ml-1" />

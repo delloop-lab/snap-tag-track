@@ -55,7 +55,12 @@ const ReceiptDetail = () => {
   const [editedWarranty, setEditedWarranty] = useState(false);
   const [tagsRefreshKey, setTagsRefreshKey] = useState(0);
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isNarrowScreen = window.innerWidth < 768;
+    return isMobileDevice || isNarrowScreen;
+  });
   const [editedClient, setEditedClient] = useState("");
   const [allClients, setAllClients] = useState<string[]>([]);
   const [showNewClientInput, setShowNewClientInput] = useState(false);
@@ -202,7 +207,12 @@ const ReceiptDetail = () => {
   }, [receipt?.product_image_path]);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isNarrowScreen = window.innerWidth < 768;
+      setIsMobile(isMobileDevice || isNarrowScreen);
+    };
+    handleResize(); // Check once on mount
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -323,8 +333,19 @@ const ReceiptDetail = () => {
 
       if (updateError) throw updateError;
 
-      // Refresh receipt data
-      await fetchReceipt();
+      // Update local receipt state without full refresh to preserve edit mode
+      if (receipt) {
+        setReceipt({ ...receipt, product_image_path: filePath });
+      }
+      
+      // Generate signed URL for the new product image
+      const { data: signedData } = await supabase.storage
+        .from('receipts')
+        .createSignedUrl(filePath, 60 * 60);
+      
+      if (signedData?.signedUrl) {
+        setProductImageUrl(signedData.signedUrl);
+      }
       
       toast({
         title: "Product image uploaded",
@@ -424,47 +445,6 @@ const ReceiptDetail = () => {
             />
           </div>
           
-          {/* Product Image Upload in Edit Mode if Warranty is checked */}
-          {isEditing && editedWarranty && (
-            <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
-              <div className="p-4 bg-gray-50">
-                <h3 className="text-lg font-semibold mb-2">Product Image</h3>
-                {productImageUrl ? (
-                  <div className="space-y-4">
-                    <img
-                      src={productImageUrl}
-                      alt="Product"
-                      className="w-full h-auto object-contain bg-white"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/placeholder.svg";
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">No product image uploaded</p>
-                    <div className="flex flex-col items-center gap-2">
-                      <input
-                        type="file"
-                        id="product-image-upload"
-                        className="hidden"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleProductImageUpload}
-                        disabled={isUploadingProductImage}
-                      />
-                      <label
-                        htmlFor="product-image-upload"
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90"
-                      >
-                        {isUploadingProductImage ? "Uploading..." : isMobile ? "Take Photo" : "Upload Product Image"}
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
           {/* Product Image in View Mode */}
           {!isEditing && receipt?.warranty && (
             <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
@@ -568,7 +548,7 @@ const ReceiptDetail = () => {
                     <p className="font-medium print:text-lg">{receipt.location_name}</p>
                     {receipt.latitude && receipt.longitude && (
                       <>
-                        <div className="w-full h-48 rounded-lg overflow-hidden border">
+                        <div className="w-full h-48 rounded-lg overflow-hidden border relative">
                           <iframe
                             width="100%"
                             height="100%"
@@ -577,8 +557,12 @@ const ReceiptDetail = () => {
                             marginHeight={0}
                             marginWidth={0}
                             src={`https://www.openstreetmap.org/export/embed.html?bbox=${receipt.longitude - 0.01},${receipt.latitude - 0.01},${receipt.longitude + 0.01},${receipt.latitude + 0.01}&layer=mapnik&marker=${receipt.latitude},${receipt.longitude}`}
-                            className="no-print"
+                            className="no-print pointer-events-none"
                           />
+                          {/* Overlay to prevent map dragging but allow clicking to open full map */}
+                          <div className="absolute inset-0 cursor-pointer" onClick={() => {
+                            window.open(`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`, '_blank');
+                          }} />
                         </div>
                         <a
                           href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
@@ -610,6 +594,65 @@ const ReceiptDetail = () => {
                 />
                 <label htmlFor="warranty" className="font-medium select-none cursor-pointer">Warranty?</label>
               </div>
+
+              {/* Product Image Upload - appears right after Warranty checkbox when checked */}
+              {editedWarranty && (
+                <div className="border rounded-lg overflow-hidden shadow-sm mb-4">
+                  <div className="p-4 bg-gray-50">
+                    <h3 className="text-lg font-semibold mb-2">Product Image</h3>
+                    {productImageUrl ? (
+                      <div className="space-y-4">
+                        <img
+                          src={productImageUrl}
+                          alt="Product"
+                          className="w-full h-auto object-contain bg-white rounded"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "/placeholder.svg";
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-muted-foreground mb-3 text-sm">No product image uploaded</p>
+                        <div className="flex flex-col items-center gap-2">
+                          <input
+                            type="file"
+                            id="product-image-upload"
+                            className="hidden"
+                            accept="image/*"
+                            capture={isMobile ? "environment" : undefined}
+                            onChange={handleProductImageUpload}
+                            disabled={isUploadingProductImage}
+                          />
+                          {isMobile ? (
+                            <button
+                              type="button"
+                              className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 text-sm"
+                              onClick={() => {
+                                const input = document.getElementById('product-image-upload') as HTMLInputElement;
+                                if (input) {
+                                  input.value = '';
+                                  input.click();
+                                }
+                              }}
+                              disabled={isUploadingProductImage}
+                            >
+                              {isUploadingProductImage ? "Uploading..." : "Take Product Photo"}
+                            </button>
+                          ) : (
+                            <label
+                              htmlFor="product-image-upload"
+                              className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 text-sm"
+                            >
+                              {isUploadingProductImage ? "Uploading..." : "Upload Product Image"}
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="client">Client</Label>
@@ -715,7 +758,7 @@ const ReceiptDetail = () => {
                     <p className="font-medium print:text-lg">{receipt.location_name}</p>
                     {receipt.latitude && receipt.longitude && (
                       <>
-                        <div className="w-full h-48 rounded-lg overflow-hidden border">
+                        <div className="w-full h-48 rounded-lg overflow-hidden border relative">
                           <iframe
                             width="100%"
                             height="100%"
@@ -724,8 +767,12 @@ const ReceiptDetail = () => {
                             marginHeight={0}
                             marginWidth={0}
                             src={`https://www.openstreetmap.org/export/embed.html?bbox=${receipt.longitude - 0.01},${receipt.latitude - 0.01},${receipt.longitude + 0.01},${receipt.latitude + 0.01}&layer=mapnik&marker=${receipt.latitude},${receipt.longitude}`}
-                            className="no-print"
+                            className="no-print pointer-events-none"
                           />
+                          {/* Overlay to prevent map dragging but allow clicking to open full map */}
+                          <div className="absolute inset-0 cursor-pointer" onClick={() => {
+                            window.open(`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`, '_blank');
+                          }} />
                         </div>
                         <a
                           href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
