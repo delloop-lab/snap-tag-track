@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import heroImage from "@/assets/hero-image.png";
 
 const LandingPage2 = () => {
   return (
@@ -75,7 +74,7 @@ const LandingPage2 = () => {
           
           <div className="relative z-[3] w-full h-full">
             <img 
-              src={heroImage}
+              src="/home/_assets/media/5cdfca5bafd425675a5bfdc47417d87c.png" 
               alt="Woman with receipt" 
               className="absolute left-0 top-0 w-full h-full object-cover object-right"
             />

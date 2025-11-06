@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import heroImage from "@/assets/hero-image.png";
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -33,7 +32,7 @@ export default function Landing() {
           {/* Phone and PC images on the right */}
           <div className="w-full md:w-1/2 flex justify-center items-center mt-8 md:mt-0">
             <img
-              src={heroImage}
+              src="/assets/images/hero-image.png"
               alt="App Preview"
               className="w-full max-w-lg transform hover:scale-105 transition-transform duration-300"
             />
