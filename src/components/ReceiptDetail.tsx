@@ -13,11 +13,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Edit, Printer } from "lucide-react";
+import { Calendar as CalendarIcon, Edit, Printer, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/AuthProvider";
+
+interface LineItem {
+  description: string;
+  amount: number;
+}
 
 type Receipt = {
   id: string;
@@ -38,6 +43,7 @@ type Receipt = {
   latitude: number | null;
   longitude: number | null;
   location_name: string | null;
+  line_items: LineItem[] | null;
 };
 
 const ReceiptDetail = () => {
@@ -65,6 +71,7 @@ const ReceiptDetail = () => {
   const [allClients, setAllClients] = useState<string[]>([]);
   const [showNewClientInput, setShowNewClientInput] = useState(false);
   const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
+  const [showLineItems, setShowLineItems] = useState(false);
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -91,6 +98,7 @@ const ReceiptDetail = () => {
           latitude,
           longitude,
           location_name,
+          line_items,
           receipt_tags(
             tag_id,
             tags:tag_id(id, name)
@@ -122,6 +130,7 @@ const ReceiptDetail = () => {
         latitude: data.latitude,
         longitude: data.longitude,
         location_name: data.location_name || "",
+        line_items: (data as any).line_items ?? null,
       };
       setReceipt(receiptData);
       // Generate signed URL for the image with longer expiry
@@ -805,6 +814,31 @@ const ReceiptDetail = () => {
                   })()}
                 </div>
               </div>
+
+              {receipt.line_items && receipt.line_items.length > 0 && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+                    onClick={() => setShowLineItems((v) => !v)}
+                  >
+                    {showLineItems ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {showLineItems ? "Hide" : "Show"} {receipt.line_items.length} line item{receipt.line_items.length !== 1 ? "s" : ""}
+                  </button>
+                  {showLineItems && (
+                    <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 text-sm">
+                      {receipt.line_items.map((item, i) => (
+                        <div key={i} className="flex justify-between px-3 py-2 text-gray-700">
+                          <span className="truncate pr-4">{item.description}</span>
+                          <span className="font-medium whitespace-nowrap">
+                            {formatCurrency(item.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {!isMobile && (
                 <div className="space-y-2 print:space-y-3 no-print">
