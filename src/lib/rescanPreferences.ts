@@ -29,6 +29,28 @@ export function getRescanPreferences(userId?: string | null): RescanPreferences 
   }
 }
 
+export async function getRescanPreferencesFromDb(
+  supabase: any,
+  userId?: string | null
+): Promise<RescanPreferences> {
+  if (!userId) return DEFAULT_PREFS;
+  try {
+    const { data, error } = await (supabase.from("users") as any)
+      .select("rescan_empty_only,rescan_preview_diff")
+      .eq("id", userId)
+      .single();
+    if (error || !data) return getRescanPreferences(userId);
+    const prefs = {
+      emptyOnly: !!data.rescan_empty_only,
+      previewDiff: !!data.rescan_preview_diff,
+    };
+    setRescanPreferences(userId, prefs);
+    return prefs;
+  } catch {
+    return getRescanPreferences(userId);
+  }
+}
+
 export function setRescanPreferences(
   userId: string,
   prefs: RescanPreferences

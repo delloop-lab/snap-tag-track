@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import {
   getRescanPreferences,
+  getRescanPreferencesFromDb,
   setRescanPreferences,
 } from "@/lib/rescanPreferences";
 
@@ -29,7 +30,7 @@ const Profile = () => {
     const fetchProfile = async () => {
       const { data, error } = await supabase
         .from("users")
-        .select("first_name, last_name, avatar_url")
+        .select("first_name, last_name, avatar_url, rescan_empty_only, rescan_preview_diff")
         .eq("id", user.id)
         .single();
       if (data) {
@@ -52,7 +53,7 @@ const Profile = () => {
           }
         }
       }
-      const prefs = getRescanPreferences(user.id);
+      const prefs = await getRescanPreferencesFromDb(supabase, user.id);
       setRescanEmptyOnly(prefs.emptyOnly);
       setRescanPreviewDiff(prefs.previewDiff);
     };
@@ -66,7 +67,13 @@ const Profile = () => {
     setError("");
     const { error } = await supabase
       .from("users")
-      .update({ first_name: firstName, last_name: lastName, avatar_url: avatarPath })
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        avatar_url: avatarPath,
+        rescan_empty_only: rescanEmptyOnly,
+        rescan_preview_diff: rescanPreviewDiff,
+      } as any)
       .eq("id", user.id);
     setRescanPreferences(user.id, {
       emptyOnly: rescanEmptyOnly,

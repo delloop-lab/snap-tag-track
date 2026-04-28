@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getTagColor } from "./TagInput";
 import {
   buildRescanPatch,
-  getRescanPreferences,
+  getRescanPreferencesFromDb,
   patchDiffLines,
 } from "@/lib/rescanPreferences";
 
@@ -207,7 +207,7 @@ const ReceiptSummaryList = () => {
 
   const handleBulkRescan = async () => {
     if (!user || receipts.length === 0 || isBulkRescanning) return;
-    const prefs = getRescanPreferences(user.id);
+    const prefs = await getRescanPreferencesFromDb(supabase, user.id);
     const proceed = window.confirm(
       `Rescan all ${receipts.length} receipts with AI?\n\nMode: ${
         prefs.emptyOnly ? "only empty fields" : "overwrite with AI values"

@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/AuthProvider";
 import {
   buildRescanPatch,
-  getRescanPreferences,
+  getRescanPreferencesFromDb,
   patchDiffLines,
 } from "@/lib/rescanPreferences";
 
@@ -304,7 +304,7 @@ const ReceiptDetail = () => {
       if (!fnData?.success) throw new Error(fnData?.error ?? "Rescan failed");
 
       const extracted = fnData.data ?? {};
-      const prefs = getRescanPreferences(user.id);
+      const prefs = await getRescanPreferencesFromDb(supabase, user.id);
       const current = {
         vendor_name: receipt.vendor_name,
         total_amount: receipt.total_amount,
