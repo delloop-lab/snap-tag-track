@@ -85,6 +85,7 @@ const ReceiptDetail = () => {
   const [showLineItems, setShowLineItems] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isRescanning, setIsRescanning] = useState(false);
+  const [showDeleteProductImageDialog, setShowDeleteProductImageDialog] = useState(false);
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -440,6 +441,41 @@ const ReceiptDetail = () => {
     }
   };
 
+  const handleDeleteProductImage = async () => {
+    if (!receipt?.id || !receipt?.product_image_path) return;
+    try {
+      const pathToDelete = receipt.product_image_path;
+      const { error: storageError } = await supabase.storage
+        .from("receipts")
+        .remove([pathToDelete]);
+      if (storageError) {
+        console.warn("Could not remove product image file:", storageError.message);
+      }
+
+      const { error: updateError } = await supabase
+        .from("receipts")
+        .update({ product_image_path: null })
+        .eq("id", receipt.id);
+      if (updateError) throw updateError;
+
+      setReceipt({ ...receipt, product_image_path: null });
+      setProductImageUrl(null);
+      toast({
+        title: "Product image deleted",
+        description: "The product image has been removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting product image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete product image.",
+        variant: "destructive",
+      });
+    } finally {
+      setShowDeleteProductImageDialog(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-4 max-w-4xl">
@@ -553,10 +589,49 @@ const ReceiptDetail = () => {
                         (e.target as HTMLImageElement).src = "/placeholder.svg";
                       }}
                     />
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        id="product-image-reupload-view"
+                        className="hidden"
+                        accept="image/*"
+                        capture={isMobile ? "environment" : undefined}
+                        onChange={handleProductImageUpload}
+                        disabled={isUploadingProductImage}
+                      />
+                      <label
+                        htmlFor="product-image-reupload-view"
+                        className="px-3 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 text-sm"
+                      >
+                        {isUploadingProductImage ? "Uploading..." : "Replace Image"}
+                      </label>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setShowDeleteProductImageDialog(true)}
+                      >
+                        Delete Image
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">No product image uploaded</p>
+                    <input
+                      type="file"
+                      id="product-image-upload-view"
+                      className="hidden"
+                      accept="image/*"
+                      capture={isMobile ? "environment" : undefined}
+                      onChange={handleProductImageUpload}
+                      disabled={isUploadingProductImage}
+                    />
+                    <label
+                      htmlFor="product-image-upload-view"
+                      className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 text-sm"
+                    >
+                      {isUploadingProductImage ? "Uploading..." : isMobile ? "Take Product Photo" : "Upload Product Image"}
+                    </label>
                   </div>
                 )}
               </div>
@@ -703,6 +778,30 @@ const ReceiptDetail = () => {
                             (e.target as HTMLImageElement).src = "/placeholder.svg";
                           }}
                         />
+                        <div className="flex gap-2">
+                          <input
+                            type="file"
+                            id="product-image-reupload-edit"
+                            className="hidden"
+                            accept="image/*"
+                            capture={isMobile ? "environment" : undefined}
+                            onChange={handleProductImageUpload}
+                            disabled={isUploadingProductImage}
+                          />
+                          <label
+                            htmlFor="product-image-reupload-edit"
+                            className="px-3 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 text-sm"
+                          >
+                            {isUploadingProductImage ? "Uploading..." : "Replace Image"}
+                          </label>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setShowDeleteProductImageDialog(true)}
+                          >
+                            Delete Image
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-4">
@@ -960,6 +1059,29 @@ const ReceiptDetail = () => {
               onClick={handleDelete}
             >
               Yes, delete receipt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showDeleteProductImageDialog}
+        onOpenChange={setShowDeleteProductImageDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete product image?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the product image from this receipt. You can upload a new one anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeleteProductImage}
+            >
+              Yes, delete image
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
