@@ -74,16 +74,20 @@ export function buildRescanPatch(
   extracted: any,
   emptyOnly: boolean
 ): Partial<RescanPatchInput> {
+  const extractedLineItems =
+    Array.isArray(extracted.line_items) && extracted.line_items.length > 0
+      ? extracted.line_items
+      : undefined;
+
   const candidate: RescanPatchInput = {
     vendor_name: extracted.vendor ?? null,
     total_amount:
       typeof extracted.total_amount === "number" ? extracted.total_amount : null,
     purchase_date: extracted.purchase_date ?? null,
     text_content: extracted.raw_text ?? null,
-    line_items:
-      Array.isArray(extracted.line_items) && extracted.line_items.length > 0
-        ? extracted.line_items
-        : null,
+    // Never clear existing line items on weak/no OCR extraction.
+    // Only update when AI actually returns a non-empty list.
+    line_items: (extractedLineItems as unknown[] | null | undefined) ?? (undefined as any),
     currency: extracted.currency ?? null,
   };
 
