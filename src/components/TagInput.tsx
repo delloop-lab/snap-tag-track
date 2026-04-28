@@ -162,9 +162,10 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
     }
   };
 
-  const createAndAddTag = async (rawName?: string) => {
+  const createAndAddTag = async (rawName?: string | React.MouseEvent) => {
     if (!user) return;
-    const tagName = (rawName ?? inputValue).trim();
+    const candidate = typeof rawName === "string" ? rawName : inputValue;
+    const tagName = candidate.trim();
     if (!tagName) return;
     if (selectedTags.some((t) => t.name.toLowerCase() === tagName.toLowerCase())) {
       setInputValue("");
@@ -296,7 +297,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
             <option key={tag.id} value={tag.name} />
           ))}
         </datalist>
-        <Button onClick={createAndAddTag} disabled={!inputValue.trim()}>
+        <Button onClick={() => createAndAddTag()} disabled={!inputValue.trim()}>
           Add Tag
         </Button>
       </div>
