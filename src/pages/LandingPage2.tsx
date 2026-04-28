@@ -97,15 +97,12 @@ export default function LandingPage2() {
 
   return (
     <main className="min-h-screen bg-slate-800 text-slate-100">
-      <section className="max-w-6xl mx-auto px-4 py-8 md:py-14">
-        <div className="mb-6 md:mb-8">
-          <img
-            src="/SnapTagTrack_trans.png"
-            alt="Snap Tag Track logo"
-            className="h-10 md:h-14 w-auto"
-          />
+      <section className="max-w-6xl mx-auto px-4 pt-8 md:pt-12 pb-14 md:pb-20">
+        <div className="mb-8">
+          <img src="/SnapTagTrack_trans.png" alt="Snap Tag Track logo" className="h-10 md:h-14 w-auto" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <p className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 mb-4">
               Always-Ready Companion
@@ -117,32 +114,22 @@ export default function LandingPage2() {
               Snap a photo, tag the project, and track spending instantly. Works even when the internet doesn&apos;t.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <Link
-                to="/auth"
-                className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3"
-              >
+              <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
                 Get Started Now (Free)
               </Link>
               <button
                 type="button"
                 className="inline-flex md:hidden items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3"
-                onClick={() =>
-                  alert("Add to Home Screen:\n\niPhone: Share > Add to Home Screen\nAndroid: Menu > Install App")
-                }
+                onClick={() => alert("Add to Home Screen:\n\niPhone: Share > Add to Home Screen\nAndroid: Menu > Install App")}
               >
                 Add to Home Screen
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl bg-slate-700/70 border border-slate-600 p-4 relative overflow-hidden"
-            >
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-orange-500/10 to-transparent" />
-              <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-4 min-h-[220px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-slate-700/70 border border-slate-600 p-5">
+              <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-4 min-h-[240px]">
                 <div className="h-2 w-16 bg-orange-500 rounded mb-4 animate-pulse" />
                 <div className="space-y-2">
                   <div className="h-4 bg-slate-700 rounded w-4/5" />
@@ -164,64 +151,83 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {[
-            ["Zero Storage", "No 200MB download. Open and go."],
-            ["Works Offline", "Snap now. Sync when signal comes back."],
-            ["Instant Shortcut", "Add to your home screen in two taps."],
+            ["Zero Storage", "No 200MB download. Open and go instantly from a link or QR."],
+            ["Works Offline", "Capture now in weak signal areas and sync when you have connection."],
+            ["Instant Shortcut", "Keep it one tap away by adding to your home screen."],
           ].map(([t, d]) => (
-            <div key={t} className="rounded-xl border border-slate-600 bg-slate-700/60 p-4">
-              <h3 className="font-bold text-orange-400">{t}</h3>
-              <p className="text-slate-300 text-sm mt-1">{d}</p>
+            <div key={t} className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
+              <h3 className="font-bold text-orange-400 text-lg">{t}</h3>
+              <p className="text-slate-300 text-sm mt-2 leading-relaxed">{d}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 py-6">
-        <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1 mb-4">
-          <button
-            className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"}`}
-            onClick={() => setPersona("personal")}
-          >
-            Personal
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"}`}
-            onClick={() => setPersona("contractor")}
-          >
-            Contractor
-          </button>
+      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-2xl md:text-3xl font-bold">Built for Households and Contractors</h2>
+          <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-5 md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6 md:col-span-2">
             <h3 className="text-xl font-bold">{personaCopy.title}</h3>
-            <p className="text-slate-300 mt-2">{personaCopy.text}</p>
+            <p className="text-slate-300 mt-2 leading-relaxed">{personaCopy.text}</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-5">
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
             <h3 className="font-bold text-emerald-300">Visual Evidence</h3>
-            <p className="text-slate-300 mt-2 text-sm">
-              Keep receipt and product photos together so families and contractors always have proof ready.
-            </p>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Attach receipt and product photos so proof is always ready.</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-5">
-            <h3 className="font-bold">Household</h3>
-            <p className="text-slate-300 mt-2 text-sm">Track grocery inflation and find budget leaks quickly.</p>
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
+            <h3 className="font-bold">Family Focus</h3>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Track grocery inflation and recurring spending leaks.</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-5">
-            <h3 className="font-bold">Contractor</h3>
-            <p className="text-slate-300 mt-2 text-sm">Tag receipts to jobs/clients and keep every deduction visible.</p>
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
+            <h3 className="font-bold">Contractor Focus</h3>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Tag every receipt to jobs/clients and keep deductions organised.</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-5">
-            <h3 className="font-bold text-orange-300">No App Store Barriers</h3>
-            <p className="text-slate-300 mt-2 text-sm">Open by URL or scan the QR code and start immediately.</p>
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
+            <h3 className="font-bold text-orange-300">Always Accessible</h3>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Open instantly from URL, QR, or home-screen shortcut.</p>
           </div>
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 py-6">
+      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-2xl md:text-3xl font-bold">Your Mode, Your Outcomes</h2>
+          <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
+            <h3 className="font-bold text-lg">{persona === "personal" ? "Control household spending" : "Control project spend"}</h3>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">
+              {persona === "personal"
+                ? "See where money goes each week and stop small leaks before they become big bills."
+                : "Know exactly what each job costs and keep all supplier proof ready for client conversations."}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
+            <h3 className="font-bold text-lg">{persona === "personal" ? "Never lose warranty proof" : "Never lose expense proof"}</h3>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">
+              {persona === "personal"
+                ? "Store receipt and product images together for returns, repairs, and support claims."
+                : "Keep each receipt linked to a client/job so tax and reporting season is painless."}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+        <h2 className="text-2xl md:text-3xl font-bold mb-5">Snap Tag Track vs Traditional Bank-Linked Apps</h2>
         <div className="rounded-2xl border border-slate-600 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-700">
@@ -233,10 +239,10 @@ export default function LandingPage2() {
             </thead>
             <tbody className="bg-slate-800">
               {[
-                ["Privacy", "You choose what you capture", "Requires account/bank connection"],
-                ["Speed", "Snap and tag in seconds", "Setup friction before value"],
-                ["Offline Use", "Works when signal is weak", "Often needs internet"],
-                ["Visual Proof", "Receipt + product photos together", "Mostly transaction text"],
+                ["Privacy", "You decide what you capture", "Requires account/bank connection"],
+                ["Speed", "Snap and tag immediately", "Setup friction before value"],
+                ["Offline Use", "Works in weak/no signal", "Often needs internet"],
+                ["Visual Proof", "Receipt + product photos", "Mostly transaction text"],
               ].map(([f, a, b]) => (
                 <tr key={f} className="border-t border-slate-700">
                   <td className="p-3 font-semibold">{f}</td>
@@ -249,14 +255,14 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 py-6 pb-20">
-        <h2 className="text-xl font-bold mb-4">Simple Install Guide</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-4">
+      <section className="max-w-6xl mx-auto px-4 pb-24">
+        <h2 className="text-2xl md:text-3xl font-bold mb-5">Simple Install Guide</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
             <h3 className="font-semibold text-emerald-300">iPhone</h3>
             <p className="text-sm text-slate-300 mt-2">Tap Share, then tap Add to Home Screen.</p>
           </div>
-          <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-4">
+          <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
             <h3 className="font-semibold text-orange-300">Android</h3>
             <p className="text-sm text-slate-300 mt-2">Open browser menu, then tap Install App.</p>
           </div>
