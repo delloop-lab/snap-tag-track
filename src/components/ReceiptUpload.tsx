@@ -104,6 +104,53 @@ interface ReviewState {
   lineItems: { description: string; amount: number }[];
 }
 
+/**
+ * Resize and re-encode an image to JPEG before upload.
+ * - Caps the longest side at `maxPx` (default 1920 — enough for GPT-4o vision detail)
+ * - Quality 0.88 keeps text sharp while cutting file size 60–85 %
+ * - Returns the original file unchanged if it's already small or if the
+ *   browser can't draw it (e.g. some HEIC on Android)
+ */
+async function compressImage(file: File, maxPx = 1920, quality = 0.88): Promise<{ blob: Blob; ext: string }> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const cw = Math.round(w * scale);
+      const ch = Math.round(h * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = cw;
+      canvas.height = ch;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve({ blob: file, ext: file.name.split(".").pop() || "jpg" });
+        return;
+      }
+      ctx.drawImage(img, 0, 0, cw, ch);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve({ blob, ext: "jpg" });
+          else resolve({ blob: file, ext: file.name.split(".").pop() || "jpg" });
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ blob: file, ext: file.name.split(".").pop() || "jpg" });
+    };
+
+    img.src = url;
+  });
+}
+
 const ReceiptUpload = () => {
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState(0);
@@ -219,45 +266,45 @@ const ReceiptUpload = () => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 30 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 10MB.",
+        description: "Maximum file size is 30 MB. Please use a smaller image.",
         variant: "destructive",
       });
       return;
     }
 
     setStage("processing");
-    setProgress(10);
-    setProgressLabel("Uploading receipt...");
+    setProgress(5);
+    setProgressLabel("Preparing image...");
     setNonImageWarning("");
 
     try {
+      // Extract GPS from the original file BEFORE compression (canvas strips EXIF)
       const { latitude, longitude, locationName } =
         await extractLocationFromExif(file);
 
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
+      setProgress(15);
+      setProgressLabel("Optimising image...");
 
-      const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(new Error("File cannot be read"));
-        reader.readAsArrayBuffer(file);
-      });
+      // Compress: resize to max 1920 px, re-encode as JPEG
+      const { blob: compressedBlob, ext } = await compressImage(file);
 
-      const blob = new Blob([fileBuffer], { type: file.type });
+      const fileName = `${uuidv4()}.${ext}`;
+
+      setProgress(25);
+      setProgressLabel("Uploading receipt...");
 
       const { error: uploadError } = await supabase.storage
         .from("receipts")
-        .upload(fileName, blob);
+        .upload(fileName, compressedBlob, { contentType: "image/jpeg" });
 
       if (uploadError) {
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      setProgress(40);
+      setProgress(45);
       setProgressLabel("Analyzing with AI...");
 
       const { data: fnData, error: fnError } =
@@ -603,7 +650,7 @@ const ReceiptUpload = () => {
                 and drop
               </p>
               <p className="text-xs text-muted-foreground">
-                JPEG, PNG or HEIC (max 10MB)
+                JPEG, PNG or HEIC — auto-optimised before upload
               </p>
             </div>
           </label>
