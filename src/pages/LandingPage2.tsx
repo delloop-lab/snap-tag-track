@@ -111,7 +111,7 @@ export default function LandingPage2() {
               The Budget App That&apos;s Always Ready. No Download Required.
             </h1>
             <p className="text-slate-300 mt-4 text-base md:text-lg">
-              Snap a receipt or paid invoice, tag the project, and track spending instantly. Works even when the internet doesn&apos;t.
+              Snap a store receipt or invoice, tag the project, and track spending instantly. Works even when the internet doesn&apos;t.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
