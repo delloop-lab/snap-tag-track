@@ -100,7 +100,7 @@ export default function LandingPage2() {
       <section className="max-w-6xl mx-auto px-4 py-8 md:py-14">
         <div className="mb-6 md:mb-8">
           <img
-            src="/home/_assets/media/f0e22dab0a9645220a4eb65c48b50b4c.png"
+            src="/SnapTagTrack_trans.png"
             alt="Snap Tag Track logo"
             className="h-10 md:h-14 w-auto"
           />
