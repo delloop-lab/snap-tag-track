@@ -69,6 +69,8 @@ export default function LandingPage2() {
           },
     [persona]
   );
+  const personaHeroImage =
+    persona === "personal" ? "/snaptagtrack_1.jpg" : "/snaptagtrack_2.jpg";
 
   const setVariant = (next: "classic" | "new") => {
     setVersion(next);
@@ -131,13 +133,15 @@ export default function LandingPage2() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-slate-700/70 border border-slate-600 p-5">
               <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-4 min-h-[240px]">
                 <div className="h-2 w-16 bg-orange-500 rounded mb-4 animate-pulse" />
-                <div className="space-y-2">
-                  <div className="h-4 bg-slate-700 rounded w-4/5" />
-                  <div className="h-4 bg-slate-700 rounded w-3/5" />
-                  <div className="h-4 bg-emerald-500/40 rounded w-2/5" />
-                </div>
-                <div className="mt-6 h-24 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center">
-                  <span className="text-4xl">🧾</span>
+                <p className="text-xs text-slate-400 mb-3">
+                  {persona === "personal" ? "Family view preview" : "Contractor view preview"}
+                </p>
+                <div className="mt-2 h-44 rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
+                  <img
+                    src={personaHeroImage}
+                    alt={persona === "personal" ? "SnapTagTrack family preview" : "SnapTagTrack contractor preview"}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
             </motion.div>
