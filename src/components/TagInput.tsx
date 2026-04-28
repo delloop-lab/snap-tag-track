@@ -150,12 +150,20 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
         .map((r: any) => r.id);
 
       if (similarReceiptIds.length === 0) return 0;
-      const payload = similarReceiptIds.map((id) => ({ receipt_id: id, tag_id: tagId }));
-      const { error } = await supabase
+      const { data: existingLinks } = await supabase
         .from("receipt_tags")
-        .upsert(payload, { onConflict: "receipt_id,tag_id" });
-      if (error) throw error;
-      return Math.max(0, similarReceiptIds.length - 1);
+        .select("receipt_id")
+        .eq("tag_id", tagId)
+        .in("receipt_id", similarReceiptIds);
+      const existingSet = new Set((existingLinks || []).map((r: any) => r.receipt_id));
+      const missingPayload = similarReceiptIds
+        .filter((id: string) => !existingSet.has(id))
+        .map((id: string) => ({ receipt_id: id, tag_id: tagId }));
+      if (missingPayload.length > 0) {
+        const { error } = await supabase.from("receipt_tags").insert(missingPayload);
+        if (error) throw error;
+      }
+      return Math.max(0, missingPayload.filter((p) => p.receipt_id !== receiptId).length);
     } catch (e) {
       console.error("Error auto-tagging similar receipts:", e);
       return 0;
@@ -189,11 +197,19 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
         if (createError) throw createError;
         tag = newTag;
       }
-      // Link tag to receipt
-      const { error: linkError } = await supabase
+      // Link tag to receipt if not already linked (avoid RLS issues with upsert)
+      const { data: existingLink } = await supabase
         .from("receipt_tags")
-        .upsert({ receipt_id: receiptId, tag_id: tag.id }, { onConflict: "receipt_id,tag_id" });
-      if (linkError) throw linkError;
+        .select("receipt_id")
+        .eq("receipt_id", receiptId)
+        .eq("tag_id", tag.id)
+        .maybeSingle();
+      if (!existingLink) {
+        const { error: linkError } = await supabase
+          .from("receipt_tags")
+          .insert({ receipt_id: receiptId, tag_id: tag.id });
+        if (linkError) throw linkError;
+      }
       const propagatedCount = await addTagToSimilarReceipts(tag.id);
       setInputValue("");
       await fetchTags(); // Re-fetch tags after adding
