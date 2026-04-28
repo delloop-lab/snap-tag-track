@@ -23,7 +23,7 @@ const classicLayout = (
           </h1>
           <Link
             to="/auth"
-            className="inline-block bg-[#80ba82] text-white px-8 md:px-11 py-3 md:py-4 rounded-[30px] text-base md:text-[1.15rem] font-bold mb-4 cursor-pointer transition-colors hover:bg-[#6da56f] text-center w-full"
+            className="inline-block bg-[#7CB87E] text-white px-8 md:px-11 py-3 md:py-4 rounded-[30px] text-base md:text-[1.15rem] font-bold mb-4 cursor-pointer transition-colors hover:bg-[#7CB87E]/90 text-center w-full"
           >
             GET STARTED IT&apos;S FREE
           </Link>
@@ -100,17 +100,25 @@ export default function LandingPage2() {
   return (
     <main className="min-h-screen bg-slate-800 text-slate-100">
       <section className="max-w-6xl mx-auto px-4 pt-8 md:pt-12 pb-14 md:pb-20">
-        <div className="mb-8">
-          <img src="/SnapTagTrack_trans.png" alt="Snap Tag Track logo" className="h-10 md:h-14 w-auto" />
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <img src="/SnapTagTrack.png" alt="Snap Tag Track logo" className="h-9 md:h-[50px] w-auto" />
+          <Link
+            to="/auth"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 text-sm md:text-base"
+          >
+            Login
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
-            <p className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 mb-4">
+            <p className="inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs text-[#7CB87E] mb-4">
               Always-Ready Companion
             </p>
             <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
-              Stop Guessing Where Your Money Went. See It.
+              Stop Guessing Where Your Money Went.
+              <br />
+              See It.
             </h1>
             <p className="text-slate-300 mt-4 text-base md:text-lg">
               Snap a store receipt or invoice, tag the project, and track spending instantly. Works even when the internet doesn&apos;t.
@@ -122,7 +130,7 @@ export default function LandingPage2() {
               <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1 w-fit">
                 <button
                   className={`px-4 py-2 rounded-lg text-sm font-semibold ${
-                    persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"
+                    persona === "personal" ? "bg-[#7CB87E] text-white" : "text-slate-300"
                   }`}
                   onClick={() => setPersona("personal")}
                 >
@@ -130,7 +138,7 @@ export default function LandingPage2() {
                 </button>
                 <button
                   className={`px-4 py-2 rounded-lg text-sm font-semibold ${
-                    persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"
+                    persona === "contractor" ? "bg-[#4A8AE6] text-white" : "text-slate-300"
                   }`}
                   onClick={() => setPersona("contractor")}
                 >
@@ -139,7 +147,7 @@ export default function LandingPage2() {
               </div>
               <button
                 type="button"
-                className="inline-flex md:hidden items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3"
+                className="inline-flex md:hidden items-center justify-center rounded-xl bg-[#7CB87E] hover:bg-[#7CB87E]/90 text-white font-semibold px-6 py-3"
                 onClick={() => alert("Add to Home Screen:\n\niPhone: Share > Add to Home Screen\nAndroid: Menu > Install App")}
               >
                 Add to Home Screen
@@ -147,14 +155,14 @@ export default function LandingPage2() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-5">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-slate-700/70 border border-slate-600 p-5">
-              <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-4 min-h-[240px]">
+          <div className="grid grid-cols-1 gap-5 max-w-[460px] w-full justify-self-end">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-slate-700/70 border border-slate-600 p-4">
+              <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-3 min-h-[200px]">
                 <div className="h-2 w-16 bg-orange-500 rounded mb-4 animate-pulse" />
-                <p className="text-xs text-slate-400 mb-3">
+                <p className={`text-xs mb-3 ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>
                   {persona === "personal" ? "FAMILY" : "WORK"}
                 </p>
-                <div className="mt-2 h-[300px] md:h-[380px] rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
+                <div className="mt-2 h-[250px] md:h-[300px] rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
                   <img
                     src={personaHeroImage}
                     alt={persona === "personal" ? "SnapTagTrack family preview" : "SnapTagTrack contractor preview"}
@@ -168,48 +176,39 @@ export default function LandingPage2() {
       </section>
 
       <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {[
-            ["Zero Storage", "No 200MB download. Open and go instantly from a link or QR."],
-            ["Works Offline", "Capture now in weak signal areas and sync when you have connection."],
-            ["Instant Shortcut", "Keep it one tap away by adding to your home screen."],
-          ].map(([t, d]) => (
-            <div key={t} className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-              <h3 className="font-bold text-orange-400 text-lg">{t}</h3>
-              <p className="text-slate-300 text-sm mt-2 leading-relaxed">{d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl md:text-3xl font-bold">Built for Households and Contractors</h2>
           <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-[#7CB87E] text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-[#4A8AE6] text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6 md:col-span-2">
-            <h3 className="text-xl font-bold">{personaCopy.title}</h3>
+          <div className={`rounded-2xl border bg-slate-700/60 p-6 md:col-span-2 ${persona === "personal" ? "border-[#7CB87E]/40" : "border-[#4A8AE6]/40"}`}>
+            <h3 className={`text-xl font-bold ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>
+              {personaCopy.title}
+            </h3>
             <p className="text-slate-300 mt-2 leading-relaxed">{personaCopy.text}</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-            <h3 className="font-bold text-emerald-300">Visual Evidence</h3>
+          <div className={`rounded-2xl border bg-slate-700/60 p-6 ${persona === "personal" ? "border-[#7CB87E]/35" : "border-[#4A8AE6]/35"}`}>
+            <h3 className={`font-bold ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>Visual Evidence</h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">Attach receipt and product photos so proof is always ready.</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-            <h3 className="font-bold">Family Focus</h3>
+          <div className="rounded-2xl border border-[#7CB87E]/35 bg-slate-700/60 p-6">
+            <h3 className="font-bold text-[#7CB87E]">Family Focus</h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">Track grocery inflation and recurring spending leaks.</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-            <h3 className="font-bold">Contractor Focus</h3>
+          <div className="rounded-2xl border border-[#4A8AE6]/35 bg-slate-700/60 p-6">
+            <h3 className="font-bold text-[#4A8AE6]">Contractor Focus</h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">Tag every receipt to jobs/clients and keep deductions organised.</p>
           </div>
-          <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-            <h3 className="font-bold text-orange-300">Always Accessible</h3>
-            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Open instantly from URL, QR, or home-screen shortcut.</p>
+          <div className={`rounded-2xl border bg-slate-700/60 p-6 ${persona === "personal" ? "border-[#7CB87E]/35" : "border-[#4A8AE6]/35"}`}>
+            <h3 className={`font-bold ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>Always Ready</h3>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">
+              {persona === "contractor"
+                ? "You can add details on site or at home."
+                : "You can add details whilst shopping or at home."}
+            </p>
           </div>
         </div>
       </section>
@@ -218,13 +217,15 @@ export default function LandingPage2() {
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl md:text-3xl font-bold">Your Mode, Your Outcomes</h2>
           <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-[#7CB87E] text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-[#4A8AE6] text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-            <h3 className="font-bold text-lg">{persona === "personal" ? "Control household spending" : "Control project spend"}</h3>
+            <h3 className={`font-bold text-lg ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>
+              {persona === "personal" ? "Control household spending" : "Control project spend"}
+            </h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">
               {persona === "personal"
                 ? "See where money goes each week and stop small leaks before they become big bills."
@@ -232,13 +233,56 @@ export default function LandingPage2() {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-600 bg-slate-700/60 p-6">
-            <h3 className="font-bold text-lg">{persona === "personal" ? "Never lose warranty proof" : "Never lose expense proof"}</h3>
+            <h3 className={`font-bold text-lg ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>
+              {persona === "personal" ? "Never lose warranty proof" : "Never lose expense proof"}
+            </h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">
               {persona === "personal"
                 ? "Store receipt and product images together for returns, repairs, and support claims."
                 : "Keep each receipt linked to a client/job so tax and reporting season is painless."}
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 pb-10 md:pb-14">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {[
+            [
+              "Zero Storage",
+              persona === "contractor"
+                ? "No 200MB download. Open and go instantly from a link or QR."
+                : "No need to download another App on your phone.",
+            ],
+            [
+              "Works Offline",
+              persona === "contractor"
+                ? "Capture now in weak signal areas and sync when you have connection."
+                : "Capture now even when the Internet goes down and sync when you have connection.",
+            ],
+            [
+              "Share the information",
+              persona === "contractor"
+                ? "Whether onsite working, or in the office, everyone can share information."
+                : "Whether you do the books or your partner does, you can both share the information.",
+            ],
+          ].map(([t, d]) => (
+            <div
+              key={t}
+              className={`rounded-2xl border bg-slate-700/60 p-6 ${
+                persona === "personal" ? "border-[#7CB87E]/35" : "border-[#4A8AE6]/35"
+              }`}
+            >
+              <h3
+                className={`font-bold text-lg ${
+                  persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"
+                }`}
+              >
+                {t}
+              </h3>
+              <p className="text-slate-300 text-sm mt-2 leading-relaxed">{d}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -249,7 +293,7 @@ export default function LandingPage2() {
             <thead className="bg-slate-700">
               <tr>
                 <th className="text-left p-3">Feature</th>
-                <th className="text-left p-3 text-emerald-300">Snap Tag Track</th>
+                <th className="text-left p-3 text-[#7CB87E]">Snap Tag Track</th>
                 <th className="text-left p-3 text-slate-300">Traditional Bank-Linked Apps</th>
               </tr>
             </thead>
@@ -275,7 +319,7 @@ export default function LandingPage2() {
         <h2 className="text-2xl md:text-3xl font-bold mb-5">Simple Install Guide</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
-            <h3 className="font-semibold text-emerald-300">iPhone</h3>
+            <h3 className="font-semibold text-[#7CB87E]">iPhone</h3>
             <p className="text-sm text-slate-300 mt-2">Tap Share, then tap Add to Home Screen.</p>
           </div>
           <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
