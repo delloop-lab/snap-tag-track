@@ -12,7 +12,7 @@ import { format, addYears, isValid } from "date-fns";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { HelpCircle, ChevronDown, ChevronUp, Loader2, ShieldCheck, Tag, X, Printer } from "lucide-react";
+import { HelpCircle, ChevronDown, ChevronUp, Loader2, ShieldCheck, Tag, X, Printer, RefreshCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTagColor } from "./TagInput";
 
@@ -85,6 +85,8 @@ const ReceiptSummaryList = () => {
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchDeltaX, setTouchDeltaX] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isBulkRescanning, setIsBulkRescanning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Get the highlight ID from URL query params
   const highlightId = new URLSearchParams(location.search).get("highlight");
@@ -194,6 +196,79 @@ const ReceiptSummaryList = () => {
     setModalText(notes || "No notes");
     setModalTitle("Notes");
     setShowModal(true);
+  };
+
+  const handleBulkRescan = async () => {
+    if (!user || receipts.length === 0 || isBulkRescanning) return;
+    const proceed = window.confirm(
+      `Rescan all ${receipts.length} receipts with AI? This will overwrite vendor, total, date, text, line items, and currency.`
+    );
+    if (!proceed) return;
+
+    setIsBulkRescanning(true);
+    setBulkProgress({ done: 0, total: receipts.length });
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (let i = 0; i < receipts.length; i++) {
+        const receipt = receipts[i];
+        try {
+          if (!receipt.image_path) throw new Error("Missing image path");
+          const { data: fnData, error: fnError } = await supabase.functions.invoke(
+            "process-receipt",
+            { body: { filePath: receipt.image_path } }
+          );
+          if (fnError) throw new Error(fnError.message);
+          if (!fnData?.success) throw new Error(fnData?.error ?? "Function failed");
+
+          const extracted = fnData.data ?? {};
+          const { error: updateError } = await supabase
+            .from("receipts")
+            .update({
+              vendor_name: extracted.vendor ?? receipt.vendor_name ?? "Unknown Vendor",
+              total_amount:
+                typeof extracted.total_amount === "number" ? extracted.total_amount : null,
+              purchase_date: extracted.purchase_date ?? null,
+              text_content: extracted.raw_text ?? null,
+              line_items:
+                Array.isArray(extracted.line_items) && extracted.line_items.length > 0
+                  ? extracted.line_items
+                  : null,
+              currency: extracted.currency ?? null,
+            })
+            .eq("id", receipt.id)
+            .eq("user_id", user.id);
+          if (updateError) throw updateError;
+          successCount++;
+        } catch {
+          failCount++;
+        } finally {
+          setBulkProgress({ done: i + 1, total: receipts.length });
+        }
+      }
+
+      const { data: refreshedReceipts } = await supabase
+        .from("receipts")
+        .select("*, receipt_tags(tag_id, tags:tag_id(id, name))")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      setReceipts(refreshedReceipts || []);
+
+      toast({
+        title: "Bulk rescan complete",
+        description: `Updated ${successCount} receipt${successCount === 1 ? "" : "s"}${failCount ? `, ${failCount} failed` : ""}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Bulk rescan failed",
+        description: error instanceof Error ? error.message : "Unexpected error during bulk rescan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkRescanning(false);
+      setBulkProgress(null);
+    }
   };
 
   const CHART_COLORS = ["#f97316","#3b82f6","#22c55e","#a855f7","#ec4899","#14b8a6","#eab308","#ef4444"];
@@ -504,6 +579,24 @@ const ReceiptSummaryList = () => {
             onClick={() => window.print()}
           >
             <Printer className="w-4 h-4 mr-2" /> Print
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 min-w-[140px] mt-2 md:mt-0 ml-2"
+            onClick={handleBulkRescan}
+            disabled={isBulkRescanning || receipts.length === 0}
+          >
+            {isBulkRescanning ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {bulkProgress ? `Rescanning ${bulkProgress.done}/${bulkProgress.total}` : "Rescanning..."}
+              </>
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Rescan All with AI
+              </>
+            )}
           </Button>
         </div>
       </div>

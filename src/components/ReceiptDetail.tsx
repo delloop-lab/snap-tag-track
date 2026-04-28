@@ -13,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Edit, Printer, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, Edit, Printer, ChevronDown, ChevronUp, Trash2, RefreshCcw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,6 +84,7 @@ const ReceiptDetail = () => {
   const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
   const [showLineItems, setShowLineItems] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -284,6 +285,53 @@ const ReceiptDetail = () => {
     }
   };
 
+  const handleRescanWithAI = async () => {
+    if (!receipt?.image_path) return;
+    setIsRescanning(true);
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke(
+        "process-receipt",
+        { body: { filePath: receipt.image_path } }
+      );
+
+      if (fnError) throw new Error(fnError.message);
+      if (!fnData?.success) throw new Error(fnData?.error ?? "Rescan failed");
+
+      const extracted = fnData.data ?? {};
+      const { error: updateError } = await supabase
+        .from("receipts")
+        .update({
+          vendor_name: extracted.vendor ?? receipt.vendor_name ?? "Unknown Vendor",
+          total_amount:
+            typeof extracted.total_amount === "number" ? extracted.total_amount : null,
+          purchase_date: extracted.purchase_date ?? null,
+          text_content: extracted.raw_text ?? null,
+          line_items:
+            Array.isArray(extracted.line_items) && extracted.line_items.length > 0
+              ? extracted.line_items
+              : null,
+          currency: extracted.currency ?? null,
+        })
+        .eq("id", receipt.id);
+
+      if (updateError) throw updateError;
+      await fetchReceipt();
+      toast({
+        title: "Receipt rescanned",
+        description: "AI extraction has been updated for this receipt.",
+      });
+    } catch (error) {
+      console.error("Error rescanning receipt:", error);
+      toast({
+        title: "Rescan failed",
+        description: error instanceof Error ? error.message : "Could not rescan this receipt.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRescanning(false);
+    }
+  };
+
   const handleSaveChanges = async () => {
     if (!receipt) return;
     const parsedAmount = editedAmount ? parseFloat(editedAmount) : null;
@@ -455,6 +503,15 @@ const ReceiptDetail = () => {
                 className="flex items-center gap-2"
               >
                 <Printer className="h-4 w-4" /> Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRescanWithAI}
+                className="flex items-center gap-2"
+                disabled={isRescanning}
+              >
+                <RefreshCcw className={`h-4 w-4 ${isRescanning ? "animate-spin" : ""}`} />
+                {isRescanning ? "Rescanning..." : "Rescan with AI"}
               </Button>
               <Button
                 variant="destructive"
