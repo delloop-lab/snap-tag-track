@@ -28,6 +28,11 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/AuthProvider";
+import {
+  buildRescanPatch,
+  getRescanPreferences,
+  patchDiffLines,
+} from "@/lib/rescanPreferences";
 
 interface LineItem {
   description: string;
@@ -287,7 +292,7 @@ const ReceiptDetail = () => {
   };
 
   const handleRescanWithAI = async () => {
-    if (!receipt?.image_path) return;
+    if (!receipt?.image_path || !user) return;
     setIsRescanning(true);
     try {
       const { data: fnData, error: fnError } = await supabase.functions.invoke(
@@ -299,20 +304,37 @@ const ReceiptDetail = () => {
       if (!fnData?.success) throw new Error(fnData?.error ?? "Rescan failed");
 
       const extracted = fnData.data ?? {};
+      const prefs = getRescanPreferences(user.id);
+      const current = {
+        vendor_name: receipt.vendor_name,
+        total_amount: receipt.total_amount,
+        purchase_date: receipt.purchase_date,
+        text_content: receipt.text_content,
+        line_items: (receipt.line_items as unknown[] | null) ?? null,
+        currency: receipt.currency,
+      };
+      const patch = buildRescanPatch(current, extracted, prefs.emptyOnly);
+      const changedFields = Object.keys(patch);
+      if (changedFields.length === 0) {
+        toast({
+          title: "Nothing to update",
+          description: prefs.emptyOnly
+            ? "No empty fields were available to fill."
+            : "AI returned no changes for this receipt.",
+        });
+        return;
+      }
+      if (prefs.previewDiff) {
+        const lines = patchDiffLines(current, patch).slice(0, 8);
+        const approved = window.confirm(
+          `Apply these changes?\n\n${lines.join("\n")}${lines.length === 8 ? "\n..." : ""}`
+        );
+        if (!approved) return;
+      }
+
       const { error: updateError } = await supabase
         .from("receipts")
-        .update({
-          vendor_name: extracted.vendor ?? receipt.vendor_name ?? "Unknown Vendor",
-          total_amount:
-            typeof extracted.total_amount === "number" ? extracted.total_amount : null,
-          purchase_date: extracted.purchase_date ?? null,
-          text_content: extracted.raw_text ?? null,
-          line_items:
-            Array.isArray(extracted.line_items) && extracted.line_items.length > 0
-              ? extracted.line_items
-              : null,
-          currency: extracted.currency ?? null,
-        })
+        .update(patch)
         .eq("id", receipt.id);
 
       if (updateError) throw updateError;

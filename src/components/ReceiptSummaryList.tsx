@@ -15,6 +15,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { HelpCircle, ChevronDown, ChevronUp, Loader2, ShieldCheck, Tag, X, Printer, RefreshCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTagColor } from "./TagInput";
+import {
+  buildRescanPatch,
+  getRescanPreferences,
+  patchDiffLines,
+} from "@/lib/rescanPreferences";
 
 // Tag color palette
 const tagColors = [
@@ -51,6 +56,8 @@ interface Receipt {
   warranty: boolean;
   image_path: string | null;
   text_content: string | null;
+  line_items?: unknown[] | null;
+  currency?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -200,8 +207,11 @@ const ReceiptSummaryList = () => {
 
   const handleBulkRescan = async () => {
     if (!user || receipts.length === 0 || isBulkRescanning) return;
+    const prefs = getRescanPreferences(user.id);
     const proceed = window.confirm(
-      `Rescan all ${receipts.length} receipts with AI? This will overwrite vendor, total, date, text, line items, and currency.`
+      `Rescan all ${receipts.length} receipts with AI?\n\nMode: ${
+        prefs.emptyOnly ? "only empty fields" : "overwrite with AI values"
+      }${prefs.previewDiff ? "\nDiff preview: ON (you will be prompted per receipt)." : ""}`
     );
     if (!proceed) return;
 
@@ -223,20 +233,34 @@ const ReceiptSummaryList = () => {
           if (!fnData?.success) throw new Error(fnData?.error ?? "Function failed");
 
           const extracted = fnData.data ?? {};
+          const current = {
+            vendor_name: receipt.vendor_name,
+            total_amount: receipt.total_amount,
+            purchase_date: receipt.purchase_date,
+            text_content: receipt.text_content,
+            line_items: (receipt.line_items as unknown[] | null) ?? null,
+            currency: receipt.currency ?? null,
+          };
+          const patch = buildRescanPatch(current, extracted, prefs.emptyOnly);
+          if (Object.keys(patch).length === 0) {
+            setBulkProgress({ done: i + 1, total: receipts.length });
+            continue;
+          }
+          if (prefs.previewDiff) {
+            const lines = patchDiffLines(current, patch).slice(0, 6);
+            const approved = window.confirm(
+              `Apply changes to "${receipt.vendor_name || "Unknown Vendor"}"? \n\n${lines.join(
+                "\n"
+              )}${lines.length === 6 ? "\n..." : ""}`
+            );
+            if (!approved) {
+              setBulkProgress({ done: i + 1, total: receipts.length });
+              continue;
+            }
+          }
           const { error: updateError } = await supabase
             .from("receipts")
-            .update({
-              vendor_name: extracted.vendor ?? receipt.vendor_name ?? "Unknown Vendor",
-              total_amount:
-                typeof extracted.total_amount === "number" ? extracted.total_amount : null,
-              purchase_date: extracted.purchase_date ?? null,
-              text_content: extracted.raw_text ?? null,
-              line_items:
-                Array.isArray(extracted.line_items) && extracted.line_items.length > 0
-                  ? extracted.line_items
-                  : null,
-              currency: extracted.currency ?? null,
-            })
+            .update(patch)
             .eq("id", receipt.id)
             .eq("user_id", user.id);
           if (updateError) throw updateError;

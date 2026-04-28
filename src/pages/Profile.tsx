@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
+import {
+  getRescanPreferences,
+  setRescanPreferences,
+} from "@/lib/rescanPreferences";
 
 const AVATAR_BUCKET = "avatars";
 
@@ -16,6 +20,8 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [rescanEmptyOnly, setRescanEmptyOnly] = useState(false);
+  const [rescanPreviewDiff, setRescanPreviewDiff] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -46,6 +52,9 @@ const Profile = () => {
           }
         }
       }
+      const prefs = getRescanPreferences(user.id);
+      setRescanEmptyOnly(prefs.emptyOnly);
+      setRescanPreviewDiff(prefs.previewDiff);
     };
     fetchProfile();
   }, [user]);
@@ -59,6 +68,10 @@ const Profile = () => {
       .from("users")
       .update({ first_name: firstName, last_name: lastName, avatar_url: avatarPath })
       .eq("id", user.id);
+    setRescanPreferences(user.id, {
+      emptyOnly: rescanEmptyOnly,
+      previewDiff: rescanPreviewDiff,
+    });
     setLoading(false);
     if (error) {
       setError("Failed to update profile. Please try again.");
@@ -147,6 +160,27 @@ const Profile = () => {
             placeholder="Last Name"
             disabled={loading}
           />
+        </div>
+        <div className="rounded border p-3 space-y-3">
+          <p className="font-medium">AI Rescan Settings</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={rescanEmptyOnly}
+              onChange={(e) => setRescanEmptyOnly(e.target.checked)}
+              disabled={loading}
+            />
+            Rescan only empty fields
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={rescanPreviewDiff}
+              onChange={(e) => setRescanPreviewDiff(e.target.checked)}
+              disabled={loading}
+            />
+            Preview diff before apply
+          </label>
         </div>
         {success && <div className="text-green-600 text-center">{success}</div>}
         {error && <div className="text-red-600 text-center">{error}</div>}
