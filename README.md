@@ -1,73 +1,78 @@
-# Welcome to your Lovable project
+# Snap — Receipt Organiser
 
-## Project info
+Snap, tag and remember your receipts. Upload a photo and AI extracts the vendor, total, date and line items automatically.
 
-**URL**: https://lovable.dev/projects/d8f7e909-295f-484a-8655-9472f55e373e
+## Tech stack
 
-## How can I edit this code?
+- **Frontend:** Vite + React 18 + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend:** Supabase (Postgres, Auth, Storage, Edge Functions)
+- **AI:** OpenAI GPT-4o Vision (via Supabase Edge Function)
 
-There are several ways of editing your application.
+## Getting started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d8f7e909-295f-484a-8655-9472f55e373e) and start prompting.
+- Node.js 18+
+- [Supabase CLI](https://supabase.com/docs/guides/cli)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Local development
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app runs on http://localhost:8080.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment variables
 
-**Use GitHub Codespaces**
+Copy `.env.example` to `.env` and fill in your values:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```sh
+cp .env.example .env
+```
 
-## What technologies are used for this project?
+| Variable | Description |
+|---|---|
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/public key |
 
-This project is built with:
+### Edge Function secrets
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The `process-receipt` Edge Function requires an OpenAI API key. Set it via the Supabase CLI or dashboard:
 
-## How can I deploy this project?
+```sh
+supabase secrets set OPENAI_API_KEY=sk-...
+```
 
-Simply open [Lovable](https://lovable.dev/projects/d8f7e909-295f-484a-8655-9472f55e373e) and click on Share -> Publish.
+Or in the Supabase Dashboard → Project Settings → Edge Functions → Secrets.
 
-## Can I connect a custom domain to my Lovable project?
+### Deploying Edge Functions
 
-Yes, you can!
+```sh
+supabase functions deploy process-receipt
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Database migrations
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```sh
+supabase db push
+```
+
+## Project structure
+
+```
+src/
+  pages/          Route-level screens
+  components/     Feature components + ui/ (shadcn design system)
+  hooks/          Custom React hooks
+  lib/            Utilities
+  integrations/
+    supabase/     Supabase client + generated types
+supabase/
+  functions/      Edge Functions (Deno)
+  migrations/     SQL schema migrations
+```
