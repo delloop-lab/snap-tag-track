@@ -129,14 +129,14 @@ export default function LandingPage2() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-5">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-slate-700/70 border border-slate-600 p-5">
               <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-4 min-h-[240px]">
                 <div className="h-2 w-16 bg-orange-500 rounded mb-4 animate-pulse" />
                 <p className="text-xs text-slate-400 mb-3">
                   {persona === "personal" ? "Family view preview" : "Contractor view preview"}
                 </p>
-                <div className="mt-2 h-44 rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
+                <div className="mt-2 h-[300px] md:h-[380px] rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
                   <img
                     src={personaHeroImage}
                     alt={persona === "personal" ? "SnapTagTrack family preview" : "SnapTagTrack contractor preview"}
@@ -145,12 +145,6 @@ export default function LandingPage2() {
                 </div>
               </div>
             </motion.div>
-
-            <div className="hidden md:flex flex-col rounded-2xl bg-white text-slate-700 p-4 items-center justify-center">
-              <img src={QR_IMAGE} alt="Launch instantly QR code" className="w-36 h-36 mb-2" />
-              <p className="text-sm font-semibold">Launch Instantly</p>
-              <p className="text-xs text-slate-500 text-center">Scan with your phone to open Snap Tag Track now.</p>
-            </div>
           </div>
         </div>
       </section>
@@ -270,6 +264,14 @@ export default function LandingPage2() {
             <h3 className="font-semibold text-orange-300">Android</h3>
             <p className="text-sm text-slate-300 mt-2">Open browser menu, then tap Install App.</p>
           </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 pb-28">
+        <div className="hidden md:flex flex-col rounded-2xl bg-white text-slate-700 p-6 items-center justify-center max-w-sm mx-auto">
+          <img src={QR_IMAGE} alt="Launch instantly QR code" className="w-40 h-40 mb-3" />
+          <p className="text-sm font-semibold">Launch Instantly</p>
+          <p className="text-xs text-slate-500 text-center">Scan with your phone to open Snap Tag Track now.</p>
         </div>
       </section>
 
