@@ -339,7 +339,7 @@ const ReceiptUpload = () => {
           longitude: reviewState.longitude,
           location_name: reviewState.locationName,
           line_items: reviewState.lineItems.length > 0 ? reviewState.lineItems : null,
-          currency: reviewState.currency || "GBP",
+          currency: reviewState.currency || null,
         })
         .select();
 

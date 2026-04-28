@@ -78,7 +78,7 @@ Rules:
 - vendor: name at the top of the receipt, not the address or tagline
 - total_amount: the final amount paid after all taxes and discounts — must be a number, null if not found
 - purchase_date: look for labels like Date, Data, Datum, Fecha; format as YYYY-MM-DD; null if not found
-- currency: detect from symbols (£=GBP, €=EUR, $=USD) or country context; default to GBP if unclear
+- currency: detect from symbols (£=GBP, €=EUR, $=USD) or country context; return null if you cannot determine it
 - line_items: list individual items with prices; return empty array [] if not clearly readable
 - confidence: "high" if all fields are clear, "medium" if some fields are uncertain, "low" if image quality is poor
 - raw_text: transcribe all readable text from the receipt in reading order`;

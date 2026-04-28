@@ -233,7 +233,8 @@ const ReceiptDetail = () => {
 
   const formatCurrency = (amount: number | null, currencyCode?: string | null) => {
     if (amount === null) return "Not available";
-    const code = currencyCode ?? receipt?.currency ?? "GBP";
+    const code = currencyCode ?? receipt?.currency;
+    if (!code) return amount.toFixed(2);
     try {
       return new Intl.NumberFormat('en-GB', {
         style: 'currency',
