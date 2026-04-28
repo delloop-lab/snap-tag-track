@@ -13,6 +13,8 @@ const Index = () => {
   const [recentReceipts, setRecentReceipts] = useState([]);
   const [recentImages, setRecentImages] = useState<{ [id: string]: string }>({});
   const [totalThisYear, setTotalThisYear] = useState(0);
+  const [spendThisMonth, setSpendThisMonth] = useState<number | null>(null);
+  const [untaggedCount, setUntaggedCount] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -75,6 +77,29 @@ const Index = () => {
       .eq("user_id", user.id)
       .gte("created_at", `${year}-01-01`);
     setTotalThisYear(count || 0);
+
+    // Stat: spend this month
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const { data: monthData } = await supabase
+      .from("receipts")
+      .select("total_amount")
+      .eq("user_id", user.id)
+      .gte("purchase_date", monthStart);
+    const spend = monthData?.reduce((sum, r) => sum + (r.total_amount || 0), 0) ?? 0;
+    setSpendThisMonth(spend);
+
+    // Stat: untagged receipts
+    const { data: allIds } = await supabase
+      .from("receipts")
+      .select("id")
+      .eq("user_id", user.id);
+    const { data: taggedIds } = await supabase
+      .from("receipt_tags")
+      .select("receipt_id");
+    const taggedSet = new Set((taggedIds || []).map((t) => t.receipt_id));
+    const untagged = (allIds || []).filter((r) => !taggedSet.has(r.id)).length;
+    setUntaggedCount(untagged);
   }, [user, isMobile]);
 
   useEffect(() => {
@@ -174,104 +199,141 @@ const Index = () => {
     navigate(`/receipt/${receipts[0].id}`);
   };
 
-  return (
-    <div className="flex flex-col items-center justify-center bg-white py-4 md:py-12 px-2 md:px-4">
-      <div className="w-full p-0 md:p-0 flex flex-col items-center h-full justify-center">
-        {/* Avatar and welcome message for all screen sizes */}
-        {user && avatarUrl && (
-          <img
-            src={avatarUrl}
-            alt="User Avatar"
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 hidden md:block"
-          />
-        )}
-        <p className="text-xl text-gray-600 mb-2 text-center font-semibold">
+  /* ── Mobile layout ── */
+  if (isMobile) {
+    return (
+      <div className="flex flex-col items-center bg-white py-4 px-3 min-h-screen">
+        <p className="text-lg text-gray-600 mb-4 text-center font-semibold">
           {user && firstName ? `Welcome back, ${firstName}!` : randomMessage.main}
         </p>
-        {!user && (
-          <p className="text-base text-gray-400 mb-14 text-center font-normal">{randomMessage.sub}</p>
-        )}
-        <div className="flex flex-col gap-4 w-full items-center mb-10">
-          <Button className="w-1/2 max-w-xs text-4xl py-6 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/upload")}>
-            <Camera className="!h-[30px] !w-[30px]" />
-            SNAP
-          </Button>
-          <Button className="w-1/2 max-w-xs text-4xl py-6 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={handleTagClick}>
-            <Tag className="!h-[30px] !w-[30px]" />
-            TAG
-          </Button>
-          <Button className="w-1/2 max-w-xs text-4xl py-6 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white border-none rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95" size="lg" onClick={() => navigate("/summary")}>
-            <BarChart3 className="!h-[30px] !w-[30px]" />
-            TRACK
-          </Button>
+        <div className="flex flex-col gap-3 w-full items-center mb-8">
+          <button className="w-full max-w-xs text-3xl py-5 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95 font-bold" onClick={() => navigate("/upload")}>
+            <Camera className="h-7 w-7" /> SNAP
+          </button>
+          <button className="w-full max-w-xs text-3xl py-5 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95 font-bold" onClick={handleTagClick}>
+            <Tag className="h-7 w-7" /> TAG
+          </button>
+          <button className="w-full max-w-xs text-3xl py-5 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-full flex items-center justify-center gap-2 shadow-lg transition active:scale-95 font-bold" onClick={() => navigate("/summary")}>
+            <BarChart3 className="h-7 w-7" /> TRACK
+          </button>
         </div>
-        {user && (
-          <div className="w-full flex flex-col items-center mb-2">
-            <h2 className="text-2xl font-semibold mb-1 text-center">Recent Receipts</h2>
-            {recentReceipts.length === 0 ? (
-              <p className="text-muted-foreground text-base text-center">No receipts yet. <Button variant="link" onClick={() => navigate("/upload")}>Upload your first receipt</Button></p>
-            ) : (
-              <div className="flex gap-6 overflow-x-auto pb-0 justify-center w-full md:max-w-[calc(5*192px+4*24px)] md:scrollbar-thin md:scrollbar-thumb-gray-300 md:scrollbar-track-gray-100">
-                {recentReceipts.slice(0, isMobile ? 2 : 5).map(r => (
-                  <div
-                    key={r.id}
-                    className="border border-gray-300 rounded-xl bg-white flex-shrink-0 w-48 p-3 flex flex-col items-center shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
-                    onClick={() => handleRecentClick(r.id)}
-                  >
-                    <div className="aspect-[3/4] w-full bg-gray-200 rounded-lg mb-3 overflow-hidden relative">
-                      {!recentImages[r.id] ? (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200 animate-pulse">
-                          <div className="flex flex-col items-center gap-1">
-                            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-400 rounded-full animate-spin" />
-                            <span className="text-[8px] text-gray-400 font-semibold">Loading...</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={recentImages[r.id] || "/placeholder.svg"}
-                          alt="Receipt"
-                          className="w-full h-full object-cover"
-                          onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"}
-                        />
-                      )}
-                    </div>
-                    <div className="w-full text-center">
-                      <div className="font-medium text-base truncate">{r.vendor_name || "Unknown"}</div>
-                      <div className="text-xs text-muted-foreground">{r.purchase_date ? format(new Date(r.purchase_date), "MMM d, yyyy") : "-"}</div>
-                      <div className="text-sm font-semibold mt-1">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
-                    </div>
+        {user && recentReceipts.length > 0 && (
+          <div className="w-full mb-4">
+            <h2 className="text-lg font-semibold mb-2">Recent Receipts</h2>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {recentReceipts.slice(0, 3).map(r => (
+                <div key={r.id} className="border border-gray-200 rounded-xl bg-white flex-shrink-0 w-36 p-2 flex flex-col items-center shadow-sm cursor-pointer hover:ring-2 hover:ring-orange-300 transition" onClick={() => handleRecentClick(r.id)}>
+                  <div className="aspect-[3/4] w-full bg-gray-100 rounded-lg mb-2 overflow-hidden">
+                    {recentImages[r.id] ? (
+                      <img src={recentImages[r.id]} alt="Receipt" className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"} />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 animate-pulse" />
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="text-xs font-medium truncate w-full text-center">{r.vendor_name || "Unknown"}</div>
+                  <div className="text-xs text-gray-400">{r.total_amount != null ? `${r.total_amount.toFixed(2)}` : "-"}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        <div className="w-full text-center text-lg text-muted-foreground mt-0 mb-0 md:mt-1 md:mb-2">
-          {user
-            ? <>
-                You've uploaded <span className="font-bold text-primary">{totalThisYear}</span> receipt{totalThisYear === 1 ? "" : "s"} this year.
-              </>
-            : "Snap a receipt today!"
-          }
+        <div className="text-sm text-gray-400 text-center mt-2">
+          {totalThisYear} receipt{totalThisYear === 1 ? "" : "s"} this year
         </div>
-        <div className="w-full text-center text-base text-gray-400 mt-1 md:mt-8">
-          Tip: For best OCR, scan receipts on a flat surface with good lighting.
-        </div>
-        {/* QR code and prompt for mobile app */}
-        <div className="hidden md:flex flex-row items-center justify-center gap-4 mt-4 mb-8">
-          <img
-            src="https://api.qrserver.com/v1/create-qr-code/?data=https://www.snaptagtrack.com&size=120x120"
-            alt="QR code for SnapTagTrack"
-            className="w-24 h-24"
-          />
-          <span className="text-base text-gray-700 font-medium">Want SnapTagTrack on your phone?</span>
+        <footer className="w-full text-center text-xs text-gray-300 mt-8 pb-2">
+          Copyright &copy; 2025 The Novita Group
+        </footer>
+      </div>
+    );
+  }
+
+  /* ── Desktop layout ── */
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-6">
+      {/* Welcome */}
+      <div className="flex items-center gap-4 mb-6">
+        {avatarUrl && (
+          <img src={avatarUrl} alt="Avatar" className="h-12 w-12 rounded-full object-cover border-2 border-orange-200" />
+        )}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {firstName ? `Welcome back, ${firstName}!` : "Welcome back!"}
+          </h1>
+          <p className="text-sm text-gray-500">Here's what's happening with your receipts.</p>
         </div>
       </div>
-      <footer
-        className="w-full text-center text-xs text-gray-400 mt-2 md:mt-[46px] pb-2 md:pb-5"
-        style={{ paddingTop: 2 }}
-      >
-        Copyright (c) 2025 The Novita Group
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Receipts this year</div>
+          <div className="text-3xl font-bold text-orange-500">{totalThisYear}</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Spent this month</div>
+          <div className="text-3xl font-bold text-blue-500">
+            {spendThisMonth != null ? spendThisMonth.toFixed(2) : "—"}
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm cursor-pointer hover:border-orange-300 transition" onClick={() => navigate("/receipts")}>
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Untagged receipts</div>
+          <div className="text-3xl font-bold text-green-500">{untaggedCount}</div>
+          {untaggedCount > 0 && <div className="text-xs text-gray-400 mt-1">Click to review</div>}
+        </div>
+      </div>
+
+      {/* Actions row */}
+      <div className="flex gap-3 mb-8">
+        <button className="flex-1 py-4 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl flex items-center justify-center gap-2 shadow transition active:scale-95 font-bold text-lg" onClick={() => navigate("/upload")}>
+          <Camera className="h-5 w-5" /> Snap Receipt
+        </button>
+        <button className="flex-1 py-4 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl flex items-center justify-center gap-2 shadow transition active:scale-95 font-bold text-lg" onClick={handleTagClick}>
+          <Tag className="h-5 w-5" /> Tag
+        </button>
+        <button className="flex-1 py-4 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-xl flex items-center justify-center gap-2 shadow transition active:scale-95 font-bold text-lg" onClick={() => navigate("/summary")}>
+          <BarChart3 className="h-5 w-5" /> Track
+        </button>
+      </div>
+
+      {/* Recent receipts grid */}
+      {recentReceipts.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-800">Recent Receipts</h2>
+            <button className="text-sm text-orange-500 hover:text-orange-600 font-medium" onClick={() => navigate("/receipts")}>View all →</button>
+          </div>
+          <div className="grid grid-cols-5 gap-4">
+            {recentReceipts.slice(0, 5).map(r => (
+              <div key={r.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm cursor-pointer hover:shadow-md hover:border-orange-300 transition" onClick={() => handleRecentClick(r.id)}>
+                <div className="aspect-[3/4] bg-gray-100 overflow-hidden">
+                  {recentImages[r.id] ? (
+                    <img src={recentImages[r.id]} alt="Receipt" className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"} />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 animate-pulse" />
+                  )}
+                </div>
+                <div className="p-2">
+                  <div className="text-xs font-semibold truncate text-gray-800">{r.vendor_name || "Unknown"}</div>
+                  <div className="text-xs text-gray-400">{r.purchase_date ? format(new Date(r.purchase_date), "MMM d") : "-"}</div>
+                  <div className="text-xs font-bold text-gray-700 mt-0.5">{r.total_amount != null ? r.total_amount.toFixed(2) : "-"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recentReceipts.length === 0 && (
+        <div className="text-center py-16 bg-white border border-dashed border-gray-200 rounded-xl">
+          <p className="text-gray-400 mb-3">No receipts yet.</p>
+          <button className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition" onClick={() => navigate("/upload")}>
+            Upload your first receipt
+          </button>
+        </div>
+      )}
+
+      <footer className="text-center text-xs text-gray-300 mt-12 pb-2">
+        Copyright &copy; 2025 The Novita Group
       </footer>
     </div>
   );

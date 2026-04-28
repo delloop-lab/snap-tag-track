@@ -10,6 +10,7 @@ import AuthPage from "./pages/AuthPage";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
+import AppSidebar from "./components/AppSidebar";
 import ReceiptUpload from "./components/ReceiptUpload";
 import ReceiptList from "./components/ReceiptList";
 import ReceiptDetail from "./components/ReceiptDetail";
@@ -30,52 +31,64 @@ const AppContent = () => {
   const showNavbar = user || location.pathname !== "/";
 
   return (
-    <>
-      {showNavbar && <Navbar />}
-      <div className="pt-4">
-        <Routes>
-          <Route path="/" element={user ? <Index /> : <LandingPage2 />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/upload" element={
-            <ProtectedRoute>
-              <ReceiptUpload />
-            </ProtectedRoute>
-          } />
-          <Route path="/receipts" element={
-            <ProtectedRoute>
-              <ReceiptList />
-            </ProtectedRoute>
-          } />
-          <Route path="/receipt/:id" element={
-            <ProtectedRoute>
-              <ReceiptDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/summary" element={
-            <ProtectedRoute>
-              <ReceiptSummaryList />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          <Route path="/tag-untagged" element={
-            <ProtectedRoute>
-              <TagUntagged />
-            </ProtectedRoute>
-          } />
-          <Route path="/landing" element={<LandingPage2 />} />
-          <Route path="/landing2" element={<LandingPage2 />} />
-          {/* Make Admin route accessible without the ProtectedRoute wrapper */}
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/receipts" element={<AdminReceipts />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+    <div className="min-h-screen flex bg-gray-50">
+      {/* Desktop sidebar */}
+      {user && <AppSidebar />}
+
+      {/* Main area */}
+      <div className={`flex-1 min-w-0 flex flex-col ${user ? "md:ml-56" : ""}`}>
+        {/* Mobile-only top navbar */}
+        {showNavbar && (
+          <div className="md:hidden">
+            <Navbar />
+          </div>
+        )}
+
+        <main className="flex-1 pt-2 md:pt-4">
+          <Routes>
+            <Route path="/" element={user ? <Index /> : <LandingPage2 />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/upload" element={
+              <ProtectedRoute>
+                <ReceiptUpload />
+              </ProtectedRoute>
+            } />
+            <Route path="/receipts" element={
+              <ProtectedRoute>
+                <ReceiptList />
+              </ProtectedRoute>
+            } />
+            <Route path="/receipt/:id" element={
+              <ProtectedRoute>
+                <ReceiptDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/summary" element={
+              <ProtectedRoute>
+                <ReceiptSummaryList />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/tag-untagged" element={
+              <ProtectedRoute>
+                <TagUntagged />
+              </ProtectedRoute>
+            } />
+            <Route path="/landing" element={<LandingPage2 />} />
+            <Route path="/landing2" element={<LandingPage2 />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/receipts" element={<AdminReceipts />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+
+        <VersionNumber />
       </div>
-      <VersionNumber />
-    </>
+    </div>
   );
 };
 

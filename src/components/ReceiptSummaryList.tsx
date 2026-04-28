@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
@@ -191,6 +195,36 @@ const ReceiptSummaryList = () => {
     setModalTitle("Notes");
     setShowModal(true);
   };
+
+  const CHART_COLORS = ["#f97316","#3b82f6","#22c55e","#a855f7","#ec4899","#14b8a6","#eab308","#ef4444"];
+
+  const monthlyData = useMemo(() => {
+    const map: Record<string, number> = {};
+    receipts.forEach(r => {
+      if (!r.purchase_date || !r.total_amount) return;
+      const key = r.purchase_date.slice(0, 7);
+      map[key] = (map[key] || 0) + r.total_amount;
+    });
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([month, total]) => ({ month: month.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${y.slice(2)}`), total: parseFloat(total.toFixed(2)) }));
+  }, [receipts]);
+
+  const tagSpendData = useMemo(() => {
+    const map: Record<string, number> = {};
+    receipts.forEach(r => {
+      (r.receipt_tags || []).forEach(rt => {
+        if (rt.tags?.name && r.total_amount) {
+          map[rt.tags.name] = (map[rt.tags.name] || 0) + r.total_amount;
+        }
+      });
+    });
+    return Object.entries(map)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8)
+      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) }));
+  }, [receipts]);
 
   if (isMobile) {
     return (
@@ -476,6 +510,59 @@ const ReceiptSummaryList = () => {
       <div className="mb-4 text-lg font-semibold">
         Total for filtered receipts: <span className="text-primary">${totalFiltered.toFixed(2)}</span>
       </div>
+
+      {/* Charts */}
+      {receipts.length > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+          {/* Monthly spend bar chart */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Monthly Spend</h3>
+            {monthlyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={monthlyData} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
+                  <Bar dataKey="total" fill="#f97316" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-10">Not enough data yet</p>
+            )}
+          </div>
+
+          {/* Spend by tag donut */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Spend by Tag</h3>
+            {tagSpendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={tagSpendData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {tagSpendData.map((_, idx) => (
+                      <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-10">Tag receipts to see breakdown</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {filteredReceipts.length === 0 ? (
         <div className="text-center text-muted-foreground py-10 text-lg">
           There Are No Receipts to Show

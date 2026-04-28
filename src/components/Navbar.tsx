@@ -97,7 +97,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white shadow-md dark:bg-gray-800">
+    <nav className="bg-white shadow-md dark:bg-gray-800 md:hidden">
       {showProfilePrompt && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-blue-50 border border-blue-500 text-blue-600 px-4 py-3 rounded shadow-lg">
           <div className="flex items-center">

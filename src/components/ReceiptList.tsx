@@ -246,12 +246,14 @@ const ReceiptList = () => {
     });
   };
 
-  const formatCurrency = (amount: number | null) => {
+  const formatCurrency = (amount: number | null, currency?: string | null) => {
     if (amount === null) return "N/A";
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    if (!currency) return amount.toFixed(2);
+    try {
+      return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
+    } catch {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
   };
 
   const addTagFilter = (tag: Tag) => {
@@ -334,24 +336,18 @@ const ReceiptList = () => {
             <Button disabled>Upload New Receipt</Button>
           </div>
         </div>
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-4 min-w-[320px]" style={{scrollbarWidth: 'thin'}}>
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="border rounded-lg overflow-hidden shadow-sm flex-shrink-0 w-56 bg-white">
-                <Skeleton className="aspect-[3/4] w-full bg-gray-100" />
-                <div className="p-3 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <Skeleton className="h-4 w-1/3" />
-                  <div className="flex gap-1 mt-2">
-                    <Skeleton className="h-4 w-8 rounded" />
-                    <Skeleton className="h-4 w-8 rounded" />
-                  </div>
-                  <Skeleton className="h-8 w-full mt-3 rounded" />
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="border rounded-lg overflow-hidden shadow-sm bg-white flex sm:flex-col">
+              <Skeleton className="w-24 sm:w-full sm:aspect-[3/4] h-24 sm:h-auto flex-shrink-0 bg-gray-100" />
+              <div className="p-3 flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-8 w-full mt-3 rounded" />
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -523,70 +519,75 @@ const ReceiptList = () => {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-4 min-w-[320px]" style={{scrollbarWidth: 'thin'}}>
-            {filteredReceipts.map((receipt) => (
-              <div
-                key={receipt.id}
-                className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow flex-shrink-0 w-56 bg-white"
-                style={{ minWidth: '224px', maxWidth: '224px' }}
-              >
-                <div className="aspect-[3/4] bg-gray-100 relative">
-                  <img
-                    src={receipt.image_url || "/placeholder.svg"}
-                    alt="Receipt"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/placeholder.svg";
-                    }}
-                  />
-                  {(!receipt.tags || receipt.tags.length === 0) && (
-                    <span className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-semibold px-2 py-0.5 rounded shadow">Untagged</span>
-                  )}
-                </div>
-                <div className="p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-base truncate max-w-[140px]">{receipt.vendor_name || "Unknown Vendor"}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {receipt.purchase_date ? format(new Date(receipt.purchase_date), 'MMM d, yyyy') : 
-                        formatDistanceToNow(new Date(receipt.updated_at), { addSuffix: true })}
-                      </p>
-                      {receipt.total_amount && (
-                        <p className="mt-1 font-semibold text-sm">{formatCurrency(receipt.total_amount)}</p>
-                      )}
-                      {/* Show tags */}
-                      {receipt.tags && receipt.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {receipt.tags.map((tag) => (
-                            <Badge key={tag.id} variant="outline" className={`text-xs ${getTagColor(tag.name)}`}>
-                              {tag.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredReceipts.map((receipt) => (
+            <div
+              key={receipt.id}
+              className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white flex sm:flex-col cursor-pointer"
+              onClick={() => navigate(`/receipt/${receipt.id}`)}
+            >
+              {/* Image — row on mobile, top on sm+ */}
+              <div className="w-24 sm:w-full sm:aspect-[3/4] flex-shrink-0 bg-gray-100 relative">
+                <img
+                  src={receipt.image_url || "/placeholder.svg"}
+                  alt="Receipt"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/placeholder.svg";
+                  }}
+                />
+                {(!receipt.tags || receipt.tags.length === 0) && (
+                  <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded shadow">
+                    Untagged
+                  </span>
+                )}
+              </div>
+
+              {/* Details */}
+              <div className="p-3 flex-1 flex flex-col justify-between min-w-0">
+                <div>
+                  <div className="flex justify-between items-start gap-1">
+                    <h3 className="font-semibold text-sm truncate">{receipt.vendor_name || "Unknown Vendor"}</h3>
                     <Button
-                      variant="destructive"
+                      variant="ghost"
                       size="icon"
-                      className="h-6 w-6 p-0"
-                      onClick={() => handleDelete(receipt.id, receipt.image_path, receipt.tags)}
+                      className="h-6 w-6 p-0 flex-shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(receipt.id, receipt.image_path, receipt.tags);
+                      }}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-3"
-                    onClick={() => navigate(`/receipt/${receipt.id}`)}
-                  >
-                    View Details
-                  </Button>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {receipt.purchase_date
+                      ? format(new Date(receipt.purchase_date), "MMM d, yyyy")
+                      : formatDistanceToNow(new Date(receipt.updated_at), { addSuffix: true })}
+                  </p>
+                  {receipt.total_amount != null && (
+                    <p className="mt-1 font-bold text-sm text-gray-800">
+                      {formatCurrency(receipt.total_amount, (receipt as any).currency)}
+                    </p>
+                  )}
+                  {receipt.tags && receipt.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {receipt.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag.id} variant="outline" className={`text-xs ${getTagColor(tag.name)}`}>
+                          {tag.name}
+                        </Badge>
+                      ))}
+                      {receipt.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs text-gray-400">
+                          +{receipt.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
