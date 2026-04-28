@@ -14,12 +14,23 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle, ChevronDown, ChevronUp, Loader2, ShieldCheck, Tag, X, Printer, RefreshCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { getTagColor } from "./TagInput";
 import {
   buildRescanPatch,
   getRescanPreferencesFromDb,
   patchDiffLines,
 } from "@/lib/rescanPreferences";
+import type { RescanPreferences } from "@/lib/rescanPreferences";
 
 // Tag color palette
 const tagColors = [
@@ -94,6 +105,11 @@ const ReceiptSummaryList = () => {
   const [loading, setLoading] = useState(true);
   const [isBulkRescanning, setIsBulkRescanning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [showBulkRescanDialog, setShowBulkRescanDialog] = useState(false);
+  const [bulkRescanPrefs, setBulkRescanPrefs] = useState<RescanPreferences>({
+    emptyOnly: false,
+    previewDiff: false,
+  });
 
   // Get the highlight ID from URL query params
   const highlightId = new URLSearchParams(location.search).get("highlight");
@@ -208,13 +224,13 @@ const ReceiptSummaryList = () => {
   const handleBulkRescan = async () => {
     if (!user || receipts.length === 0 || isBulkRescanning) return;
     const prefs = await getRescanPreferencesFromDb(supabase, user.id);
-    const proceed = window.confirm(
-      `Rescan all ${receipts.length} receipts with AI?\n\nMode: ${
-        prefs.emptyOnly ? "only empty fields" : "overwrite with AI values"
-      }${prefs.previewDiff ? "\nDiff preview: ON (you will be prompted per receipt)." : ""}`
-    );
-    if (!proceed) return;
+    setBulkRescanPrefs(prefs);
+    setShowBulkRescanDialog(true);
+  };
 
+  const executeBulkRescan = async () => {
+    if (!user || receipts.length === 0 || isBulkRescanning) return;
+    const prefs = bulkRescanPrefs;
     setIsBulkRescanning(true);
     setBulkProgress({ done: 0, total: receipts.length });
     let successCount = 0;
@@ -764,6 +780,37 @@ const ReceiptSummaryList = () => {
           </div>
         </div>
       )}
+      <AlertDialog open={showBulkRescanDialog} onOpenChange={setShowBulkRescanDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rescan all receipts with AI?</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">
+              {`You are about to rescan ${receipts.length} receipt${
+                receipts.length === 1 ? "" : "s"
+              }.\n\nThis can update vendor, total, date, text, line items, and currency.\n\nCurrent mode: ${
+                bulkRescanPrefs.emptyOnly
+                  ? "only empty fields will be filled"
+                  : "existing values may be replaced"
+              }.\nDiff preview: ${
+                bulkRescanPrefs.previewDiff
+                  ? "ON (you will confirm each receipt)"
+                  : "OFF"
+              }.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowBulkRescanDialog(false);
+                executeBulkRescan();
+              }}
+            >
+              Yes, rescan all
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

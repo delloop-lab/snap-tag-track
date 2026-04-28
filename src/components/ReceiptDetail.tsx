@@ -91,6 +91,8 @@ const ReceiptDetail = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isRescanning, setIsRescanning] = useState(false);
   const [showDeleteProductImageDialog, setShowDeleteProductImageDialog] = useState(false);
+  const [showRescanDialog, setShowRescanDialog] = useState(false);
+  const [rescanDialogText, setRescanDialogText] = useState("");
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -355,6 +357,17 @@ const ReceiptDetail = () => {
     }
   };
 
+  const openRescanDialog = async () => {
+    if (!user) return;
+    const prefs = await getRescanPreferencesFromDb(supabase, user.id);
+    setRescanDialogText(
+      `AI will re-check this receipt and may update vendor, total, date, text, line items, and currency.\n\nCurrent mode: ${
+        prefs.emptyOnly ? "only empty fields will be filled" : "existing values may be replaced"
+      }.\nDiff preview: ${prefs.previewDiff ? "ON (you confirm changes)" : "OFF"}.`
+    );
+    setShowRescanDialog(true);
+  };
+
   const handleSaveChanges = async () => {
     if (!receipt) return;
     const parsedAmount = editedAmount ? parseFloat(editedAmount) : null;
@@ -564,7 +577,7 @@ const ReceiptDetail = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={handleRescanWithAI}
+                onClick={openRescanDialog}
                 className="flex items-center gap-2"
                 disabled={isRescanning}
               >
@@ -1104,6 +1117,23 @@ const ReceiptDetail = () => {
               onClick={handleDeleteProductImage}
             >
               Yes, delete image
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRescanDialog} onOpenChange={setShowRescanDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rescan this receipt with AI?</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">
+              {rescanDialogText}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRescanWithAI}>
+              Yes, rescan now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
