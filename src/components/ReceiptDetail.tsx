@@ -13,7 +13,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Edit, Printer, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar as CalendarIcon, Edit, Printer, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,6 +83,7 @@ const ReceiptDetail = () => {
   const [showNewClientInput, setShowNewClientInput] = useState(false);
   const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
   const [showLineItems, setShowLineItems] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Move fetchReceipt outside useEffect
   const fetchReceipt = async () => {
@@ -444,6 +455,13 @@ const ReceiptDetail = () => {
                 className="flex items-center gap-2"
               >
                 <Printer className="h-4 w-4" /> Print
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteDialog(true)}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
               </Button>
             </>
           )}
@@ -863,6 +881,32 @@ const ReceiptDetail = () => {
           )}
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this receipt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <span className="font-semibold">{receipt?.vendor_name || "this receipt"}</span>
+              {receipt?.purchase_date
+                ? ` from ${format(new Date(receipt.purchase_date), "PPP")}`
+                : ""}
+              . This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDelete}
+            >
+              Yes, delete receipt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <style>{`
         @media print {

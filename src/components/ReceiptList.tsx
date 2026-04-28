@@ -189,15 +189,14 @@ const ReceiptList = () => {
     }
   };
 
-  const handleDelete = async (id: string, imagePath: string, tags?: { id: string; name: string }[]) => {
+  const handleDelete = (id: string, imagePath: string, tags?: { id: string; name: string }[]) => {
+    // Always show the confirmation dialog first
+    setPendingDelete({ id, imagePath, tags });
+  };
+
+  const confirmDelete = async (id: string) => {
     const deletedReceipt = receipts.find(r => r.id === id);
     if (!deletedReceipt) return;
-
-    // If the receipt has tags, show AlertDialog
-    if (tags && tags.length > 0) {
-      setPendingDelete({ id, imagePath, tags });
-      return;
-    }
 
     // Optimistically remove from UI
     setReceipts((prev) => prev.filter((receipt) => receipt.id !== id));
@@ -206,7 +205,6 @@ const ReceiptList = () => {
     let undoClicked = false;
     const timeoutId = setTimeout(async () => {
       if (!undoClicked) {
-        // Actually delete from database
         const { error: dbError } = await supabase
           .from("receipts")
           .delete()
@@ -216,11 +214,6 @@ const ReceiptList = () => {
             title: "Error",
             description: "Failed to delete receipt",
             variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Receipt deleted",
-            description: "The receipt has been removed successfully",
           });
         }
       }
@@ -233,12 +226,12 @@ const ReceiptList = () => {
       title: "Receipt deleted",
       description: (
         <span>
-          The receipt has been removed. <button className="underline ml-2" onClick={() => {
+          Deleted. <button className="underline ml-2 font-semibold" onClick={() => {
             undoClicked = true;
             clearTimeout(timeoutId);
             setReceipts((prev) => [deletedReceipt, ...prev]);
             setRecentlyDeleted(null);
-            toast({ title: "Undo", description: "Receipt restored." });
+            toast({ title: "Restored", description: "Receipt has been restored." });
           }}>Undo</button>
         </span>
       ),
@@ -594,62 +587,26 @@ const ReceiptList = () => {
       <AlertDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Tagged Receipt?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this receipt?</AlertDialogTitle>
             <AlertDialogDescription>
-              This receipt is tagged. Are you sure you want to delete it? This action cannot be undone.
+              {pendingDelete?.tags && pendingDelete.tags.length > 0
+                ? `This receipt has ${pendingDelete.tags.length} tag${pendingDelete.tags.length > 1 ? "s" : ""} and will be permanently removed. `
+                : ""}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPendingDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={async () => {
+              onClick={() => {
                 if (!pendingDelete) return;
-                setReceipts((prev) => prev.filter((receipt) => receipt.id !== pendingDelete.id));
-                // ... rest of delete logic (copy from handleDelete) ...
-                let undoClicked = false;
-                const deletedReceipt = receipts.find(r => r.id === pendingDelete.id);
-                const timeoutId = setTimeout(async () => {
-                  if (!undoClicked) {
-                    const { error: dbError } = await supabase
-                      .from("receipts")
-                      .delete()
-                      .eq("id", pendingDelete.id);
-                    if (dbError) {
-                      toast({
-                        title: "Error",
-                        description: "Failed to delete receipt",
-                        variant: "destructive",
-                      });
-                    } else {
-                      toast({
-                        title: "Receipt deleted",
-                        description: "The receipt has been removed successfully",
-                      });
-                    }
-                  }
-                  setRecentlyDeleted(null);
-                }, 5000);
-                setRecentlyDeleted({ receipt: deletedReceipt, timeoutId });
-                toast({
-                  title: "Receipt deleted",
-                  description: (
-                    <span>
-                      The receipt has been removed. <button className="underline ml-2" onClick={() => {
-                        undoClicked = true;
-                        clearTimeout(timeoutId);
-                        setReceipts((prev) => [deletedReceipt, ...prev]);
-                        setRecentlyDeleted(null);
-                        toast({ title: "Undo", description: "Receipt restored." });
-                      }}>Undo</button>
-                    </span>
-                  ),
-                  duration: 5000,
-                });
+                const id = pendingDelete.id;
                 setPendingDelete(null);
+                confirmDelete(id);
               }}
             >
-              Delete
+              Yes, delete receipt
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
