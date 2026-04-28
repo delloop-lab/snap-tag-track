@@ -98,6 +98,13 @@ export default function LandingPage2() {
   return (
     <main className="min-h-screen bg-slate-800 text-slate-100">
       <section className="max-w-6xl mx-auto px-4 py-8 md:py-14">
+        <div className="mb-6 md:mb-8">
+          <img
+            src="/home/_assets/media/f0e22dab0a9645220a4eb65c48b50b4c.png"
+            alt="Snap Tag Track logo"
+            className="h-10 md:h-14 w-auto"
+          />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           <div>
             <p className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 mb-4">
