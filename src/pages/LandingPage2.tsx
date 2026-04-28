@@ -110,15 +110,33 @@ export default function LandingPage2() {
               Always-Ready Companion
             </p>
             <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
-              The Budget App That&apos;s Always Ready. No Download Required.
+              Stop Guessing Where Your Money Went. See It.
             </h1>
             <p className="text-slate-300 mt-4 text-base md:text-lg">
               Snap a store receipt or invoice, tag the project, and track spending instantly. Works even when the internet doesn&apos;t.
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
                 Get Started Now (Free)
               </Link>
+              <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1 w-fit">
+                <button
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold ${
+                    persona === "personal" ? "bg-emerald-500 text-white" : "text-slate-300"
+                  }`}
+                  onClick={() => setPersona("personal")}
+                >
+                  Family
+                </button>
+                <button
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold ${
+                    persona === "contractor" ? "bg-orange-500 text-white" : "text-slate-300"
+                  }`}
+                  onClick={() => setPersona("contractor")}
+                >
+                  Contractor
+                </button>
+              </div>
               <button
                 type="button"
                 className="inline-flex md:hidden items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3"
@@ -134,7 +152,7 @@ export default function LandingPage2() {
               <div className="rounded-xl bg-slate-900/80 border border-slate-600 p-4 min-h-[240px]">
                 <div className="h-2 w-16 bg-orange-500 rounded mb-4 animate-pulse" />
                 <p className="text-xs text-slate-400 mb-3">
-                  {persona === "personal" ? "Family view preview" : "Contractor view preview"}
+                  {persona === "personal" ? "FAMILY" : "WORK"}
                 </p>
                 <div className="mt-2 h-[300px] md:h-[380px] rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
                   <img
