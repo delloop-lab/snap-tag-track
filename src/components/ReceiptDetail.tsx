@@ -44,6 +44,7 @@ type Receipt = {
   longitude: number | null;
   location_name: string | null;
   line_items: LineItem[] | null;
+  currency: string | null;
 };
 
 const ReceiptDetail = () => {
@@ -99,6 +100,7 @@ const ReceiptDetail = () => {
           longitude,
           location_name,
           line_items,
+          currency,
           receipt_tags(
             tag_id,
             tags:tag_id(id, name)
@@ -131,6 +133,7 @@ const ReceiptDetail = () => {
         longitude: data.longitude,
         location_name: data.location_name || "",
         line_items: (data as any).line_items ?? null,
+        currency: (data as any).currency ?? null,
       };
       setReceipt(receiptData);
       // Generate signed URL for the image with longer expiry
@@ -228,12 +231,17 @@ const ReceiptDetail = () => {
     };
   }, []);
 
-  const formatCurrency = (amount: number | null) => {
+  const formatCurrency = (amount: number | null, currencyCode?: string | null) => {
     if (amount === null) return "Not available";
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    const code = currencyCode ?? receipt?.currency ?? "GBP";
+    try {
+      return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: code,
+      }).format(amount);
+    } catch {
+      return `${code} ${amount.toFixed(2)}`;
+    }
   };
 
   const handleDelete = async () => {
@@ -749,7 +757,7 @@ const ReceiptDetail = () => {
 
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground print:text-base print:text-black">Total</p>
-                  <p className="font-medium print:text-lg">{formatCurrency(receipt.total_amount)}</p>
+                  <p className="font-medium print:text-lg">{formatCurrency(receipt.total_amount, receipt.currency)}</p>
                 </div>
 
                 <div className="space-y-1">
@@ -831,7 +839,7 @@ const ReceiptDetail = () => {
                         <div key={i} className="flex justify-between px-3 py-2 text-gray-700">
                           <span className="truncate pr-4">{item.description}</span>
                           <span className="font-medium whitespace-nowrap">
-                            {formatCurrency(item.amount)}
+                            {formatCurrency(item.amount, receipt.currency)}
                           </span>
                         </div>
                       ))}
