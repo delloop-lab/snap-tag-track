@@ -338,6 +338,7 @@ const ReceiptUpload = () => {
           latitude: reviewState.latitude,
           longitude: reviewState.longitude,
           location_name: reviewState.locationName,
+          line_items: reviewState.lineItems.length > 0 ? reviewState.lineItems : null,
         })
         .select();
 
