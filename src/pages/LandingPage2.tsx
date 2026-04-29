@@ -129,7 +129,7 @@ export default function LandingPage2() {
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
                 Get Started Now (Free)
               </Link>
-              <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1 w-fit">
+              <div className="hidden md:inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1 w-fit">
                 <button
                   className={`px-4 py-2 rounded-lg text-sm font-semibold ${
                     persona === "personal" ? "bg-[#7CB87E] text-white" : "text-slate-300"
@@ -147,13 +147,6 @@ export default function LandingPage2() {
                   Contractor
                 </button>
               </div>
-              <button
-                type="button"
-                className="inline-flex md:hidden items-center justify-center rounded-xl bg-[#7CB87E] hover:bg-[#7CB87E]/90 text-white font-semibold px-6 py-3"
-                onClick={() => alert("Add to Home Screen:\n\niPhone: Share > Add to Home Screen\nAndroid: Menu > Install App")}
-              >
-                Add to Home Screen
-              </button>
             </div>
           </div>
 
