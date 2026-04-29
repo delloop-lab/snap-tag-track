@@ -76,6 +76,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [allUserTags, setAllUserTags] = useState<Tag[]>([]);
+  const [applyToSimilar, setApplyToSimilar] = useState(true);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
@@ -210,14 +211,18 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
           .insert({ receipt_id: receiptId, tag_id: tag.id });
         if (linkError) throw linkError;
       }
-      const propagatedCount = await addTagToSimilarReceipts(tag.id);
+      const propagatedCount = applyToSimilar
+        ? await addTagToSimilarReceipts(tag.id)
+        : 0;
       setInputValue("");
       await fetchTags(); // Re-fetch tags after adding
       if (onTagsChange) onTagsChange([...selectedTags, tag]);
       toast({
         title: "Tag added",
         description:
-          propagatedCount > 0
+          !applyToSimilar
+            ? `Added tag '${tag.name}' to this receipt only.`
+            : propagatedCount > 0
             ? `Added '${tag.name}' and auto-tagged ${propagatedCount} similar receipt${propagatedCount === 1 ? "" : "s"}.`
             : `Added tag '${tag.name}'.`,
       });
@@ -293,6 +298,14 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
             ))}
         </select>
       </div>
+      <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+        <input
+          type="checkbox"
+          checked={applyToSimilar}
+          onChange={(e) => setApplyToSimilar(e.target.checked)}
+        />
+        Apply to similar receipts (dropdown + typed tags)
+      </label>
       <div className="flex gap-2">
         <input
           type="text"
