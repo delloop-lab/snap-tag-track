@@ -35,6 +35,8 @@ const classicLayout = (
             src="/home/_assets/media/5cdfca5bafd425675a5bfdc47417d87c.png"
             alt="Woman with receipt"
             className="absolute left-0 top-0 w-full h-full object-cover object-right"
+            fetchPriority="high"
+            decoding="async"
           />
           <div className="absolute bottom-[5px] left-[2.2rem] right-4 flex justify-end items-center">
             <div className="bg-white p-3 md:p-4 rounded-[22px] shadow-[0_8px_32px_rgba(44,62,80,0.18)] z-[4]">
@@ -167,6 +169,8 @@ export default function LandingPage2() {
                     src={personaHeroImage}
                     alt={persona === "personal" ? "SnapTagTrack family preview" : "SnapTagTrack contractor preview"}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               </div>

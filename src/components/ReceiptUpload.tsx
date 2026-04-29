@@ -9,6 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { Camera } from "lucide-react";
 import exifr from "exifr";
 import ReceiptReview from "./ReceiptReview";
+import { siblingThumbStorageKey } from "@/lib/siblingThumbPath";
+import { createThumbnailJpeg } from "@/lib/imageThumbnail";
 
 const FAKE_CLIENTS = [
   "Acme Corp",
@@ -302,6 +304,17 @@ const ReceiptUpload = () => {
 
       if (uploadError) {
         throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const thumbBlob = await createThumbnailJpeg(compressedBlob);
+      if (thumbBlob) {
+        const thumbName = siblingThumbStorageKey(fileName);
+        const { error: thumbErr } = await supabase.storage
+          .from("receipts")
+          .upload(thumbName, thumbBlob, { contentType: "image/jpeg", upsert: true });
+        if (thumbErr) {
+          console.warn("Thumbnail upload failed (list may use full image):", thumbErr.message);
+        }
       }
 
       setProgress(45);

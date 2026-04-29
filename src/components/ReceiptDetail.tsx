@@ -33,6 +33,7 @@ import {
   getRescanPreferencesFromDb,
   patchDiffLines,
 } from "@/lib/rescanPreferences";
+import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 
 interface LineItem {
   description: string;
@@ -158,23 +159,15 @@ const ReceiptDetail = () => {
       setReceipt(receiptData);
       // Generate signed URL for the image with longer expiry
       if (data.image_path) {
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.image_path, 60 * 60 * 24); // 24 hours
-        if (signedUrlError) {
-          setImageUrl(null);
-        } else {
-          setImageUrl(signedUrlData?.signedUrl || null);
-        }
+        const resolved = await resolveReceiptImageUrl(data.image_path, 60 * 60 * 24);
+        setImageUrl(resolved);
       } else {
         setImageUrl(null);
       }
       // Generate signed URL for product image if present
       if (data.product_image_path) {
-        const { data: signedProductUrl, error: signedProductUrlError } = await supabase.storage.from('receipts').createSignedUrl(data.product_image_path, 60 * 60 * 24);
-        if (signedProductUrlError) {
-          setProductImageUrl(null);
-        } else {
-          setProductImageUrl(signedProductUrl?.signedUrl || null);
-        }
+        const resolvedProduct = await resolveReceiptImageUrl(data.product_image_path, 60 * 60 * 24);
+        setProductImageUrl(resolvedProduct);
       } else {
         setProductImageUrl(null);
       }
@@ -220,16 +213,8 @@ const ReceiptDetail = () => {
   useEffect(() => {
     const fetchProductImageUrl = async () => {
       if (receipt?.product_image_path) {
-        const { data, error } = await supabase.storage
-          .from('receipts')
-          .createSignedUrl(receipt.product_image_path, 60 * 60);
-        
-        if (error) {
-          console.error("Error fetching product image URL:", error);
-          setProductImageUrl(null);
-        } else {
-          setProductImageUrl(data?.signedUrl || null);
-        }
+        const resolved = await resolveReceiptImageUrl(receipt.product_image_path, 60 * 60);
+        setProductImageUrl(resolved);
       } else {
         setProductImageUrl(null);
       }
@@ -452,13 +437,8 @@ const ReceiptDetail = () => {
       }
       
       // Generate signed URL for the new product image
-      const { data: signedData } = await supabase.storage
-        .from('receipts')
-        .createSignedUrl(filePath, 60 * 60);
-      
-      if (signedData?.signedUrl) {
-        setProductImageUrl(signedData.signedUrl);
-      }
+      const resolved = await resolveReceiptImageUrl(filePath, 60 * 60);
+      if (resolved) setProductImageUrl(resolved);
       
       toast({
         title: "Product image uploaded",

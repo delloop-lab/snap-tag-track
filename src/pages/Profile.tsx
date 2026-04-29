@@ -9,6 +9,7 @@ import {
   getRescanPreferencesFromDb,
   setRescanPreferences,
 } from "@/lib/rescanPreferences";
+import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
 
 const AVATAR_BUCKET = "avatars";
 
@@ -23,6 +24,12 @@ const Profile = () => {
   const [error, setError] = useState("");
   const [rescanEmptyOnly, setRescanEmptyOnly] = useState(false);
   const [rescanPreviewDiff, setRescanPreviewDiff] = useState(false);
+  const [thumbBackfill, setThumbBackfill] = useState<{
+    running: boolean;
+    done: number;
+    total: number;
+    last?: { created: number; skipped: number; failed: number };
+  }>({ running: false, done: 0, total: 0 });
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -44,12 +51,11 @@ const Profile = () => {
           const { data: signedData, error: signedError } = await supabase.storage
             .from(AVATAR_BUCKET)
             .createSignedUrl(storedPath, 60 * 60); // 1 hour expiry
-          
+
           if (!signedError && signedData?.signedUrl) {
             setAvatarUrl(signedData.signedUrl);
           } else {
-            console.error("Error generating signed URL for avatar:", signedError);
-            setAvatarUrl(""); // Clear if can't generate
+            setAvatarUrl("");
           }
         }
       }
@@ -116,6 +122,21 @@ const Profile = () => {
     setAvatarUrl(signedUrlData.signedUrl);
     setLoading(false);
     setSuccess("Avatar uploaded! Click Save to update your profile.");
+  };
+
+  const runThumbBackfill = async () => {
+    if (!user || thumbBackfill.running) return;
+    setThumbBackfill({ running: true, done: 0, total: 0 });
+    const result = await backfillMissingReceiptThumbnails({
+      userId: user.id,
+      concurrency: 2,
+      onProgress: (p) => setThumbBackfill((s) => ({ ...s, done: p.done, total: p.total })),
+    });
+    setThumbBackfill((s) => ({ ...s, running: false, last: result }));
+    toast({
+      title: "Receipt thumbnails",
+      description: `Created ${result.created}. Skipped ${result.skipped} (already had thumbnails). Failed ${result.failed}.`,
+    });
   };
 
   return (
@@ -188,6 +209,32 @@ const Profile = () => {
             />
             Preview diff before apply
           </label>
+        </div>
+        <div className="rounded border p-3 space-y-3">
+          <p className="font-medium">Receipt lists</p>
+          <p className="text-sm text-gray-600">
+            Generate small preview images for receipts uploaded before thumbnail support. Safe to run more than once; existing thumbnails are skipped.
+          </p>
+          {thumbBackfill.total > 0 && (
+            <p className="text-sm text-gray-700">
+              Progress: {thumbBackfill.done} / {thumbBackfill.total}
+            </p>
+          )}
+          {thumbBackfill.last && !thumbBackfill.running && (
+            <p className="text-xs text-gray-500">
+              Last run: created {thumbBackfill.last.created}, skipped {thumbBackfill.last.skipped}, failed{" "}
+              {thumbBackfill.last.failed}.
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={runThumbBackfill}
+            disabled={loading || thumbBackfill.running || !user}
+          >
+            {thumbBackfill.running ? "Generating thumbnails..." : "Generate missing receipt thumbnails"}
+          </Button>
         </div>
         {success && <div className="text-green-600 text-center">{success}</div>}
         {error && <div className="text-red-600 text-center">{error}</div>}

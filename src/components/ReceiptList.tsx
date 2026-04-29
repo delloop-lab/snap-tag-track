@@ -33,6 +33,9 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { getTagColor } from "./TagInput";
+import { resolveReceiptThumbUrl } from "@/lib/receiptImageUrl";
+import { LazyReceiptThumb } from "./LazyReceiptThumb";
+import { ReceiptImagePreviewDialog } from "@/components/ReceiptImagePreviewDialog";
 
 type Receipt = {
   id: string;
@@ -71,6 +74,7 @@ const ReceiptList = () => {
 
   const [recentlyDeleted, setRecentlyDeleted] = useState<{receipt: Receipt, timeoutId: NodeJS.Timeout} | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; imagePath: string; tags?: { id: string; name: string }[] } | null>(null);
+  const [previewReceipt, setPreviewReceipt] = useState<{ image_path: string; vendor_name: string | null } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -124,41 +128,42 @@ const ReceiptList = () => {
 
       if (receiptsError) throw receiptsError;
 
-      const receiptsWithTags = await Promise.all((receiptsData || []).map(async (receipt) => {
-        // Fetch tags for each receipt
-        const { data: tagData, error: tagError } = await supabase
+      const receiptIds = (receiptsData || []).map((receipt) => receipt.id);
+      let tagsByReceiptId = new Map<string, { id: string; name: string }[]>();
+      if (receiptIds.length > 0) {
+        const { data: allTagData, error: tagsError } = await supabase
           .from("receipt_tags")
           .select(`
-            tag_id,
+            receipt_id,
             tags:tag_id(id, name)
           `)
-          .eq("receipt_id", receipt.id);
+          .in("receipt_id", receiptIds);
 
-        if (tagError) {
-          console.error("Error fetching tags for receipt:", tagError);
-          return {
-            ...receipt,
-            tags: [],
-            image_url: null
-          };
+        if (tagsError) {
+          console.error("Error fetching receipt tags:", tagsError);
+        } else {
+          tagsByReceiptId = (allTagData || []).reduce((acc, row) => {
+            const current = acc.get(row.receipt_id) || [];
+            if (row.tags) current.push(row.tags as { id: string; name: string });
+            acc.set(row.receipt_id, current);
+            return acc;
+          }, new Map<string, { id: string; name: string }[]>());
         }
+      }
 
-        const tags = tagData.map(item => item.tags);
-        // Generate signed URL for the image
-        let image_url = null;
-        if (receipt.image_path) {
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('receipts').createSignedUrl(receipt.image_path, 60 * 60); // 1 hour expiry
-          if (signedUrlError) {
-            console.error('Error creating signed URL:', signedUrlError);
-          } else {
-            image_url = signedUrlData?.signedUrl;
-          }
-        }
-        return {
-          ...receipt,
-          tags,
-          image_url
-        };
+      const imageUrlByReceiptId = new Map<string, string>();
+      await Promise.all(
+        (receiptsData || []).map(async (receipt) => {
+          if (!receipt.image_path) return;
+          const url = await resolveReceiptThumbUrl(receipt.image_path);
+          if (url) imageUrlByReceiptId.set(receipt.id, url);
+        })
+      );
+
+      const receiptsWithTags = (receiptsData || []).map((receipt) => ({
+        ...receipt,
+        tags: tagsByReceiptId.get(receipt.id) || [],
+        image_url: imageUrlByReceiptId.get(receipt.id) || null,
       }));
 
       // Ensure all objects have the expected properties, even if null
@@ -516,28 +521,43 @@ const ReceiptList = () => {
           {filteredReceipts.map((receipt) => (
             <div
               key={receipt.id}
-              className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white flex sm:flex-col cursor-pointer"
-              onClick={() => navigate(`/receipt/${receipt.id}`)}
+              className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white flex sm:flex-col"
             >
               {/* Image — row on mobile, top on sm+ */}
-              <div className="w-24 sm:w-full sm:aspect-[3/4] flex-shrink-0 bg-gray-100 relative">
-                <img
+              <button
+                type="button"
+                className="w-24 sm:w-full sm:aspect-[3/4] flex-shrink-0 bg-gray-100 relative cursor-zoom-in border-0 p-0 text-left focus:outline-none focus:ring-2 focus:ring-orange-400 rounded-none sm:rounded-t-lg overflow-hidden"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (receipt.image_path) setPreviewReceipt({ image_path: receipt.image_path, vendor_name: receipt.vendor_name });
+                }}
+                aria-label="View full receipt image"
+              >
+                <LazyReceiptThumb
                   src={receipt.image_url || "/placeholder.svg"}
-                  alt="Receipt"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/placeholder.svg";
-                  }}
+                  alt=""
+                  className="pointer-events-none"
                 />
                 {(!receipt.tags || receipt.tags.length === 0) && (
-                  <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded shadow">
+                  <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded shadow pointer-events-none">
                     Untagged
                   </span>
                 )}
-              </div>
+              </button>
 
               {/* Details */}
-              <div className="p-3 flex-1 flex flex-col justify-between min-w-0">
+              <div
+                role="button"
+                tabIndex={0}
+                className="p-3 flex-1 flex flex-col justify-between min-w-0 cursor-pointer hover:bg-muted/40 sm:rounded-b-lg"
+                onClick={() => navigate(`/receipt/${receipt.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/receipt/${receipt.id}`);
+                  }
+                }}
+              >
                 <div>
                   <div className="flex justify-between items-start gap-1">
                     <h3 className="font-semibold text-sm truncate">{receipt.vendor_name || "Unknown Vendor"}</h3>
@@ -583,6 +603,13 @@ const ReceiptList = () => {
           ))}
         </div>
       )}
+
+      <ReceiptImagePreviewDialog
+        open={!!previewReceipt}
+        onOpenChange={(open) => !open && setPreviewReceipt(null)}
+        imagePath={previewReceipt?.image_path}
+        title={previewReceipt?.vendor_name || "Receipt"}
+      />
 
       <AlertDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }}>
         <AlertDialogContent>

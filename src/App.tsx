@@ -94,13 +94,16 @@ const AppContent = () => {
 
 const App = () => {
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(registration => {
-          console.log('ServiceWorker registration successful');
-        }).catch(err => {
-          console.log('ServiceWorker registration failed: ', err);
-        });
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js", { updateViaCache: "none" })
+          .then((registration) => {
+            void registration.update();
+          })
+          .catch((err) => {
+            console.log("ServiceWorker registration failed:", err);
+          });
       });
     }
   }, []);
@@ -111,7 +114,7 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AppContent />
           </BrowserRouter>
         </TooltipProvider>

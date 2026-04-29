@@ -1,23 +1,77 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Camera, Tag, BarChart3, HelpCircle, Info, InfoIcon } from "lucide-react";
+import { resolveReceiptThumbUrl, canonicalReceiptBucketObjectKey, primaryReceiptObjectKey } from "@/lib/receiptImageUrl";
+import { ReceiptImagePreviewDialog } from "@/components/ReceiptImagePreviewDialog";
+
+const THUMB_RESOLVE_MS = 12_000;
+
+/** One resolved URL per storage object — avoids duplicate fetches when `fetchRecent` runs twice or receipts share/mirror paths in parallel Promise.all(). */
+const resolvedThumbUrlByDedupeKey: Record<string, string> = {};
+const inflightThumbByDedupeKey = new Map<string, Promise<string>>();
+
+function receiptThumbDedupeKey(imagePath: string): string {
+  return (
+    primaryReceiptObjectKey(imagePath) ??
+    (canonicalReceiptBucketObjectKey(imagePath.trim()) || imagePath.trim())
+  );
+}
+
+async function resolveThumbWithTimeout(
+  imagePath: string,
+  ms: number
+): Promise<string | null> {
+  return Promise.race([
+    resolveReceiptThumbUrl(imagePath),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
+async function getRecentThumbUrl(imagePath: string): Promise<string> {
+  const key = receiptThumbDedupeKey(imagePath);
+  const cached = resolvedThumbUrlByDedupeKey[key];
+  if (cached) return cached;
+
+  const pending = inflightThumbByDedupeKey.get(key);
+  if (pending) return pending;
+
+  const created = (async () => {
+    try {
+      const resolved =
+        (await resolveThumbWithTimeout(imagePath, THUMB_RESOLVE_MS)) ?? "/placeholder.svg";
+      const finalUrl = resolved || "/placeholder.svg";
+      if (finalUrl !== "/placeholder.svg") resolvedThumbUrlByDedupeKey[key] = finalUrl;
+      return finalUrl;
+    } finally {
+      inflightThumbByDedupeKey.delete(key);
+    }
+  })();
+
+  inflightThumbByDedupeKey.set(key, created);
+  return created;
+}
 
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [recentReceipts, setRecentReceipts] = useState([]);
-  const [recentImages, setRecentImages] = useState<{ [id: string]: string }>({});
+  const [recentThumbUrls, setRecentThumbUrls] = useState<{ [id: string]: string }>({});
+  const [previewReceipt, setPreviewReceipt] = useState<{
+    image_path: string;
+    vendor_name?: string | null;
+  } | null>(null);
   const [totalThisYear, setTotalThisYear] = useState(0);
   const [spendThisMonth, setSpendThisMonth] = useState<number | null>(null);
   const [untaggedCount, setUntaggedCount] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const recentFetchGen = useRef(0);
 
   // Punchy, benefit-led, practical, friendly, and confident messages
   const welcomeMessages = [
@@ -57,18 +111,30 @@ const Index = () => {
       .order("created_at", { ascending: false })
       .limit(isMobile ? 3 : 5);
     setRecentReceipts(receipts || []);
-    // Fetch signed URLs for images
-    if (receipts && receipts.length > 0) {
-      const imageUrls: { [id: string]: string } = {};
-      await Promise.all(
+    const gen = ++recentFetchGen.current;
+    // Do not clear thumbnails up-front — a overlapping fetch clears them and then
+    // an older completion can bail (gen mismatch), leaving thumbs empty forever.
+    if (!receipts?.length) {
+      if (gen === recentFetchGen.current) setRecentThumbUrls({});
+    } else {
+      const entries = await Promise.all(
         receipts.map(async (r) => {
-          if (r.image_path) {
-            const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
-            if (data?.signedUrl) imageUrls[r.id] = data.signedUrl;
+          if (!r.image_path) return [r.id, "/placeholder.svg"] as const;
+          try {
+            const finalUrl = await getRecentThumbUrl(r.image_path);
+            return [r.id, finalUrl] as const;
+          } catch (error) {
+            console.warn("[Index] Failed to resolve recent receipt thumbnail", {
+              receiptId: r.id,
+              imagePath: r.image_path,
+              error,
+            });
+            return [r.id, "/placeholder.svg"] as const;
           }
         })
       );
-      setRecentImages(imageUrls);
+      if (gen !== recentFetchGen.current) return;
+      setRecentThumbUrls(Object.fromEntries(entries));
     }
     // Stat: total receipts this year
     const { count } = await supabase
@@ -117,13 +183,17 @@ const Index = () => {
           
           // Generate signed URL if avatar_url is a path
           if (userData.avatar_url) {
-            const { data: signedData } = await supabase.storage
+            const { data: signedData, error: signAvatarErr } = await supabase.storage
               .from('avatars')
               .createSignedUrl(userData.avatar_url, 60 * 60); // 1 hour expiry
-            
-            if (signedData?.signedUrl) {
+
+            if (!signAvatarErr && signedData?.signedUrl) {
               setAvatarUrl(signedData.signedUrl);
+            } else {
+              setAvatarUrl("");
             }
+          } else {
+            setAvatarUrl("");
           }
         }
       };
@@ -202,6 +272,7 @@ const Index = () => {
   /* ── Mobile layout ── */
   if (isMobile) {
     return (
+      <>
       <div className="flex flex-col items-center bg-white py-4 px-3 min-h-screen">
         <p className="text-lg text-gray-600 mb-4 text-center font-semibold">
           {user && firstName ? `Welcome back, ${firstName}!` : randomMessage.main}
@@ -221,17 +292,39 @@ const Index = () => {
           <div className="w-full mb-4">
             <h2 className="text-lg font-semibold mb-2">Recent Receipts</h2>
             <div className="flex gap-3 overflow-x-auto pb-1">
-              {recentReceipts.slice(0, 3).map(r => (
-                <div key={r.id} className="border border-gray-200 rounded-xl bg-white flex-shrink-0 w-36 p-2 flex flex-col items-center shadow-sm cursor-pointer hover:ring-2 hover:ring-orange-300 transition" onClick={() => handleRecentClick(r.id)}>
-                  <div className="aspect-[3/4] w-full bg-gray-100 rounded-lg mb-2 overflow-hidden">
-                    {recentImages[r.id] ? (
-                      <img src={recentImages[r.id]} alt="Receipt" className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"} />
+              {recentReceipts.slice(0, 3).map((r, idx) => (
+                <div key={r.id} className="border border-gray-200 rounded-xl bg-white flex-shrink-0 w-36 p-2 flex flex-col items-center shadow-sm hover:ring-2 hover:ring-orange-300 transition">
+                  <button
+                    type="button"
+                    className="aspect-[3/4] w-full bg-gray-100 mb-2 overflow-hidden cursor-zoom-in rounded-lg border-0 p-0 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    onClick={() => {
+                      if (r.image_path) setPreviewReceipt({ image_path: r.image_path, vendor_name: r.vendor_name });
+                    }}
+                    aria-label="View full receipt image"
+                  >
+                    {recentThumbUrls[r.id] !== undefined ? (
+                      <img
+                        src={recentThumbUrls[r.id]}
+                        alt=""
+                        className="w-full h-full object-cover pointer-events-none"
+                        loading={idx === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/placeholder.svg";
+                        }}
+                      />
                     ) : (
-                      <div className="w-full h-full bg-gray-200 animate-pulse" />
+                      <div className="w-full h-full bg-gray-200 animate-pulse min-h-[140px]" aria-hidden />
                     )}
-                  </div>
-                  <div className="text-xs font-medium truncate w-full text-center">{r.vendor_name || "Unknown"}</div>
-                  <div className="text-xs text-gray-400">{r.total_amount != null ? `${r.total_amount.toFixed(2)}` : "-"}</div>
+                  </button>
+                  <button
+                    type="button"
+                    className="text-left w-full"
+                    onClick={() => handleRecentClick(r.id)}
+                  >
+                    <div className="text-xs font-medium truncate w-full text-center">{r.vendor_name || "Unknown"}</div>
+                    <div className="text-xs text-gray-400 text-center">{r.total_amount != null ? `${r.total_amount.toFixed(2)}` : "-"}</div>
+                  </button>
                 </div>
               ))}
             </div>
@@ -244,11 +337,19 @@ const Index = () => {
           Copyright &copy; 2025 The Novita Group
         </footer>
       </div>
+      <ReceiptImagePreviewDialog
+        open={!!previewReceipt}
+        onOpenChange={(open) => !open && setPreviewReceipt(null)}
+        imagePath={previewReceipt?.image_path}
+        title={previewReceipt?.vendor_name || "Receipt"}
+      />
+      </>
     );
   }
 
   /* ── Desktop layout ── */
   return (
+    <>
     <div className="max-w-5xl mx-auto px-6 py-6">
       {/* Welcome */}
       <div className="flex items-center gap-4 mb-6">
@@ -303,20 +404,40 @@ const Index = () => {
             <button className="text-sm text-orange-500 hover:text-orange-600 font-medium" onClick={() => navigate("/receipts")}>View all →</button>
           </div>
           <div className="grid grid-cols-5 gap-4">
-            {recentReceipts.slice(0, 5).map(r => (
-              <div key={r.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm cursor-pointer hover:shadow-md hover:border-orange-300 transition" onClick={() => handleRecentClick(r.id)}>
-                <div className="aspect-[3/4] bg-gray-100 overflow-hidden">
-                  {recentImages[r.id] ? (
-                    <img src={recentImages[r.id]} alt="Receipt" className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).src = "/placeholder.svg"} />
+            {recentReceipts.slice(0, 5).map((r, idx) => (
+              <div key={r.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm hover:shadow-md hover:border-orange-300 transition flex flex-col">
+                <button
+                  type="button"
+                  className="aspect-[3/4] bg-gray-100 overflow-hidden cursor-zoom-in w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-400"
+                  onClick={() => {
+                    if (r.image_path) setPreviewReceipt({ image_path: r.image_path, vendor_name: r.vendor_name });
+                  }}
+                  aria-label="View full receipt image"
+                >
+                  {recentThumbUrls[r.id] !== undefined ? (
+                    <img
+                      src={recentThumbUrls[r.id]}
+                      alt=""
+                      className="w-full h-full object-cover pointer-events-none"
+                      loading={idx === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
                   ) : (
-                    <div className="w-full h-full bg-gray-200 animate-pulse" />
+                    <div className="w-full h-full bg-gray-200 animate-pulse min-h-[120px]" aria-hidden />
                   )}
-                </div>
-                <div className="p-2">
+                </button>
+                <button
+                  type="button"
+                  className="p-2 text-left w-full hover:bg-muted/40 transition-colors"
+                  onClick={() => handleRecentClick(r.id)}
+                >
                   <div className="text-xs font-semibold truncate text-gray-800">{r.vendor_name || "Unknown"}</div>
                   <div className="text-xs text-gray-400">{r.purchase_date ? format(new Date(r.purchase_date), "MMM d") : "-"}</div>
                   <div className="text-xs font-bold text-gray-700 mt-0.5">{r.total_amount != null ? r.total_amount.toFixed(2) : "-"}</div>
-                </div>
+                </button>
               </div>
             ))}
           </div>
@@ -336,6 +457,13 @@ const Index = () => {
         Copyright &copy; 2025 The Novita Group
       </footer>
     </div>
+    <ReceiptImagePreviewDialog
+      open={!!previewReceipt}
+      onOpenChange={(open) => !open && setPreviewReceipt(null)}
+      imagePath={previewReceipt?.image_path}
+      title={previewReceipt?.vendor_name || "Receipt"}
+    />
+    </>
   );
 };
 

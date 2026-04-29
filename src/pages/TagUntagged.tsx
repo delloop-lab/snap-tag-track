@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 
 const TagUntagged = () => {
   const { user } = useAuth();
@@ -44,8 +45,8 @@ const TagUntagged = () => {
       await Promise.all(
         untagged.map(async (r) => {
           if (r.image_path) {
-            const { data: signedData } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
-            if (signedData?.signedUrl) urls[r.id] = signedData.signedUrl;
+            const resolved = await resolveReceiptImageUrl(r.image_path);
+            urls[r.id] = resolved || "/placeholder.svg";
           }
         })
       );

@@ -24,13 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getTagColor } from "./TagInput";
+import TagInput, { getTagColor } from "./TagInput";
 import {
   buildRescanPatch,
   getRescanPreferencesFromDb,
   patchDiffLines,
 } from "@/lib/rescanPreferences";
 import type { RescanPreferences } from "@/lib/rescanPreferences";
+import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 
 // Tag color palette
 const tagColors = [
@@ -106,6 +107,9 @@ const ReceiptSummaryList = () => {
   const [isBulkRescanning, setIsBulkRescanning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [showBulkRescanDialog, setShowBulkRescanDialog] = useState(false);
+  const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null);
+  const [editingWarranty, setEditingWarranty] = useState(false);
+  const [savingReceiptMeta, setSavingReceiptMeta] = useState(false);
   const [bulkRescanPrefs, setBulkRescanPrefs] = useState<RescanPreferences>({
     emptyOnly: false,
     previewDiff: false,
@@ -114,25 +118,26 @@ const ReceiptSummaryList = () => {
   // Get the highlight ID from URL query params
   const highlightId = new URLSearchParams(location.search).get("highlight");
 
+  const fetchData = async () => {
+    if (!user) return;
+    const { data: receiptsData } = await supabase
+      .from("receipts")
+      .select("*, receipt_tags(tag_id, tags:tag_id(id, name))")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    const { data: tagsData } = await supabase
+      .from("tags")
+      .select("*")
+      .eq("user_id", user.id);
+
+    setReceipts(receiptsData || []);
+    setAllTags(tagsData || []);
+  };
+
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    const fetchData = async () => {
-      const { data: receiptsData } = await supabase
-        .from("receipts")
-        .select("*, receipt_tags(tag_id, tags:tag_id(id, name))")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      const { data: tagsData } = await supabase
-        .from("tags")
-        .select("*")
-        .eq("user_id", user.id);
-
-      setReceipts(receiptsData || []);
-      setAllTags(tagsData || []);
-      setLoading(false);
-    };
-    fetchData();
+    fetchData().finally(() => setLoading(false));
   }, [user]);
 
   useEffect(() => {
@@ -219,6 +224,28 @@ const ReceiptSummaryList = () => {
     setModalText(notes || "No notes");
     setModalTitle("Notes");
     setShowModal(true);
+  };
+
+  const openEditMetaModal = (receipt: Receipt) => {
+    setEditingReceipt(receipt);
+    setEditingWarranty(Boolean(receipt.warranty));
+  };
+
+  const saveReceiptMeta = async () => {
+    if (!user || !editingReceipt || savingReceiptMeta) return;
+    setSavingReceiptMeta(true);
+    try {
+      await supabase
+        .from("receipts")
+        .update({ warranty: editingWarranty })
+        .eq("id", editingReceipt.id)
+        .eq("user_id", user.id);
+
+      await fetchData();
+      setEditingReceipt(null);
+    } finally {
+      setSavingReceiptMeta(false);
+    }
   };
 
   const handleBulkRescan = async () => {
@@ -500,6 +527,17 @@ const ReceiptSummaryList = () => {
                   >
                     Show Details
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="text-xs ml-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditMetaModal(r);
+                    }}
+                  >
+                    Edit
+                  </Button>
                 </div>
               </div>
             ))}
@@ -716,6 +754,7 @@ const ReceiptSummaryList = () => {
                 <th className="p-1 md:p-2 border">Image</th>
                 <th className="p-1 md:p-2 border">Text</th>
                 <th className="p-1 md:p-2 border">Notes</th>
+                <th className="p-1 md:p-2 border">Edit</th>
               </tr>
             </thead>
             <tbody>
@@ -748,22 +787,41 @@ const ReceiptSummaryList = () => {
                     </td>
                   )}
                   <td className="p-1 md:p-2 border">
-                    <Button size="sm" variant="outline" onClick={async () => {
+                    <Button size="sm" variant="outline" onClick={async (e) => {
+                      e.stopPropagation();
                       if (r.image_path) {
-                        const { data } = await supabase.storage.from('receipts').createSignedUrl(r.image_path, 60 * 60);
-                        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                        const imageUrl = await resolveReceiptImageUrl(r.image_path, 60 * 60);
+                        if (imageUrl) window.open(imageUrl, '_blank');
                       }
                     }}>View Image</Button>
                   </td>
                   <td className="p-1 md:p-2 border">
-                    <Button size="sm" variant="outline" onClick={() => handleViewText(r.text_content || "No text extracted")}>View Text</Button>
+                    <Button size="sm" variant="outline" onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewText(r.text_content || "No text extracted");
+                    }}>View Text</Button>
                   </td>
                   <td className="p-1 md:p-2 border">
                     {r.notes ? (
-                      <Button size="sm" variant="outline" onClick={() => handleViewNotes(r.notes)}>View Notes</Button>
+                      <Button size="sm" variant="outline" onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewNotes(r.notes);
+                      }}>View Notes</Button>
                     ) : (
                       "-"
                     )}
+                  </td>
+                  <td className="p-1 md:p-2 border">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditMetaModal(r);
+                      }}
+                    >
+                      Edit
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -777,6 +835,47 @@ const ReceiptSummaryList = () => {
             <h3 className="text-lg font-bold mb-2">{modalTitle}</h3>
             <pre className="whitespace-pre-wrap max-h-96 overflow-y-auto mb-4">{modalText}</pre>
             <Button onClick={() => setShowModal(false)}>Close</Button>
+          </div>
+        </div>
+      )}
+      {editingReceipt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-5">
+            <h3 className="text-lg font-bold mb-1">Edit Tags & Warranty</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {editingReceipt.vendor_name || "Unknown Vendor"}
+            </p>
+
+            <div className="mb-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={editingWarranty}
+                  onChange={(e) => setEditingWarranty(e.target.checked)}
+                />
+                Warranty applies to this receipt
+              </label>
+            </div>
+
+            <div className="mb-5">
+              <TagInput
+                receiptId={editingReceipt.id}
+                onTagsChange={fetchData}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditingReceipt(null)}
+                disabled={savingReceiptMeta}
+              >
+                Close
+              </Button>
+              <Button onClick={saveReceiptMeta} disabled={savingReceiptMeta}>
+                {savingReceiptMeta ? "Saving..." : "Save Warranty"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
