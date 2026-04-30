@@ -285,7 +285,16 @@ const ReceiptSummaryList = () => {
             currency: receipt.currency ?? null,
           };
           const patch = buildRescanPatch(current, extracted, prefs.emptyOnly);
+          const processedAt = new Date().toISOString();
           if (Object.keys(patch).length === 0) {
+            let { error: processedMarkError } = await supabase
+              .from("receipts")
+              .update({ ai_processed_at: processedAt })
+              .eq("id", receipt.id)
+              .eq("user_id", user.id);
+            if (processedMarkError && /ai_processed_at|column|schema cache|does not exist/i.test(processedMarkError.message || "")) {
+              processedMarkError = null;
+            }
             setBulkProgress({ done: i + 1, total: receipts.length });
             continue;
           }
@@ -297,15 +306,31 @@ const ReceiptSummaryList = () => {
               )}${lines.length === 6 ? "\n..." : ""}`
             );
             if (!approved) {
+              let { error: processedMarkError } = await supabase
+                .from("receipts")
+                .update({ ai_processed_at: processedAt })
+                .eq("id", receipt.id)
+                .eq("user_id", user.id);
+              if (processedMarkError && /ai_processed_at|column|schema cache|does not exist/i.test(processedMarkError.message || "")) {
+                processedMarkError = null;
+              }
               setBulkProgress({ done: i + 1, total: receipts.length });
               continue;
             }
           }
-          const { error: updateError } = await supabase
+          let { error: updateError } = await supabase
             .from("receipts")
-            .update(patch)
+            .update({ ...patch, ai_processed_at: processedAt })
             .eq("id", receipt.id)
             .eq("user_id", user.id);
+          if (updateError && /ai_processed_at|column|schema cache|does not exist/i.test(updateError.message || "")) {
+            const fallback = await supabase
+              .from("receipts")
+              .update(patch)
+              .eq("id", receipt.id)
+              .eq("user_id", user.id);
+            updateError = fallback.error;
+          }
           if (updateError) throw updateError;
           successCount++;
         } catch {

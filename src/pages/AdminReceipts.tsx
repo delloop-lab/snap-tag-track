@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -15,6 +15,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { getTagColor } from "@/components/TagInput";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Receipt = {
   id: string;
@@ -39,6 +46,12 @@ type Receipt = {
   latitude: number | null;
   longitude: number | null;
   location_name: string | null;
+  image_url?: string;
+};
+
+type ReceiptLineItem = {
+  description?: string;
+  amount?: number;
 };
 
 const AdminReceipts = () => {
@@ -47,17 +60,53 @@ const AdminReceipts = () => {
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
   const [minTotal, setMinTotal] = useState("");
   const [maxTotal, setMaxTotal] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedClient, setSelectedClient] = useState("");
   const [receiptIdSearch, setReceiptIdSearch] = useState("");
   const [foundReceipt, setFoundReceipt] = useState<Receipt | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState("/placeholder.svg");
+  const [previewTitle, setPreviewTitle] = useState("Receipt image");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const readLineItems = (value: unknown): ReceiptLineItem[] => {
+    if (!Array.isArray(value)) return [];
+    return value as ReceiptLineItem[];
+  };
+
+  const resolveAdminReceiptImageUrl = async (imagePath?: string | null): Promise<string> => {
+    const raw = (imagePath || "").trim();
+    if (!raw) return "/placeholder.svg";
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    const candidates = [raw];
+    if (raw.startsWith("receipts/")) candidates.push(raw.replace(/^receipts\//, ""));
+    else candidates.push(`receipts/${raw}`);
+
+    for (const key of candidates) {
+      const { data, error } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(key, 60 * 60);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return "/placeholder.svg";
+  };
 
   useEffect(() => {
     fetchReceipts();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const receiptId = params.get("receiptId");
+    if (!receiptId) return;
+    setReceiptIdSearch(receiptId);
+    void searchReceiptById(receiptId);
+  }, [location.search]);
 
   const fetchReceipts = async () => {
     try {
@@ -93,7 +142,6 @@ const AdminReceipts = () => {
         ...receipt,
         user_email: userMap.get(receipt.user_id) || "Unknown user"
       })) || [];
-
       setReceipts(combinedData);
     } catch (error) {
       console.error("Error fetching receipts:", error);
@@ -125,6 +173,7 @@ const AdminReceipts = () => {
       }
 
       if (data) {
+        const imageUrl = await resolveAdminReceiptImageUrl(data.image_path);
         // Get the user email for this receipt
         const { data: userData } = await supabase
           .from("users")
@@ -134,7 +183,8 @@ const AdminReceipts = () => {
 
         setFoundReceipt({
           ...data,
-          user_email: userData?.email || "Unknown user"
+          user_email: userData?.email || "Unknown user",
+          image_url: imageUrl,
         });
       } else {
         setFoundReceipt(null);
@@ -145,17 +195,30 @@ const AdminReceipts = () => {
     }
   };
 
+  const previewReceiptImage = async (receipt: Receipt) => {
+    const resolved = await resolveAdminReceiptImageUrl(receipt.image_path);
+    setPreviewTitle(receipt.vendor_name || "Receipt image");
+    setPreviewImageUrl(resolved);
+    setPreviewOpen(true);
+  };
+
   // Filtering logic
-  const filteredReceipts = receipts.filter((r) => {
-    if (search && r.vendor_name && !r.vendor_name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (selectedType && r.type !== selectedType) return false;
-    if (selectedClient && r.client_name !== selectedClient) return false;
-    if (dateFrom && (!r.purchase_date || r.purchase_date < dateFrom)) return false;
-    if (dateTo && (!r.purchase_date || r.purchase_date > dateTo)) return false;
-    if (minTotal && (!r.total_amount || r.total_amount < parseFloat(minTotal))) return false;
-    if (maxTotal && (!r.total_amount || r.total_amount > parseFloat(maxTotal))) return false;
-    return true;
-  });
+  const filteredReceipts = receipts
+    .filter((r) => {
+      if (search && r.vendor_name && !r.vendor_name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (selectedType && r.type !== selectedType) return false;
+      if (selectedClient && r.client_name !== selectedClient) return false;
+      if (dateFrom && (!r.purchase_date || r.purchase_date < dateFrom)) return false;
+      if (dateTo && (!r.purchase_date || r.purchase_date > dateTo)) return false;
+      if (minTotal && (!r.total_amount || r.total_amount < parseFloat(minTotal))) return false;
+      if (maxTotal && (!r.total_amount || r.total_amount > parseFloat(maxTotal))) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.purchase_date || a.created_at).getTime();
+      const bTime = new Date(b.purchase_date || b.created_at).getTime();
+      return dateSort === "newest" ? bTime - aTime : aTime - bTime;
+    });
 
   // Get unique clients and types for filters
   const clients = Array.from(new Set(receipts.map(r => r.client_name).filter(Boolean)));
@@ -198,6 +261,20 @@ const AdminReceipts = () => {
         {foundReceipt && (
           <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <h3 className="text-lg font-semibold mb-2">Found Receipt</h3>
+            <img
+              src={foundReceipt.image_url || "/placeholder.svg"}
+              alt={foundReceipt.vendor_name || "Receipt"}
+              className="w-28 h-28 rounded border object-cover mb-3"
+            />
+            <div className="mb-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(foundReceipt.image_url || "/placeholder.svg", "_blank", "noopener,noreferrer")}
+              >
+                Open full size
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-600">ID</p>
@@ -226,6 +303,21 @@ const AdminReceipts = () => {
               <div>
                 <p className="text-sm text-gray-600">Type</p>
                 <p className="font-medium">{foundReceipt.type || "-"}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-sm text-gray-600">Line items</p>
+                {readLineItems(foundReceipt.line_items).length > 0 ? (
+                  <ul className="list-disc ml-5">
+                    {readLineItems(foundReceipt.line_items).map((li, idx) => (
+                      <li key={`${foundReceipt.id}-li-${idx}`} className="text-sm">
+                        {li.description || "Item"}
+                        {typeof li.amount === "number" ? ` - $${li.amount.toFixed(2)}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="font-medium">-</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-gray-600">Location</p>
@@ -295,6 +387,14 @@ const AdminReceipts = () => {
             placeholder="To"
           />
         </div>
+        <select
+          value={dateSort}
+          onChange={(e) => setDateSort(e.target.value as "newest" | "oldest")}
+          className="border rounded px-2 py-1"
+        >
+          <option value="newest">Date: Newest first</option>
+          <option value="oldest">Date: Oldest first</option>
+        </select>
       </div>
 
       {/* Receipts Table */}
@@ -310,8 +410,10 @@ const AdminReceipts = () => {
               <TableHead>Type</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Location</TableHead>
+              <TableHead>Line Items</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead>Warranty</TableHead>
+              <TableHead>Image</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -352,6 +454,23 @@ const AdminReceipts = () => {
                   )}
                 </TableCell>
                 <TableCell>
+                  {readLineItems(receipt.line_items).length > 0 ? (
+                    <div className="max-w-[260px] text-xs space-y-1">
+                      {readLineItems(receipt.line_items).slice(0, 3).map((li, idx) => (
+                        <div key={`${receipt.id}-tbl-li-${idx}`} className="truncate">
+                          {li.description || "Item"}
+                          {typeof li.amount === "number" ? ` - $${li.amount.toFixed(2)}` : ""}
+                        </div>
+                      ))}
+                      {readLineItems(receipt.line_items).length > 3 && (
+                        <div className="text-gray-500">+{readLineItems(receipt.line_items).length - 3} more</div>
+                      )}
+                    </div>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {receipt.receipt_tags?.map((rt) => (
                       <Badge key={rt.tags.id} variant="outline" className={getTagColor(rt.tags.name)}>
@@ -367,11 +486,38 @@ const AdminReceipts = () => {
                     <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">No</span>
                   )}
                 </TableCell>
+                <TableCell>
+                  <Button size="sm" variant="outline" onClick={() => previewReceiptImage(receipt)}>
+                    View
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{previewTitle}</DialogTitle>
+            <DialogDescription>Receipt image preview loaded on demand.</DialogDescription>
+          </DialogHeader>
+          <img
+            src={previewImageUrl}
+            alt={previewTitle}
+            className="w-full max-h-[70vh] object-contain rounded border"
+          />
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => window.open(previewImageUrl, "_blank", "noopener,noreferrer")}
+            >
+              Open full size
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

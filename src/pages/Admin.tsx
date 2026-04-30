@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Calendar, Users, Receipt, ShieldCheck, Tag, BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Calendar, Users, Receipt, ShieldCheck, Tag, BarChart3 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
+import { buildRescanPatch } from "@/lib/rescanPreferences";
+import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface User {
   id: string;
@@ -15,11 +25,26 @@ interface User {
   first_name?: string | null;
   last_name?: string | null;
   avatar_url?: string | null;
+  avatar_display_url?: string | null;
+  receipt_count?: number;
+  warranty_count?: number;
 }
 
 interface Client {
   name: string;
   receiptCount: number;
+  userLabels: string[];
+}
+
+interface IssuerReceipt {
+  id: string;
+  user_id: string;
+  vendor_name: string | null;
+  purchase_date: string | null;
+  total_amount: number | null;
+  image_path: string | null;
+  image_url: string;
+  created_at: string;
 }
 
 const Admin = () => {
@@ -28,26 +53,92 @@ const Admin = () => {
     totalReceipts: 0,
     totalWarranties: 0,
     tagCounts: [] as { tag: string; count: number }[],
+    receiptTitleCounts: [] as { title: string; count: number }[],
     loading: true,
   });
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
+  const [isRunningGlobalRescan, setIsRunningGlobalRescan] = useState(false);
+  const [globalRescanProgress, setGlobalRescanProgress] = useState<{ done: number; total: number } | null>(null);
+  const [isRunningGlobalThumbs, setIsRunningGlobalThumbs] = useState(false);
+  const [globalThumbsProgress, setGlobalThumbsProgress] = useState<{ done: number; total: number } | null>(null);
+  const [isRefreshingIssuers, setIsRefreshingIssuers] = useState(false);
+  const [issuerDialogOpen, setIssuerDialogOpen] = useState(false);
+  const [selectedIssuerTitle, setSelectedIssuerTitle] = useState("");
+  const [issuerReceipts, setIssuerReceipts] = useState<IssuerReceipt[]>([]);
+  const [issuerReceiptsLoading, setIssuerReceiptsLoading] = useState(false);
   const navigate = useNavigate();
+  const isAbsoluteUrl = (value?: string | null) => !!value && /^https?:\/\//i.test(value);
+  const normalizeIssuerTitle = (raw?: string | null): string => {
+    const trimmed = (raw || "").trim().replace(/\s+/g, " ");
+    if (!trimmed) return "";
+    return trimmed
+      .toLowerCase()
+      .split(" ")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  };
+  const normalizeTagName = (raw?: string | null): string => {
+    const trimmed = (raw || "").trim().replace(/\s+/g, " ");
+    if (!trimmed) return "";
+    return trimmed
+      .toLowerCase()
+      .split(" ")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  };
+  const resolveAdminReceiptImageUrl = async (imagePath?: string | null): Promise<string> => {
+    const raw = (imagePath || "").trim();
+    if (!raw) return "/placeholder.svg";
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    const candidates = [raw];
+    if (raw.startsWith("receipts/")) candidates.push(raw.replace(/^receipts\//, ""));
+    else candidates.push(`receipts/${raw}`);
+
+    for (const key of candidates) {
+      const { data, error } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(key, 60 * 60);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    }
+    return "/placeholder.svg";
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Fetch total users
-        const { count: userCount } = await supabase
+        // Fetch active users (logged in within last 6 months)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const { data: usersForActivity, error: usersActivityError } = await supabase
           .from("users")
-          .select("id", { count: "exact", head: true });
+          .select("id, created_at");
+        let activeUserCount = 0;
+        if (!usersActivityError && Array.isArray(usersForActivity)) {
+          activeUserCount = usersForActivity.filter((u) => {
+            const lastSeen = u?.created_at;
+            if (!lastSeen) return false;
+            return new Date(lastSeen) >= sixMonthsAgo;
+          }).length;
+        }
 
         // Fetch all receipts
         const { data: receipts } = await supabase
           .from("receipts")
-          .select("id, warranty, purchase_date, client_name");
+          .select("id, warranty, purchase_date, client_name, user_id, vendor_name");
+
+        // Fetch users for client ownership labels
+        const { data: usersForClients } = await supabase
+          .from("users")
+          .select("id, first_name, last_name, email");
+        const userLabelById = new Map<string, string>();
+        (usersForClients || []).forEach((u) => {
+          const fullName = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
+          userLabelById.set(u.id, fullName || u.email || "Unknown user");
+        });
 
         // Total receipts
         const totalReceipts = receipts?.length || 0;
@@ -55,15 +146,37 @@ const Admin = () => {
         // Total warranties
         const totalWarranties = receipts?.filter(r => r.warranty).length || 0;
 
+        // Receipt titles (issuer / vendor names)
+        const vendorMap: Record<string, number> = {};
+        receipts?.forEach((r) => {
+          const title = normalizeIssuerTitle(r.vendor_name);
+          if (!title) return;
+          vendorMap[title] = (vendorMap[title] || 0) + 1;
+        });
+        const receiptTitleCounts = Object.entries(vendorMap)
+          .map(([title, count]) => ({ title, count }))
+          .sort((a, b) => b.count - a.count);
+
         // Client counts
-        const clientMap: Record<string, number> = {};
+        const clientMap = new Map<string, { receiptCount: number; users: Set<string> }>();
         receipts?.forEach(r => {
           if (r.client_name) {
-            clientMap[r.client_name] = (clientMap[r.client_name] || 0) + 1;
+            if (!clientMap.has(r.client_name)) {
+              clientMap.set(r.client_name, { receiptCount: 0, users: new Set<string>() });
+            }
+            const entry = clientMap.get(r.client_name)!;
+            entry.receiptCount += 1;
+            if (r.user_id) {
+              entry.users.add(r.user_id);
+            }
           }
         });
-        const clientList = Object.entries(clientMap)
-          .map(([name, count]) => ({ name, receiptCount: count }))
+        const clientList = [...clientMap.entries()]
+          .map(([name, entry]) => ({
+            name,
+            receiptCount: entry.receiptCount,
+            userLabels: [...entry.users].map((id) => userLabelById.get(id) || "Unknown user") || [],
+          }))
           .sort((a, b) => b.receiptCount - a.receiptCount);
         setClients(clientList);
         setClientsLoading(false);
@@ -76,7 +189,7 @@ const Admin = () => {
         // Tag counts
         const tagMap: Record<string, number> = {};
         receiptTags?.forEach(rt => {
-          const tagName = rt.tags?.name;
+          const tagName = normalizeTagName(rt.tags?.name);
           if (tagName) {
             tagMap[tagName] = (tagMap[tagName] || 0) + 1;
           }
@@ -84,10 +197,11 @@ const Admin = () => {
         const tagCounts = Object.entries(tagMap).map(([tag, count]) => ({ tag, count }));
 
         setStats({
-          totalUsers: userCount || 0,
+          totalUsers: activeUserCount,
           totalReceipts,
           totalWarranties,
           tagCounts,
+          receiptTitleCounts,
           loading: false,
         });
       } catch (error) {
@@ -104,7 +218,36 @@ const Admin = () => {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setUsers(data || []);
+        const { data: userReceipts } = await supabase
+          .from("receipts")
+          .select("user_id, warranty");
+
+        const receiptCountByUser = new Map<string, number>();
+        const warrantyCountByUser = new Map<string, number>();
+        (userReceipts || []).forEach((r) => {
+          if (!r.user_id) return;
+          receiptCountByUser.set(r.user_id, (receiptCountByUser.get(r.user_id) || 0) + 1);
+          if (r.warranty) {
+            warrantyCountByUser.set(r.user_id, (warrantyCountByUser.get(r.user_id) || 0) + 1);
+          }
+        });
+
+        const usersWithCounts = await Promise.all((data || []).map(async (u) => {
+          let avatarDisplayUrl = u.avatar_url || null;
+          if (u.avatar_url && !isAbsoluteUrl(u.avatar_url)) {
+            const { data: signedData, error: signedError } = await supabase.storage
+              .from("avatars")
+              .createSignedUrl(u.avatar_url, 60 * 60);
+            avatarDisplayUrl = !signedError && signedData?.signedUrl ? signedData.signedUrl : null;
+          }
+          return {
+            ...u,
+            avatar_display_url: avatarDisplayUrl,
+            receipt_count: receiptCountByUser.get(u.id) || 0,
+            warranty_count: warrantyCountByUser.get(u.id) || 0,
+          };
+        }));
+        setUsers(usersWithCounts);
       } catch (error) {
         console.error("Error fetching users:", error);
       } finally {
@@ -118,38 +261,265 @@ const Admin = () => {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
+  const refreshReceiptTitleCounts = async () => {
+    const { data: receipts, error } = await supabase
+      .from("receipts")
+      .select("vendor_name");
+    if (error) return;
+
+    const vendorMap: Record<string, number> = {};
+    (receipts || []).forEach((r) => {
+      const title = normalizeIssuerTitle(r.vendor_name);
+      if (!title) return;
+      vendorMap[title] = (vendorMap[title] || 0) + 1;
+    });
+    const receiptTitleCounts = Object.entries(vendorMap)
+      .map(([title, count]) => ({ title, count }))
+      .sort((a, b) => b.count - a.count);
+
+    setStats((prev) => ({ ...prev, receiptTitleCounts }));
+  };
+
+  const normalizeIssuerNamesWithoutAI = async () => {
+    if (isRefreshingIssuers) return;
+    setIsRefreshingIssuers(true);
+    try {
+      const { data: receipts, error } = await supabase
+        .from("receipts")
+        .select("id, user_id, vendor_name")
+        .not("vendor_name", "is", null);
+      if (error) throw error;
+
+      let updated = 0;
+      for (const row of receipts || []) {
+        const current = row.vendor_name?.trim() || "";
+        const normalized = normalizeIssuerTitle(current);
+        if (!normalized || normalized === current) continue;
+        const { error: updateError } = await supabase
+          .from("receipts")
+          .update({ vendor_name: normalized })
+          .eq("id", row.id)
+          .eq("user_id", row.user_id);
+        if (!updateError) updated += 1;
+      }
+
+      await refreshReceiptTitleCounts();
+      toast({
+        title: "Receipt issuer list refreshed",
+        description: updated > 0
+          ? `Normalized ${updated} receipt issuer name${updated === 1 ? "" : "s"} without re-running AI.`
+          : "Issuer list refreshed from existing data. No name changes were needed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Issuer refresh failed",
+        description: error instanceof Error ? error.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshingIssuers(false);
+    }
+  };
+
+  const openIssuerReceipts = async (title: string) => {
+    setSelectedIssuerTitle(title);
+    setIssuerDialogOpen(true);
+    setIssuerReceiptsLoading(true);
+    setIssuerReceipts([]);
+    try {
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("id, user_id, vendor_name, purchase_date, total_amount, image_path, created_at")
+        .not("vendor_name", "is", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const matching = (data || []).filter((r) => normalizeIssuerTitle(r.vendor_name) === title);
+      const withImages = await Promise.all(
+        matching.map(async (r) => ({
+          ...r,
+          image_url: await resolveAdminReceiptImageUrl(r.image_path),
+        }))
+      );
+      setIssuerReceipts(withImages);
+    } catch (error) {
+      toast({
+        title: "Failed to load issuer receipts",
+        description: error instanceof Error ? error.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setIssuerReceiptsLoading(false);
+    }
+  };
+
+  const runGlobalAiRescan = async () => {
+    if (isRunningGlobalRescan) return;
+    const confirmed = window.confirm(
+      "Run AI reprocessing for all users' unprocessed receipts now? This may take a while."
+    );
+    if (!confirmed) return;
+
+    setIsRunningGlobalRescan(true);
+    try {
+      let hasAiProcessedColumn = true;
+      let { data: allReceipts, error: receiptsError } = await supabase
+        .from("receipts")
+        .select("id, user_id, image_path, vendor_name, total_amount, purchase_date, text_content, line_items, currency, ai_processed_at")
+        .order("created_at", { ascending: false });
+      if (receiptsError && /ai_processed_at|column|schema cache|does not exist/i.test(receiptsError.message || "")) {
+        hasAiProcessedColumn = false;
+        const fallback = await supabase
+          .from("receipts")
+          .select("id, user_id, image_path, vendor_name, total_amount, purchase_date, text_content, line_items, currency")
+          .order("created_at", { ascending: false });
+        allReceipts = fallback.data as any;
+        receiptsError = fallback.error;
+      }
+      if (receiptsError) throw receiptsError;
+
+      const all = (allReceipts || []) as Array<{
+        id: string;
+        user_id: string;
+        image_path: string | null;
+        vendor_name: string | null;
+        total_amount: number | null;
+        purchase_date: string | null;
+        text_content: string | null;
+        line_items: unknown[] | null;
+        currency: string | null;
+        ai_processed_at?: string | null;
+      }>;
+      const alreadyProcessed = all.filter((r) => !!r.ai_processed_at).length;
+      const receipts = all.filter((r) => !r.ai_processed_at);
+      setGlobalRescanProgress({ done: 0, total: receipts.length });
+      let updated = 0;
+      let processedNoChange = 0;
+      let failed = 0;
+
+      for (let i = 0; i < receipts.length; i += 1) {
+        const receipt = receipts[i];
+        try {
+          if (!receipt.image_path) throw new Error("Missing image path");
+          const { data: fnData, error: fnError } = await supabase.functions.invoke(
+            "process-receipt",
+            { body: { filePath: receipt.image_path } }
+          );
+          if (fnError) throw fnError;
+          if (!fnData?.success) throw new Error(fnData?.error ?? "AI function failed");
+
+          const patch = buildRescanPatch(
+            {
+              vendor_name: receipt.vendor_name,
+              total_amount: receipt.total_amount,
+              purchase_date: receipt.purchase_date,
+              text_content: receipt.text_content,
+              line_items: (receipt.line_items as unknown[] | null) ?? null,
+              currency: receipt.currency ?? null,
+            },
+            fnData.data ?? {},
+            false
+          );
+          const processedAt = new Date().toISOString();
+          const updatePayload =
+            Object.keys(patch).length > 0
+              ? (hasAiProcessedColumn ? { ...patch, ai_processed_at: processedAt } : { ...patch })
+              : (hasAiProcessedColumn ? { ai_processed_at: processedAt } : {});
+          if (Object.keys(updatePayload).length === 0) {
+            processedNoChange += 1;
+            continue;
+          }
+          const { error: updateError } = await supabase
+            .from("receipts")
+            .update(updatePayload)
+            .eq("id", receipt.id)
+            .eq("user_id", receipt.user_id);
+          if (updateError) throw updateError;
+          if (Object.keys(patch).length > 0) {
+            updated += 1;
+          } else {
+            processedNoChange += 1;
+          }
+        } catch {
+          failed += 1;
+        } finally {
+          setGlobalRescanProgress({ done: i + 1, total: receipts.length });
+        }
+      }
+
+      toast({
+        title: "AI reprocessing complete",
+        description: `Processed ${receipts.length}. Updated ${updated}. No-change ${processedNoChange}. Already processed ${alreadyProcessed}.${failed ? ` Failed ${failed}.` : ""}`,
+      });
+      await refreshReceiptTitleCounts();
+    } catch (error) {
+      toast({
+        title: "Global AI reprocessing failed",
+        description: error instanceof Error ? error.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningGlobalRescan(false);
+      setGlobalRescanProgress(null);
+    }
+  };
+
+  const runGlobalThumbnailBackfill = async () => {
+    if (isRunningGlobalThumbs) return;
+    const confirmed = window.confirm(
+      "Generate missing thumbnails for all users' receipts now? This may take a while."
+    );
+    if (!confirmed) return;
+
+    setIsRunningGlobalThumbs(true);
+    try {
+      const { data: allUsers, error: usersErr } = await supabase
+        .from("users")
+        .select("id");
+      if (usersErr) throw usersErr;
+      const userIds = (allUsers || []).map((u) => u.id);
+
+      let done = 0;
+      let total = 0;
+      let created = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      setGlobalThumbsProgress({ done: 0, total: 0 });
+      for (const userId of userIds) {
+        const result = await backfillMissingReceiptThumbnails({
+          userId,
+          concurrency: 2,
+          onProgress: (p) => {
+            setGlobalThumbsProgress({ done: done + p.done, total: total + p.total });
+          },
+        });
+        done += result.created + result.skipped + result.failed;
+        total += result.created + result.skipped + result.failed;
+        created += result.created;
+        skipped += result.skipped;
+        failed += result.failed;
+        setGlobalThumbsProgress({ done, total });
+      }
+
+      toast({
+        title: "Thumbnail backfill complete",
+        description: `Created ${created}. Skipped ${skipped}. Failed ${failed}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Global thumbnail backfill failed",
+        description: error instanceof Error ? error.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningGlobalThumbs(false);
+      setGlobalThumbsProgress(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Title Page */}
-      <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 text-white relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="w-96 h-96 bg-blue-400 opacity-20 rounded-full blur-3xl absolute -top-32 -left-32 animate-pulse"></div>
-          <div className="w-96 h-96 bg-blue-800 opacity-20 rounded-full blur-3xl absolute -bottom-32 -right-32 animate-pulse"></div>
-        </div>
-        
-        <h1 className="text-5xl md:text-7xl font-bold mb-6 drop-shadow-lg animate-fade-in">
-          Admin Dashboard
-        </h1>
-        <p className="text-xl md:text-2xl mb-8 opacity-90 max-w-2xl mx-auto animate-fade-in-up">
-          Monitor your application's performance and user engagement with real-time analytics
-        </p>
-        <div className="flex flex-col md:flex-row gap-4 justify-center items-center animate-fade-in-up">
-          <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-            <Users className="h-6 w-6" />
-            <span>User Analytics</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-            <Receipt className="h-6 w-6" />
-            <span>Receipt Management</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-            <Tag className="h-6 w-6" />
-            <span>Tag Analytics</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
@@ -160,16 +530,64 @@ const Admin = () => {
             <div className="text-center text-gray-400">Loading...</div>
           ) : (
             <div className="space-y-8">
+              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Global Processing</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Run AI extraction for unprocessed receipts across all users and update receipt details.
+                  </p>
+                  {globalRescanProgress && (
+                    <p className="text-sm text-gray-700 mb-3">
+                      Progress: {globalRescanProgress.done} / {globalRescanProgress.total}
+                    </p>
+                  )}
+                  <Button onClick={runGlobalAiRescan} disabled={isRunningGlobalRescan}>
+                    {isRunningGlobalRescan ? "Running AI reprocess..." : "Run AI for unprocessed receipts"}
+                  </Button>
+                  <div className="mt-5 border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Refresh and normalize the Receipt Titles (Issuer) list from existing receipt data only (no AI run).
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={normalizeIssuerNamesWithoutAI}
+                      disabled={isRefreshingIssuers}
+                    >
+                      {isRefreshingIssuers ? "Refreshing issuer list..." : "Refresh issuer list without AI"}
+                    </Button>
+                  </div>
+                  <div className="mt-5 border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Generate missing receipt thumbnails for all users.
+                    </p>
+                    {globalThumbsProgress && (
+                      <p className="text-sm text-gray-700 mb-3">
+                        Progress: {globalThumbsProgress.done} / {globalThumbsProgress.total}
+                      </p>
+                    )}
+                    <Button
+                      variant="outline"
+                      onClick={runGlobalThumbnailBackfill}
+                      disabled={isRunningGlobalThumbs}
+                    >
+                      {isRunningGlobalThumbs ? "Running thumbnail backfill..." : "Run thumbnails for all receipts"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-shadow">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">Total Users</CardTitle>
+                    <CardTitle className="text-sm font-medium text-gray-500">New Users (Last 6 Months)</CardTitle>
                     <Users className="h-4 w-4 text-blue-500" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold">{stats.totalUsers}</div>
-                    <p className="text-xs text-gray-500">Active accounts</p>
+                    <p className="text-xs text-gray-500">Created within 6 months</p>
                   </CardContent>
                 </Card>
 
@@ -219,6 +637,8 @@ const Admin = () => {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Email</TableHead>
+                          <TableHead className="text-right">Receipts</TableHead>
+                          <TableHead className="text-right">Warranties</TableHead>
                           <TableHead>Joined</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -227,9 +647,9 @@ const Admin = () => {
                           <TableRow key={user.id}>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                {user.avatar_url && (
+                                {user.avatar_display_url && (
                                   <img
-                                    src={user.avatar_url}
+                                    src={user.avatar_display_url}
                                     alt=""
                                     className="w-8 h-8 rounded-full object-cover"
                                   />
@@ -246,6 +666,8 @@ const Admin = () => {
                               </div>
                             </TableCell>
                             <TableCell>{user.email}</TableCell>
+                            <TableCell className="text-right font-medium">{user.receipt_count || 0}</TableCell>
+                            <TableCell className="text-right font-medium">{user.warranty_count || 0}</TableCell>
                             <TableCell>{format(new Date(user.created_at), "MMM d, yyyy")}</TableCell>
                           </TableRow>
                         ))}
@@ -273,6 +695,7 @@ const Admin = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Client Name</TableHead>
+                          <TableHead>User(s)</TableHead>
                           <TableHead className="text-right">Receipt Count</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -280,6 +703,11 @@ const Admin = () => {
                         {clients.map((client) => (
                           <TableRow key={client.name}>
                             <TableCell className="font-medium">{client.name}</TableCell>
+                            <TableCell>
+                              {Array.isArray(client.userLabels) && client.userLabels.length > 0
+                                ? client.userLabels.join(", ")
+                                : "Unknown user"}
+                            </TableCell>
                             <TableCell className="text-right">{client.receiptCount}</TableCell>
                           </TableRow>
                         ))}
@@ -316,40 +744,42 @@ const Admin = () => {
                     </ResponsiveContainer>
                   </div>
                 </Card>
-
-                {/* Tag Pie Chart */}
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 p-6 pb-0">
-                    <PieChartIcon className="h-5 w-5 text-purple-500" />
-                    Tag Usage
+                    <Receipt className="h-5 w-5 text-purple-500" />
+                    Receipt Titles (Issuer)
                   </h2>
-                  <div className="h-[300px] p-6">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={stats.tagCounts}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="count"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {stats.tagCounts.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            borderRadius: '8px',
-                            border: 'none',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                  <div className="p-6 pt-0">
+                    {stats.receiptTitleCounts.length === 0 ? (
+                      <p className="text-sm text-gray-500">No receipt titles found.</p>
+                    ) : (
+                      <div className="max-h-[300px] overflow-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2">Title</th>
+                              <th className="text-right py-2">Count</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stats.receiptTitleCounts.map((item) => (
+                              <tr key={item.title} className="border-b last:border-0">
+                                <td className="py-2">
+                                  <button
+                                    type="button"
+                                    className="text-blue-700 hover:underline"
+                                    onClick={() => openIssuerReceipts(item.title)}
+                                  >
+                                    {item.title}
+                                  </button>
+                                </td>
+                                <td className="py-2 text-right font-medium">{item.count}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </div>
@@ -395,6 +825,48 @@ const Admin = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              <Dialog open={issuerDialogOpen} onOpenChange={setIssuerDialogOpen}>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Receipts for issuer: {selectedIssuerTitle}</DialogTitle>
+                    <DialogDescription>
+                      Click a row action to open that receipt in the admin receipts view.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {issuerReceiptsLoading ? (
+                    <p className="text-sm text-gray-500">Loading receipts...</p>
+                  ) : issuerReceipts.length === 0 ? (
+                    <p className="text-sm text-gray-500">No receipts found for this issuer.</p>
+                  ) : (
+                    <div className="max-h-[70vh] overflow-auto space-y-3">
+                      {issuerReceipts.map((r) => (
+                        <div key={r.id} className="flex items-center gap-3 border rounded-md p-2">
+                          <img
+                            src={r.image_url}
+                            alt={r.vendor_name || "Receipt"}
+                            className="w-14 h-14 rounded object-cover border"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{r.vendor_name || "Unknown issuer"}</p>
+                            <p className="text-xs text-gray-500">
+                              {r.purchase_date ? format(new Date(r.purchase_date), "MMM d, yyyy") : "No date"} ·
+                              {" $"}{(r.total_amount ?? 0).toFixed(2)} · User {r.user_id.slice(0, 8)}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/admin/receipts?receiptId=${encodeURIComponent(r.id)}`)}
+                          >
+                            Open
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>

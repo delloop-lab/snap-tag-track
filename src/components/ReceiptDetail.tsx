@@ -301,8 +301,16 @@ const ReceiptDetail = () => {
         currency: receipt.currency,
       };
       const patch = buildRescanPatch(current, extracted, prefs.emptyOnly);
+      const processedAt = new Date().toISOString();
       const changedFields = Object.keys(patch);
       if (changedFields.length === 0) {
+        let { error: processedMarkError } = await supabase
+          .from("receipts")
+          .update({ ai_processed_at: processedAt })
+          .eq("id", receipt.id);
+        if (processedMarkError && /ai_processed_at|column|schema cache|does not exist/i.test(processedMarkError.message || "")) {
+          processedMarkError = null;
+        }
         toast({
           title: "Nothing to update",
           description: prefs.emptyOnly
@@ -319,10 +327,17 @@ const ReceiptDetail = () => {
         if (!approved) return;
       }
 
-      const { error: updateError } = await supabase
+      let { error: updateError } = await supabase
         .from("receipts")
-        .update(patch)
+        .update({ ...patch, ai_processed_at: processedAt })
         .eq("id", receipt.id);
+      if (updateError && /ai_processed_at|column|schema cache|does not exist/i.test(updateError.message || "")) {
+        const fallback = await supabase
+          .from("receipts")
+          .update(patch)
+          .eq("id", receipt.id);
+        updateError = fallback.error;
+      }
 
       if (updateError) throw updateError;
       await fetchReceipt();

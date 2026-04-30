@@ -20,10 +20,65 @@ import TagUntagged from "./pages/TagUntagged";
 import LandingPage2 from "./pages/LandingPage2";
 import Admin from "./pages/Admin";
 import AdminReceipts from "./pages/AdminReceipts";
+import Help from "./pages/Help";
 import VersionNumber from "./components/VersionNumber";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./integrations/supabase/client";
 
 const queryClient = new QueryClient();
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setIsAdmin(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    setIsAdmin(null);
+    void (async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+      if (error) {
+        setIsAdmin(false);
+        return;
+      }
+      setIsAdmin(data?.user_type === "admin");
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  if (loading || (!!user && isAdmin === null)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 const AppContent = () => {
   const location = useLocation();
@@ -78,10 +133,23 @@ const AppContent = () => {
                 <TagUntagged />
               </ProtectedRoute>
             } />
+            <Route path="/help" element={
+              <ProtectedRoute>
+                <Help />
+              </ProtectedRoute>
+            } />
             <Route path="/landing" element={<LandingPage2 />} />
             <Route path="/landing2" element={<LandingPage2 />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/receipts" element={<AdminReceipts />} />
+            <Route path="/admin" element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
+            } />
+            <Route path="/admin/receipts" element={
+              <AdminRoute>
+                <AdminReceipts />
+              </AdminRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

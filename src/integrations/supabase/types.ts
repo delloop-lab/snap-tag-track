@@ -44,6 +44,7 @@ export type Database = {
       }
       receipts: {
         Row: {
+          ai_processed_at: string | null
           client_name: string | null
           created_at: string
           file_type: string | null
@@ -64,6 +65,7 @@ export type Database = {
           warranty: boolean
         }
         Insert: {
+          ai_processed_at?: string | null
           client_name?: string | null
           created_at?: string
           file_type?: string | null
@@ -84,6 +86,7 @@ export type Database = {
           warranty?: boolean
         }
         Update: {
+          ai_processed_at?: string | null
           client_name?: string | null
           created_at?: string
           file_type?: string | null
@@ -137,27 +140,39 @@ export type Database = {
       users: {
         Row: {
           avatar_url: string | null
+          country: string | null
           created_at: string
           email: string
           first_name: string | null
           id: string
           last_name: string | null
+          rescan_empty_only: boolean
+          rescan_preview_diff: boolean
+          user_type: "admin" | "user"
         }
         Insert: {
           avatar_url?: string | null
+          country?: string | null
           created_at?: string
           email: string
           first_name?: string | null
           id: string
           last_name?: string | null
+          rescan_empty_only?: boolean
+          rescan_preview_diff?: boolean
+          user_type?: "admin" | "user"
         }
         Update: {
           avatar_url?: string | null
+          country?: string | null
           created_at?: string
           email?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
+          rescan_empty_only?: boolean
+          rescan_preview_diff?: boolean
+          user_type?: "admin" | "user"
         }
         Relationships: []
       }

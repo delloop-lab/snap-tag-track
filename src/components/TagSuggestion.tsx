@@ -49,6 +49,12 @@ const keywordTagMappings: KeywordTag[] = [
 ];
 
 const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, onTagAdded }) => {
+  const formatTagName = (value: string): string => {
+    const trimmed = value.trim().replace(/\s+/g, " ");
+    if (!trimmed) return "";
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  };
+
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
@@ -77,7 +83,8 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
   };
 
   const addTagToReceipt = async (tagName: string) => {
-    if (!user || !receiptId || !tagName) {
+    const normalizedTagName = formatTagName(tagName);
+    if (!user || !receiptId || !normalizedTagName) {
       console.error("Missing user, receiptId, or tagName");
       return;
     }
@@ -88,7 +95,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       const { data: existingTags, error: fetchError } = await supabase
         .from("tags")
         .select("*")
-        .eq("name", tagName)
+        .ilike("name", normalizedTagName)
         .eq("user_id", user.id);
 
       if (fetchError) throw fetchError;
@@ -99,7 +106,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
       if (!existingTags || existingTags.length === 0) {
         const { data: newTag, error: createError } = await supabase
           .from("tags")
-          .insert({ name: tagName, user_id: user.id })
+          .insert({ name: normalizedTagName, user_id: user.id })
           .select()
           .single();
 
@@ -142,7 +149,7 @@ const TagSuggestion: React.FC<TagSuggestionProps> = ({ receiptId, textContent, o
 
       toast({
         title: "Tag added",
-        description: `Added "${tagName}" tag to receipt`,
+        description: `Added "${normalizedTagName}" tag to receipt`,
       });
     } catch (error) {
       console.error("Error adding tag:", error);

@@ -4,96 +4,228 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
-import {
-  getRescanPreferences,
-  getRescanPreferencesFromDb,
-  setRescanPreferences,
-} from "@/lib/rescanPreferences";
+import { useNavigate } from "react-router-dom";
 import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
+import { COUNTRY_DISPLAY_NAMES_EN } from "@/lib/countryDisplayNames";
+import { cn } from "@/lib/utils";
+import type { User } from "@supabase/supabase-js";
 
 const AVATAR_BUCKET = "avatars";
 
+function namesFromAuthMetadata(authUser: User): { first: string; last: string } {
+  const m = authUser.user_metadata as Record<string, unknown>;
+  const s = (k: string): string =>
+    typeof m[k] === "string" ? (m[k] as string).trim() : "";
+  const fn = s("first_name");
+  const ln = s("last_name");
+  if (fn || ln) return { first: fn, last: ln };
+  const full = s("full_name") || s("name");
+  if (full) {
+    const parts = full.split(/\s+/).filter(Boolean);
+    return { first: parts[0] ?? "", last: parts.slice(1).join(" ") };
+  }
+  return { first: "", last: "" };
+}
+
+/** OAuth / identity provider avatar (full URL only). */
+function avatarUrlFromAuthMetadata(authUser: User): string {
+  const m = authUser.user_metadata as Record<string, unknown>;
+  const raw = (m.avatar_url ?? m.picture) as unknown;
+  return typeof raw === "string" && /^https?:\/\//i.test(raw) ? raw.trim() : "";
+}
+
+function looksLikeAbsoluteUrl(str: string): boolean {
+  return /^https?:\/\//i.test(str.trim());
+}
+
 const Profile = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [avatarPath, setAvatarPath] = useState(""); // Store file path, not signed URL
-  const [avatarUrl, setAvatarUrl] = useState(""); // Display signed URL
+  const [country, setCountry] = useState("");
+  const [avatarPath, setAvatarPath] = useState(""); // Storage object path or legacy full URL persisted in DB
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [loadWarning, setLoadWarning] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [rescanEmptyOnly, setRescanEmptyOnly] = useState(false);
-  const [rescanPreviewDiff, setRescanPreviewDiff] = useState(false);
   const [thumbBackfill, setThumbBackfill] = useState<{
     running: boolean;
     done: number;
     total: number;
     last?: { created: number; skipped: number; failed: number };
   }>({ running: false, done: 0, total: 0 });
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
-    const fetchProfile = async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("first_name, last_name, avatar_url, rescan_empty_only, rescan_preview_diff")
-        .eq("id", user.id)
-        .single();
-      if (data) {
-        setFirstName(data.first_name || "");
-        setLastName(data.last_name || "");
-        const storedPath = data.avatar_url || "";
-        setAvatarPath(storedPath);
-        
-        // Generate signed URL if we have a path
-        if (storedPath) {
-          const { data: signedData, error: signedError } = await supabase.storage
-            .from(AVATAR_BUCKET)
-            .createSignedUrl(storedPath, 60 * 60); // 1 hour expiry
+    let cancelled = false;
 
-          if (!signedError && signedData?.signedUrl) {
-            setAvatarUrl(signedData.signedUrl);
-          } else {
-            setAvatarUrl("");
+    const fetchProfile = async () => {
+      setLoadWarning("");
+
+      const fromMeta = namesFromAuthMetadata(user);
+      const metaPic = avatarUrlFromAuthMetadata(user);
+
+      let data:
+        | {
+            first_name: string | null;
+            last_name: string | null;
+            avatar_url: string | null;
+            country?: string | null;
+          }
+        | null = null;
+      let selErr: { message: string } | null = null;
+
+      let res = await supabase
+        .from("users")
+        .select("first_name, last_name, avatar_url, country")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (res.error) {
+        selErr = res.error;
+        const withoutCountry = await supabase
+          .from("users")
+          .select("first_name, last_name, avatar_url")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!withoutCountry.error) {
+          data = withoutCountry.data;
+          selErr = null;
+        } else {
+          data = withoutCountry.data;
+          selErr = withoutCountry.error;
+        }
+      } else {
+        data = res.data;
+      }
+
+      if (cancelled) return;
+
+      if (selErr) {
+        setLoadWarning("Could not load saved profile from the database. Showing what we can from your account.");
+      }
+
+      const fn = data?.first_name?.trim() || fromMeta.first;
+      const ln = data?.last_name?.trim() || fromMeta.last;
+      setFirstName(fn);
+      setLastName(ln);
+      const countryCol = data && "country" in data ? (data.country as string | null | undefined) : undefined;
+      setCountry(typeof countryCol === "string" ? countryCol : "");
+
+      const stored = data?.avatar_url?.trim() || "";
+      if (stored && looksLikeAbsoluteUrl(stored)) {
+        setAvatarPath(stored);
+        setAvatarUrl(stored);
+      } else if (stored) {
+        setAvatarPath(stored);
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from(AVATAR_BUCKET)
+          .createSignedUrl(stored, 60 * 60);
+        if (cancelled) return;
+        if (!signedError && signedData?.signedUrl) {
+          setAvatarUrl(signedData.signedUrl);
+        } else {
+          setAvatarUrl(metaPic);
+          if (stored) {
+            setLoadWarning(
+              (w) => w || "Could not load your saved profile photo; showing your login photo if available.",
+            );
           }
         }
+      } else {
+        setAvatarPath("");
+        setAvatarUrl(metaPic);
       }
-      const prefs = await getRescanPreferencesFromDb(supabase, user.id);
-      setRescanEmptyOnly(prefs.emptyOnly);
-      setRescanPreviewDiff(prefs.previewDiff);
     };
-    fetchProfile();
+
+    void fetchProfile();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
-  const handleSave = async (e) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!user) return;
     setLoading(true);
     setSuccess("");
     setError("");
-    const { error } = await supabase
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const ctr = country.trim();
+    if (!fn || !ln || !ctr) {
+      setError("First name, last name, and country are required.");
+      setLoading(false);
+      return;
+    }
+    if (!COUNTRY_DISPLAY_NAMES_EN.includes(ctr)) {
+      setError("Please choose a valid country from the list.");
+      setLoading(false);
+      return;
+    }
+    const payload = {
+      first_name: fn,
+      last_name: ln,
+      country: ctr,
+      avatar_url: avatarPath || null,
+    };
+    const legacyPayload = {
+      first_name: fn,
+      last_name: ln,
+      avatar_url: avatarPath || null,
+    };
+
+    // Prefer UPDATE (existing profile row). Fallbacks handle schema/policy drift.
+    let { error } = await supabase
       .from("users")
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        avatar_url: avatarPath,
-        rescan_empty_only: rescanEmptyOnly,
-        rescan_preview_diff: rescanPreviewDiff,
-      } as any)
+      .update(payload)
       .eq("id", user.id);
-    setRescanPreferences(user.id, {
-      emptyOnly: rescanEmptyOnly,
-      previewDiff: rescanPreviewDiff,
-    });
+
+    const missingCountryColumn =
+      !!error && /country|column|schema cache|does not exist/i.test(error.message || "");
+
+    if (missingCountryColumn) {
+      const fallbackUpdate = await supabase
+        .from("users")
+        .update(legacyPayload)
+        .eq("id", user.id);
+      error = fallbackUpdate.error;
+      if (!error) {
+        setLoadWarning("Your database is missing the country column; other profile fields were saved.");
+      }
+    }
+
+    // If update still fails (e.g. no row), attempt an upsert.
+    if (error) {
+      const upsertPayload = missingCountryColumn
+        ? {
+            id: user.id,
+            email: user.email ?? "",
+            ...legacyPayload,
+          }
+        : {
+            id: user.id,
+            email: user.email ?? "",
+            ...payload,
+          };
+      const upsertResult = await supabase
+        .from("users")
+        .upsert(upsertPayload, { onConflict: "id" });
+      error = upsertResult.error;
+    }
     setLoading(false);
     if (error) {
-      setError("Failed to update profile. Please try again.");
+      setError(`Failed to update profile: ${error.message}`);
     } else {
       setSuccess("Profile updated successfully!");
+      if (!missingCountryColumn) setLoadWarning("");
     }
   };
 
-  const handleAvatarChange = async (e) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setLoading(true);
@@ -134,23 +266,32 @@ const Profile = () => {
     });
     setThumbBackfill((s) => ({ ...s, running: false, last: result }));
     toast({
-      title: "Receipt thumbnails",
+      title: "Thumbnail Scans",
       description: `Created ${result.created}. Skipped ${result.skipped} (already had thumbnails). Failed ${result.failed}.`,
     });
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow">
-      <h2 className="text-2xl font-bold mb-6 text-center">Edit Profile</h2>
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow space-y-8">
+      <h2 className="text-2xl font-bold text-center">Edit Profile</h2>
+      {loadWarning && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="status">
+          {loadWarning}
+        </p>
+      )}
       <form onSubmit={handleSave} className="space-y-6">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative w-24 h-24 flex flex-col items-center">
-            {avatarUrl && (
+          <div className="relative w-24 h-24 flex flex-col items-center justify-center rounded-full border border-muted bg-muted/30 overflow-hidden">
+            {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt="Avatar"
-                className="w-24 h-24 rounded-full object-cover border"
+                alt="Your profile photo"
+                className="w-full h-full object-cover"
               />
+            ) : (
+              <span className="text-2xl text-muted-foreground font-medium" aria-hidden>
+                {(firstName?.[0] ?? lastName?.[0] ?? user?.email?.[0] ?? "?").toUpperCase()}
+              </span>
             )}
           </div>
           <Button
@@ -172,69 +313,60 @@ const Profile = () => {
           />
         </div>
         <div>
-          <label className="block mb-1 font-medium">First Name</label>
+          <label className="block mb-1 font-medium" htmlFor="profile-first-name">
+            First name <span className="text-red-600 font-normal text-sm">required</span>
+          </label>
           <Input
+            id="profile-first-name"
             value={firstName}
-            onChange={e => setFirstName(e.target.value)}
-            placeholder="First Name"
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="First name"
             disabled={loading}
+            required
+            aria-required="true"
+            autoComplete="given-name"
           />
         </div>
         <div>
-          <label className="block mb-1 font-medium">Last Name</label>
+          <label className="block mb-1 font-medium" htmlFor="profile-last-name">
+            Last name <span className="text-red-600 font-normal text-sm">required</span>
+          </label>
           <Input
+            id="profile-last-name"
             value={lastName}
-            onChange={e => setLastName(e.target.value)}
-            placeholder="Last Name"
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Last name"
             disabled={loading}
+            required
+            aria-required="true"
+            autoComplete="family-name"
           />
         </div>
-        <div className="rounded border p-3 space-y-3">
-          <p className="font-medium">AI Rescan Settings</p>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rescanEmptyOnly}
-              onChange={(e) => setRescanEmptyOnly(e.target.checked)}
-              disabled={loading}
-            />
-            Rescan only empty fields
+        <div>
+          <label className="block mb-1 font-medium" htmlFor="profile-country">
+            Country <span className="text-red-600 font-normal text-sm">required</span>
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rescanPreviewDiff}
-              onChange={(e) => setRescanPreviewDiff(e.target.checked)}
-              disabled={loading}
-            />
-            Preview diff before apply
-          </label>
-        </div>
-        <div className="rounded border p-3 space-y-3">
-          <p className="font-medium">Receipt lists</p>
-          <p className="text-sm text-gray-600">
-            Generate small preview images for receipts uploaded before thumbnail support. Safe to run more than once; existing thumbnails are skipped.
-          </p>
-          {thumbBackfill.total > 0 && (
-            <p className="text-sm text-gray-700">
-              Progress: {thumbBackfill.done} / {thumbBackfill.total}
-            </p>
-          )}
-          {thumbBackfill.last && !thumbBackfill.running && (
-            <p className="text-xs text-gray-500">
-              Last run: created {thumbBackfill.last.created}, skipped {thumbBackfill.last.skipped}, failed{" "}
-              {thumbBackfill.last.failed}.
-            </p>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={runThumbBackfill}
-            disabled={loading || thumbBackfill.running || !user}
+          <select
+            id="profile-country"
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50"
+            )}
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            disabled={loading}
+            required
+            aria-required="true"
+            autoComplete="country-name"
           >
-            {thumbBackfill.running ? "Generating thumbnails..." : "Generate missing receipt thumbnails"}
-          </Button>
+            <option value="">Select country…</option>
+            {COUNTRY_DISPLAY_NAMES_EN.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         </div>
         {success && <div className="text-green-600 text-center">{success}</div>}
         {error && <div className="text-red-600 text-center">{error}</div>}
@@ -242,6 +374,47 @@ const Profile = () => {
           {loading ? "Saving..." : "Save Changes"}
         </Button>
       </form>
+
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-semibold mb-4">Settings</h3>
+        <div className="space-y-6">
+          <div className="rounded-md border border-slate-200 p-4 space-y-3">
+            <p className="font-medium">AI Rescan</p>
+            <p className="text-sm text-gray-600">
+              Bulk rescan receipts with AI from the Receipts Summary page (including &ldquo;Rescan All with AI&rdquo;).
+            </p>
+            <Button type="button" variant="outline" className="w-full" onClick={() => navigate("/summary")}>
+              AI Rescan
+            </Button>
+          </div>
+          <div className="rounded-md border border-slate-200 p-4 space-y-3">
+            <p className="font-medium">Thumbnail Scans</p>
+            <p className="text-sm text-gray-600">
+              Generate small preview images for receipts uploaded before thumbnail support. Safe to run more than once; existing thumbnails are skipped.
+            </p>
+            {thumbBackfill.total > 0 && (
+              <p className="text-sm text-gray-700">
+                Progress: {thumbBackfill.done} / {thumbBackfill.total}
+              </p>
+            )}
+            {thumbBackfill.last && !thumbBackfill.running && (
+              <p className="text-xs text-gray-500">
+                Last run: created {thumbBackfill.last.created}, skipped {thumbBackfill.last.skipped}, failed{" "}
+                {thumbBackfill.last.failed}.
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={runThumbBackfill}
+              disabled={loading || thumbBackfill.running || !user}
+            >
+              {thumbBackfill.running ? "Scanning thumbnails…" : "Run thumbnail scan"}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

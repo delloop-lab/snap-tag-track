@@ -1,6 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Receipt, FileText, User, HelpCircle, LogOut, Camera } from "lucide-react";
+import { Home, Receipt, FileText, User, HelpCircle, LogOut, Camera, Shield } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Home", icon: Home, path: "/" },
@@ -12,13 +14,38 @@ const navItems = [
 export default function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setIsAdmin(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const { data } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!active) return;
+      setIsAdmin(data?.user_type === "admin");
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   return (
     <aside className="hidden md:flex flex-col w-56 fixed inset-y-0 left-0 bg-white border-r border-gray-200 z-40">
       {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-gray-200">
-        <Link to="/">
+        <Link to="/landing2">
           <img src="/SnapTagTrack.png" alt="SnapTagTrack" className="h-8 w-auto" />
         </Link>
       </div>
@@ -56,16 +83,30 @@ export default function AppSidebar() {
             </Link>
           );
         })}
-        <button
-          onClick={() => {
-            const subject = encodeURIComponent("Snap Tag Track Support");
-            window.location.href = `mailto:help@snaptagtrack.com?subject=${subject}`;
-          }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              location.pathname.startsWith("/admin")
+                ? "bg-orange-50 text-orange-600"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
+          >
+            <Shield className="w-5 h-5 flex-shrink-0" />
+            Admin
+          </Link>
+        )}
+        <Link
+          to="/help"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/help")
+              ? "bg-orange-50 text-orange-600"
+              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          }`}
         >
           <HelpCircle className="w-5 h-5 flex-shrink-0" />
           Help
-        </button>
+        </Link>
       </nav>
 
       {/* Logout */}

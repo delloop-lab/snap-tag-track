@@ -73,6 +73,12 @@ export function getTagColor(tagName: string) {
 }
 
 export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
+  const formatTagName = (value: string): string => {
+    const trimmed = value.trim().replace(/\s+/g, " ");
+    if (!trimmed) return "";
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  };
+
   const [inputValue, setInputValue] = useState("");
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [allUserTags, setAllUserTags] = useState<Tag[]>([]);
@@ -174,7 +180,7 @@ export function TagInput({ receiptId, onTagsChange }: TagInputProps) {
   const createAndAddTag = async (rawName?: string | React.MouseEvent) => {
     if (!user) return;
     const candidate = typeof rawName === "string" ? rawName : inputValue;
-    const tagName = candidate.trim();
+    const tagName = formatTagName(candidate);
     if (!tagName) return;
     if (selectedTags.some((t) => t.name.toLowerCase() === tagName.toLowerCase())) {
       setInputValue("");

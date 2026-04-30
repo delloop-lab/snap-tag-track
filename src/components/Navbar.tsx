@@ -1,10 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
-import { Home, Receipt, Settings, LogOut, User, FileText, Menu, X, HelpCircle } from "lucide-react";
+import { Home, Receipt, LogOut, User, FileText, Menu, X, HelpCircle, Shield } from "lucide-react";
 import { ExpandableTabs } from "./ui/expandable-tabs";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/use-toast";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -12,8 +11,8 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [firstName, setFirstName] = useState("");
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -26,21 +25,17 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!user) {
-      setFirstName("");
-      return;
-    }
-    if (user.user_metadata && user.user_metadata.first_name) {
-      setFirstName(user.user_metadata.first_name);
+      setIsAdmin(false);
       return;
     }
     (async () => {
       const { data } = await supabase
         .from("users")
-        .select("first_name, last_name, avatar_url")
+        .select("first_name, last_name, avatar_url, user_type")
         .eq("id", user.id)
         .single();
-      
-      setFirstName(data?.first_name || "");
+
+      setIsAdmin(data?.user_type === "admin");
       
       // Check if profile is incomplete
       if (!data?.first_name || !data?.last_name || !data?.avatar_url) {
@@ -54,46 +49,56 @@ export default function Navbar() {
     })();
   }, [user]);
 
-  const handleHelpClick = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    const subject = encodeURIComponent("Snap Tag Track Support");
-    const body = firstName
-      ? encodeURIComponent(`Hi, my name is ${firstName} and I need help with ...`)
-      : encodeURIComponent("I need help with ...");
-    window.location.href = `mailto:help@snaptagtrack.com?subject=${subject}&body=${body}`;
-    if (isMobile) setIsMenuOpen(false);
-  };
-
   const tabs = [
     { title: "Home", icon: Home, type: "tab" as const },
     { title: "Receipts", icon: Receipt, type: "tab" as const },
     { title: "Summary", icon: FileText, type: "tab" as const },
+    ...(isAdmin ? [{ title: "Admin", icon: Shield, type: "tab" as const }] : []),
     { type: "separator" as const },
     { title: "Profile", icon: User, type: "tab" as const },
     { title: "Help", icon: HelpCircle, type: "tab" as const },
   ];
 
-  const handleTabChange = (index: number | null) => {
-    if (index === null) return;
-    
-    const routes = ['/', '/receipts', '/summary', '/profile', '/help'];
-    const routeIndex = index > 3 ? index - 1 : index;
-    if (routes[routeIndex] === '/help') {
-      handleHelpClick();
-      return;
-    }
-    if (routeIndex < routes.length) {
-      navigate(routes[routeIndex]);
-      if (isMobile) {
-        setIsMenuOpen(false);
-      }
+  const routeForTabTitle = (title: string): string | null => {
+    switch (title) {
+      case "Home":
+        return "/";
+      case "Receipts":
+        return "/receipts";
+      case "Summary":
+        return "/summary";
+      case "Admin":
+        return "/admin";
+      case "Profile":
+        return "/profile";
+      case "Help":
+        return "/help";
+      default:
+        return null;
     }
   };
 
+  const handleTabChange = (index: number | null) => {
+    if (index === null) return;
+    const tab = tabs[index];
+    if (tab.type !== "tab" || !tab.title) return;
+    const route = routeForTabTitle(tab.title);
+    if (!route) return;
+    navigate(route);
+    if (isMobile) setIsMenuOpen(false);
+  };
+
   const getCurrentTabIndex = () => {
-    const routes = ['/', '/receipts', '/summary', '/profile', '/help'];
-    const routeIndex = routes.indexOf(location.pathname);
-    return routeIndex > 3 ? routeIndex + 1 : routeIndex;
+    for (let i = 0; i < tabs.length; i += 1) {
+      const tab = tabs[i];
+      if (tab.type !== "tab" || !tab.title) continue;
+      const route = routeForTabTitle(tab.title);
+      if (!route) continue;
+      const match =
+        route === "/" ? location.pathname === "/" : location.pathname.startsWith(route);
+      if (match) return i;
+    }
+    return 0;
   };
 
   return (
@@ -169,22 +174,6 @@ export default function Navbar() {
                           return <div key={`separator-${index}`} className="border-t border-gray-200 dark:border-gray-700 my-2" />;
                         }
                         const Icon = tab.icon;
-                        if (tab.title === "Help") {
-                          return (
-                            <button
-                              key={tab.title}
-                              onClick={handleHelpClick}
-                              className={`w-full flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                                getCurrentTabIndex() === index
-                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
-                                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-                              }`}
-                            >
-                              <Icon className="h-5 w-5 mr-3" />
-                              {tab.title}
-                            </button>
-                          );
-                        }
                         return (
                           <button
                             key={tab.title}
