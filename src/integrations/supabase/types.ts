@@ -63,6 +63,7 @@ export type Database = {
           user_id: string
           vendor_name: string | null
           warranty: boolean
+          warranty_expires_at: string | null
         }
         Insert: {
           ai_processed_at?: string | null
@@ -84,6 +85,7 @@ export type Database = {
           user_id: string
           vendor_name?: string | null
           warranty?: boolean
+          warranty_expires_at?: string | null
         }
         Update: {
           ai_processed_at?: string | null
@@ -105,6 +107,7 @@ export type Database = {
           user_id?: string
           vendor_name?: string | null
           warranty?: boolean
+          warranty_expires_at?: string | null
         }
         Relationships: []
       }

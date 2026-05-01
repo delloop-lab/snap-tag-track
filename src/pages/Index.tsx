@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { resolveReceiptThumbUrl, canonicalReceiptBucketObjectKey, primaryReceiptObjectKey } from "@/lib/receiptImageUrl";
 import { ReceiptImagePreviewDialog } from "@/components/ReceiptImagePreviewDialog";
+import WarrantyIntelligenceCard from "@/components/WarrantyIntelligenceCard";
 
 const THUMB_RESOLVE_MS = 12_000;
 const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#ef4444"];
@@ -379,6 +380,7 @@ const Index = () => {
             <BarChart3 className="h-7 w-7" /> TRACK
           </button>
         </div>
+        <WarrantyIntelligenceCard className="mb-8 w-full max-w-md mx-auto px-1" />
         {user && recentReceipts.length > 0 && (
           <div className="mb-4 w-full">
             <h2 className="mb-2 text-lg font-semibold text-white">Recent Receipts</h2>
@@ -527,6 +529,10 @@ const Index = () => {
         >
           <BarChart3 className="h-5 w-5" /> Track
         </button>
+      </div>
+
+      <div className="mb-8 w-full">
+        <WarrantyIntelligenceCard />
       </div>
 
       {chartReceipts.length > 0 && (
