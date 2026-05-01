@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -6,6 +7,7 @@ import {
   Home,
   Layers,
   Mail,
+  MessageCircleQuestion,
   RectangleHorizontal,
   ScrollText,
   SunMedium,
@@ -13,7 +15,156 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+
+/** Rich FAQ entries (accordion). Order is fixed; pricing last. */
+const HELP_FAQ_SECTIONS: { id: string; question: string; content: ReactNode }[] = [
+  {
+    id: "what-is-snaptagtrack",
+    question: "What is SnapTagTrack?",
+    content: (
+      <div className="space-y-3">
+        <p>
+          SnapTagTrack is a simple way to turn messy, real-world purchases into clean, organised records.
+        </p>
+        <p>
+          Instead of typing everything manually, you just snap a receipt, tag it, and it becomes
+          searchable, trackable, and useful later.
+        </p>
+        <p className="font-medium text-zinc-800">It&apos;s built for one job:</p>
+        <p>
+          Make sure you never lose track of what you&apos;ve spent, what you&apos;ve bought, or what you
+          might need again.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "what-it-does",
+    question: "What it actually does",
+    content: (
+      <div className="space-y-3">
+        <p>At its core, SnapTagTrack does three things really well:</p>
+        <div className="space-y-3 pl-0 sm:pl-1">
+          <div>
+            <p className="font-semibold text-zinc-800">Capture</p>
+            <p className="mt-1">
+              You take a photo of a receipt, invoice, or anything you&apos;ve bought.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-zinc-800">Organise</p>
+            <p className="mt-1">
+              You tag it your way. Categories, notes, context, whatever matters to you.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-zinc-800">Track</p>
+            <p className="mt-1">
+              Everything becomes searchable and structured, so you can find it later without digging
+              through emails, drawers, or WhatsApp threads.
+            </p>
+          </div>
+        </div>
+        <p>
+          Over time, it builds a complete picture of your spending and purchases without you having to
+          think about it.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "how-it-works",
+    question: "How it works (without the fluff)",
+    content: (
+      <div className="space-y-3">
+        <p className="font-medium text-zinc-800">You snap → the system reads → you tag → it stores → you find it later.</p>
+        <p className="font-medium text-zinc-800">Behind the scenes:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>It extracts key info from your receipt (date, vendor, amount).</li>
+          <li>
+            It lets you organise things in a way that actually makes sense to you.
+          </li>
+          <li>It keeps everything accessible in one place, across devices.</li>
+        </ul>
+        <p>No spreadsheets. No admin headache.</p>
+      </div>
+    ),
+  },
+  {
+    id: "what-to-expect",
+    question: "What to expect",
+    content: (
+      <div className="space-y-3">
+        <p>This is where most people get it wrong, so let&apos;s be clear.</p>
+        <div className="space-y-3">
+          <p>
+            <span className="font-semibold text-zinc-800">It&apos;s not magic.</span> It gets better with
+            use. The more receipts you add and tag, the smarter and more useful it becomes.
+          </p>
+          <p>
+            <span className="font-semibold text-zinc-800">You&apos;re still in control.</span> You can
+            edit, adjust, and categorise things however you want. It&apos;s not forcing rigid accounting
+            rules on you.
+          </p>
+          <p>
+            <span className="font-semibold text-zinc-800">It&apos;s built for real life, not perfect inputs.</span>{" "}
+            Receipts are messy. Lighting is bad. Paper is crumpled. That&apos;s normal.
+          </p>
+          <p>
+            <span className="font-semibold text-zinc-800">It replaces effort, not thinking.</span>{" "}
+            You&apos;ll spend seconds capturing something instead of minutes trying to reconstruct it later.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "what-people-use-it-for",
+    question: "What people actually use it for",
+    content: (
+      <div className="space-y-2">
+        <ul className="list-disc space-y-2 pl-5">
+          <li>Tracking day-to-day spending without spreadsheets</li>
+          <li>Keeping receipts for tax or business expenses</li>
+          <li>Storing warranties so you don&apos;t lose them</li>
+          <li>Remembering what you bought, where, and when</li>
+          <li>Getting control over random, fragmented purchases</li>
+        </ul>
+      </div>
+    ),
+  },
+  {
+    id: "what-its-not",
+    question: "What it's not",
+    content: (
+      <div className="space-y-3">
+        <p>Let&apos;s not oversell it:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>It&apos;s not full accounting software.</li>
+          <li>It&apos;s not trying to replace your accountant.</li>
+          <li>It&apos;s not perfect on bad scans or unreadable receipts.</li>
+        </ul>
+        <p>It&apos;s a practical tool to keep your financial life organised without friction.</p>
+      </div>
+    ),
+  },
+  {
+    id: "pricing",
+    question: "How much does SnapTagTrack cost?",
+    content: (
+      <p>
+        Till further notice the application is totally free to use. Limited to 35 receipt scans per year.
+      </p>
+    ),
+  },
+];
 
 type Persona = "household" | "contractor";
 
@@ -128,6 +279,30 @@ export default function Help() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 pt-8 sm:px-6 lg:max-w-5xl lg:px-8">
+        <section
+          className="mb-10 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6"
+          aria-labelledby="faq-heading"
+        >
+          <div className="mb-4 flex items-center gap-2">
+            <MessageCircleQuestion className="h-5 w-5 text-orange-600" aria-hidden />
+            <h2 id="faq-heading" className="text-lg font-semibold tracking-tight text-zinc-900 sm:text-xl">
+              Frequently asked questions
+            </h2>
+          </div>
+          <Accordion type="single" collapsible className="w-full">
+            {HELP_FAQ_SECTIONS.map(({ id, question, content }) => (
+              <AccordionItem key={id} value={id} className="border-zinc-200">
+                <AccordionTrigger className="text-left text-sm font-semibold text-zinc-900 hover:no-underline sm:text-[15px]">
+                  {question}
+                </AccordionTrigger>
+                <AccordionContent className="text-sm leading-relaxed text-zinc-600">
+                  {content}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </section>
+
         {/* Primary: Bad → Good */}
         <section
           aria-labelledby="scan-compare-heading"

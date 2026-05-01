@@ -11,13 +11,29 @@ const classicLayout = (
     <div className="flex flex-col md:flex-row w-full max-w-screen-md mx-auto md:max-w-[1100px] bg-white rounded-none md:rounded-[24px] shadow-none md:shadow-[0_8px_32px_rgba(44,62,80,0.10)] overflow-hidden">
       <section className="flex-[0_0_100%] md:flex-[0_0_40%] w-full max-w-full md:max-w-[440px] p-3 sm:p-4 md:p-[2.2rem_2rem_0_2vw] min-w-0 md:min-w-[300px] z-[5]">
         <div className="flex flex-col justify-center h-full min-h-[450px] md:min-h-[650px]">
-          <div className="mb-6 md:mb-12">
+        <div className="mb-6 md:mb-12 flex items-start justify-between gap-4">
+          <div>
             <img
               src="/home/_assets/media/f0e22dab0a9645220a4eb65c48b50b4c.png"
               alt="SnapTagTrack Logo"
               className="h-[40px] md:h-[60px] mt-2 md:mt-5"
             />
           </div>
+          <div className="flex shrink-0 items-center gap-3 mt-2 md:mt-5">
+            <Link
+              to="/help"
+              className="text-sm font-semibold text-[#666] underline underline-offset-2 hover:text-[#333] whitespace-nowrap"
+            >
+              Help
+            </Link>
+            <Link
+              to="/contact"
+              className="text-sm font-semibold text-[#666] underline underline-offset-2 hover:text-[#333] whitespace-nowrap"
+            >
+              Contact
+            </Link>
+          </div>
+        </div>
           <h1 className="text-[2rem] md:text-[2.8rem] font-extrabold text-[#666] mt-2 md:mt-5 mb-6 md:mb-11 leading-[1.1] tracking-[-1px] pt-[10px] md:pt-[20px]">
             Turn every receipt into a searchable, trackable, organised record.
           </h1>
@@ -102,14 +118,28 @@ export default function LandingPage2() {
   return (
     <main className="min-h-screen bg-slate-800 text-slate-100">
       <section className="max-w-6xl mx-auto px-4 pt-8 md:pt-12 pb-14 md:pb-20">
-        <div className="mb-8 flex items-center justify-between gap-4">
+        <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
           <img src="/SnapTagTrack.png" alt="Snap Tag Track logo" className="h-9 md:h-[50px] w-auto" />
-          <Link
-            to="/auth"
-            className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 text-sm md:text-base"
-          >
-            Login
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap justify-end">
+            <Link
+              to="/help"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-slate-100 font-semibold px-4 py-2 text-sm md:text-base"
+            >
+              Help
+            </Link>
+            <Link
+              to="/contact"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-slate-100 font-semibold px-4 py-2 text-sm md:text-base"
+            >
+              Contact
+            </Link>
+            <Link
+              to="/auth"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 text-sm md:text-base"
+            >
+              Login
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">

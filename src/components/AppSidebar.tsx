@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Receipt, FileText, User, HelpCircle, LogOut, Camera, Shield } from "lucide-react";
+import { Home, Receipt, FileText, User, HelpCircle, LogOut, Camera, Shield, Mail } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,6 +106,17 @@ export default function AppSidebar() {
         >
           <HelpCircle className="w-5 h-5 flex-shrink-0" />
           Help
+        </Link>
+        <Link
+          to="/contact"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/contact")
+              ? "bg-orange-50 text-orange-600"
+              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          }`}
+        >
+          <Mail className="w-5 h-5 flex-shrink-0" />
+          Contact
         </Link>
       </nav>
 

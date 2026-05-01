@@ -21,6 +21,7 @@ import LandingPage2 from "./pages/LandingPage2";
 import Admin from "./pages/Admin";
 import AdminReceipts from "./pages/AdminReceipts";
 import Help from "./pages/Help";
+import Contact from "./pages/Contact";
 import AdSummaryMock from "./pages/AdSummaryMock";
 import VersionNumber from "./components/VersionNumber";
 import { useEffect, useState } from "react";
@@ -139,11 +140,8 @@ const AppContent = () => {
                 <TagUntagged />
               </ProtectedRoute>
             } />
-            <Route path="/help" element={
-              <ProtectedRoute>
-                <Help />
-              </ProtectedRoute>
-            } />
+            <Route path="/help" element={<Help />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/landing" element={<LandingPage2 />} />
             <Route path="/landing2" element={<LandingPage2 />} />
             <Route path="/admin" element={

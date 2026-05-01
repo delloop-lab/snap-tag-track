@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
-import { Home, Receipt, LogOut, User, FileText, Menu, X, HelpCircle, Shield } from "lucide-react";
+import { Home, Receipt, LogOut, User, FileText, Menu, X, HelpCircle, Shield, Mail } from "lucide-react";
 import { ExpandableTabs } from "./ui/expandable-tabs";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +57,7 @@ export default function Navbar() {
     { type: "separator" as const },
     { title: "Profile", icon: User, type: "tab" as const },
     { title: "Help", icon: HelpCircle, type: "tab" as const },
+    { title: "Contact", icon: Mail, type: "tab" as const },
   ];
 
   const routeForTabTitle = (title: string): string | null => {
@@ -73,6 +74,8 @@ export default function Navbar() {
         return "/profile";
       case "Help":
         return "/help";
+      case "Contact":
+        return "/contact";
       default:
         return null;
     }
@@ -95,7 +98,11 @@ export default function Navbar() {
       const route = routeForTabTitle(tab.title);
       if (!route) continue;
       const match =
-        route === "/" ? location.pathname === "/" : location.pathname.startsWith(route);
+        route === "/"
+          ? location.pathname === "/"
+          : route === "/help" || route === "/contact"
+            ? location.pathname === route
+            : location.pathname.startsWith(route);
       if (match) return i;
     }
     return 0;
@@ -201,12 +208,26 @@ export default function Navbar() {
                 )}
               </>
             ) : (
-              <Link
-                to="/auth"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Login
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/help"
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  Help
+                </Link>
+                <Link
+                  to="/contact"
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  Contact
+                </Link>
+                <Link
+                  to="/auth"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Login
+                </Link>
+              </div>
             )}
           </div>
         </div>
