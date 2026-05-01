@@ -40,11 +40,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    // Drop local session immediately so chrome (sidebar) disappears.
+    setSession(null);
+    setUser(null);
+    setLoading(false);
     try {
-      await supabase.auth.signOut();
-    } finally {
-      window.location.assign("/landing2");
+      // Global sign-out; cap wait so a stuck network call cannot block logout forever.
+      await Promise.race([
+        supabase.auth.signOut({ scope: "global" }),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 4000);
+        }),
+      ]);
+    } catch (e) {
+      console.error("signOut:", e);
     }
+    // Home route shows the same marketing landing when logged out; avoids /landing2 + auth race with PublicLandingRoute.
+    window.location.replace("/");
   };
 
   const value = {
