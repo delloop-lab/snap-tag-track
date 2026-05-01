@@ -21,6 +21,7 @@ import LandingPage2 from "./pages/LandingPage2";
 import Admin from "./pages/Admin";
 import AdminReceipts from "./pages/AdminReceipts";
 import Help from "./pages/Help";
+import AdSummaryMock from "./pages/AdSummaryMock";
 import VersionNumber from "./components/VersionNumber";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
@@ -80,27 +81,32 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+/** Standalone screenshot page — omit app chrome entirely. Not linked anywhere. */
+const AD_SUMMARY_MOCK_PATH = "/ad-summary-mock";
+
 const AppContent = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const hideAppChrome = location.pathname === AD_SUMMARY_MOCK_PATH;
   const showNavbar = user || location.pathname !== "/";
 
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Desktop sidebar */}
-      {user && <AppSidebar />}
+      {user && !hideAppChrome && <AppSidebar />}
 
       {/* Main area */}
-      <div className={`flex-1 min-w-0 flex flex-col ${user ? "md:ml-56" : ""}`}>
+      <div className={`flex-1 min-w-0 flex flex-col ${user && !hideAppChrome ? "md:ml-56" : ""}`}>
         {/* Mobile-only top navbar */}
-        {showNavbar && (
+        {showNavbar && !hideAppChrome && (
           <div className="md:hidden">
             <Navbar />
           </div>
         )}
 
-        <main className="flex-1 pt-2 md:pt-4">
+        <main className={hideAppChrome ? "flex-1" : "flex-1 pt-2 md:pt-4"}>
           <Routes>
+            <Route path={AD_SUMMARY_MOCK_PATH} element={<AdSummaryMock />} />
             <Route path="/" element={user ? <Index /> : <LandingPage2 />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/upload" element={
@@ -154,7 +160,7 @@ const AppContent = () => {
           </Routes>
         </main>
 
-        <VersionNumber />
+        {!hideAppChrome && <VersionNumber />}
       </div>
     </div>
   );
