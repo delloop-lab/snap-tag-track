@@ -355,7 +355,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
               )}
               {easyReturnPulse.eligibleCount === 0 && (
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Nothing is still inside your Profile return window. New buys will show here automatically.
+                  There are no items able to be returned.
                 </p>
               )}
             </>
