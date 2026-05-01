@@ -447,7 +447,7 @@ const ReceiptSummaryList = () => {
             <select 
               value={selectedClient} 
               onChange={e => setSelectedClient(e.target.value)} 
-              className="w-full rounded border border-slate-500 bg-slate-900 px-2 py-1 text-slate-100"
+              className="w-full rounded-md border border-slate-500 bg-slate-900 px-3 py-2 text-slate-100 shadow-sm scheme-dark focus:outline-none focus:ring-2 focus:ring-orange-400/30"
             >
               <option value="">All Clients</option>
               {clients.map(c => (
@@ -457,7 +457,7 @@ const ReceiptSummaryList = () => {
             <select 
               value={selectedType} 
               onChange={e => setSelectedType(e.target.value)} 
-              className="w-full rounded border border-slate-500 bg-slate-900 px-2 py-1 text-slate-100"
+              className="w-full rounded-md border border-slate-500 bg-slate-900 px-3 py-2 text-slate-100 shadow-sm scheme-dark focus:outline-none focus:ring-2 focus:ring-orange-400/30"
             >
               <option value="">All Types</option>
               <option value="Personal">Personal</option>
@@ -650,7 +650,7 @@ const ReceiptSummaryList = () => {
                 {selectedTags.length === 0 ? "Filter by tags" : selectedTags.map(tag => tag.name).join(", ")}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[200px]">
+            <DropdownMenuContent className="w-[200px] border-slate-600 bg-slate-900 text-slate-100">
               {uniqueTagNames.map((tagName: string, idx: number) => (
                 <DropdownMenuCheckboxItem
                   key={tagName}
@@ -851,6 +851,7 @@ const ReceiptSummaryList = () => {
                   type="checkbox"
                   checked={editingWarranty}
                   onChange={(e) => setEditingWarranty(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-400 bg-slate-800 accent-orange-500 focus-visible:ring-2 focus-visible:ring-orange-400/60"
                 />
                 Warranty applies to this receipt
               </label>
@@ -873,7 +874,7 @@ const ReceiptSummaryList = () => {
                 Close
               </Button>
               <Button onClick={saveReceiptMeta} disabled={savingReceiptMeta}>
-                {savingReceiptMeta ? "Saving..." : "Save Warranty"}
+                {savingReceiptMeta ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>

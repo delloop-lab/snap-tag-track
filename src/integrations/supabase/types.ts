@@ -146,6 +146,7 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          receipt_location_disabled: boolean
           rescan_empty_only: boolean
           rescan_preview_diff: boolean
           user_type: "admin" | "user"
@@ -158,6 +159,7 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
+          receipt_location_disabled?: boolean
           rescan_empty_only?: boolean
           rescan_preview_diff?: boolean
           user_type?: "admin" | "user"
@@ -170,6 +172,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          receipt_location_disabled?: boolean
           rescan_empty_only?: boolean
           rescan_preview_diff?: boolean
           user_type?: "admin" | "user"

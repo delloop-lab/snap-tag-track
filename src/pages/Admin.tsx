@@ -861,7 +861,7 @@ const Admin = () => {
                   ) : (
                     <div className="max-h-[70vh] overflow-auto space-y-3">
                       {issuerReceipts.map((r) => (
-                        <div key={r.id} className="flex items-center gap-3 border rounded-md p-2">
+                        <div key={r.id} className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50/80 p-2">
                           <img
                             src={r.image_url}
                             alt={r.vendor_name || "Receipt"}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
@@ -58,6 +59,10 @@ const Profile = () => {
   }>({ running: false, done: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /** When true: never attach location to new receipts; skips capture-time prompt. */
+  const [receiptLocationDisabled, setReceiptLocationDisabled] = useState(false);
+  const [receiptLocationPrefSaving, setReceiptLocationPrefSaving] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -74,29 +79,49 @@ const Profile = () => {
             last_name: string | null;
             avatar_url: string | null;
             country?: string | null;
+            receipt_location_disabled?: boolean | null;
           }
         | null = null;
       let selErr: { message: string } | null = null;
 
       let res = await supabase
         .from("users")
-        .select("first_name, last_name, avatar_url, country")
+        .select("first_name, last_name, avatar_url, country, receipt_location_disabled")
         .eq("id", user.id)
         .maybeSingle();
 
       if (res.error) {
         selErr = res.error;
-        const withoutCountry = await supabase
+        const fallbackNoLocPref = await supabase
           .from("users")
-          .select("first_name, last_name, avatar_url")
+          .select("first_name, last_name, avatar_url, country")
           .eq("id", user.id)
           .maybeSingle();
-        if (!withoutCountry.error) {
-          data = withoutCountry.data;
+        if (!fallbackNoLocPref.error) {
+          data = fallbackNoLocPref.data;
           selErr = null;
+          const msg = res.error.message ?? "";
+          if (/receipt_location_disabled|does not exist|schema cache/i.test(msg)) {
+            setLoadWarning(
+              (w) =>
+                w ||
+                "Run the latest database migration to save receipt location preferences on the server.",
+            );
+          }
         } else {
-          data = withoutCountry.data;
-          selErr = withoutCountry.error;
+          selErr = fallbackNoLocPref.error;
+          const withoutCountry = await supabase
+            .from("users")
+            .select("first_name, last_name, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (!withoutCountry.error) {
+            data = withoutCountry.data;
+            selErr = null;
+          } else {
+            data = withoutCountry.data;
+            selErr = withoutCountry.error;
+          }
         }
       } else {
         data = res.data;
@@ -114,6 +139,12 @@ const Profile = () => {
       setLastName(ln);
       const countryCol = data && "country" in data ? (data.country as string | null | undefined) : undefined;
       setCountry(typeof countryCol === "string" ? countryCol : "");
+
+      const locOpt =
+        data && "receipt_location_disabled" in data
+          ? data.receipt_location_disabled
+          : undefined;
+      setReceiptLocationDisabled(locOpt === true);
 
       const stored = data?.avatar_url?.trim() || "";
       if (stored && looksLikeAbsoluteUrl(stored)) {
@@ -271,6 +302,41 @@ const Profile = () => {
     });
   };
 
+  const RECEIPT_LOCATION_PREF_EVENT =
+    /* keep in sync with ReceiptUpload SNAP_RECEIPT_LOCATION_PREF_EVENT */
+    "snap:receipt-location-pref-changed";
+
+  const applyReceiptLocationOptOut = async (nextDisabled: boolean) => {
+    if (!user || receiptLocationPrefSaving) return;
+    setReceiptLocationPrefSaving(true);
+    setSuccess("");
+    setError("");
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ receipt_location_disabled: nextDisabled })
+        .eq("id", user.id);
+      if (error) throw error;
+      setReceiptLocationDisabled(nextDisabled);
+      window.dispatchEvent(new CustomEvent(RECEIPT_LOCATION_PREF_EVENT));
+      toast({
+        title: nextDisabled ? "Location off for new captures" : "Location choice enabled",
+        description: nextDisabled
+          ? "New receipt photos will not use photo or device GPS. You can turn this back on anytime."
+          : "You will be asked whether to include location each time you capture a receipt photo.",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not update preference.";
+      toast({
+        title: "Could not save",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setReceiptLocationPrefSaving(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
       <header className="mx-auto mb-8 max-w-2xl text-center">
@@ -395,6 +461,25 @@ const Profile = () => {
       <div className="border-t border-slate-600 pt-6">
         <h3 className="mb-4 text-lg font-semibold text-white">Settings</h3>
         <div className="space-y-6">
+          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
+            <p className="font-medium text-slate-100">Receipt location</p>
+            <p className="text-sm text-slate-300">
+              When you capture a receipt photo, we can use GPS from the image or from this device. Turn the switch on
+              to never attach location and skip that step for new captures. If you leave it off, we will ask each time
+              you add a receipt photo.
+            </p>
+            <div className="flex items-center justify-between gap-3 rounded-md border border-slate-600/80 bg-slate-900/40 px-3 py-3">
+              <label htmlFor="receipt-loc-opt-out" className="cursor-pointer text-sm text-slate-200">
+                Never attach location to new receipts
+              </label>
+              <Switch
+                id="receipt-loc-opt-out"
+                checked={receiptLocationDisabled}
+                disabled={loading || receiptLocationPrefSaving || !user}
+                onCheckedChange={(c) => void applyReceiptLocationOptOut(c)}
+              />
+            </div>
+          </div>
           <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
             <p className="font-medium text-slate-100">AI Rescan</p>
             <p className="text-sm text-slate-300">

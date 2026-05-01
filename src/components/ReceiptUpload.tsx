@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,9 @@ import exifr from "exifr";
 import ReceiptReview from "./ReceiptReview";
 import { siblingThumbStorageKey } from "@/lib/siblingThumbPath";
 import { createThumbnailJpeg } from "@/lib/imageThumbnail";
+
+/** Keep in sync with Profile `RECEIPT_LOCATION_PREF_EVENT`. */
+const SNAP_RECEIPT_LOCATION_PREF_EVENT = "snap:receipt-location-pref-changed";
 
 const FAKE_CLIENTS = [
   "Acme Corp",
@@ -207,8 +210,48 @@ const ReceiptUpload = () => {
 
   const [inlineCameraOpen, setInlineCameraOpen] = useState(false);
   const [inlineCameraStarting, setInlineCameraStarting] = useState(false);
+  const [locationPrefModalOpen, setLocationPrefModalOpen] = useState(false);
+  const [pendingReceiptFile, setPendingReceiptFile] = useState<File | null>(
+    null
+  );
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const [receiptLocationDisabledPref, setReceiptLocationDisabledPref] =
+    useState(false);
+  const [receiptLocationPrefReady, setReceiptLocationPrefReady] =
+    useState(false);
+
+  const refreshReceiptLocationPref = useCallback(async () => {
+    if (!user?.id) {
+      setReceiptLocationDisabledPref(false);
+      setReceiptLocationPrefReady(true);
+      return;
+    }
+    setReceiptLocationPrefReady(false);
+    const { data, error } = await supabase
+      .from("users")
+      .select("receipt_location_disabled")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!error && data?.receipt_location_disabled === true) {
+      setReceiptLocationDisabledPref(true);
+    } else {
+      setReceiptLocationDisabledPref(false);
+    }
+    setReceiptLocationPrefReady(true);
+  }, [user?.id]);
+
+  React.useEffect(() => {
+    void refreshReceiptLocationPref();
+  }, [refreshReceiptLocationPref]);
+
+  React.useEffect(() => {
+    const onChanged = () => void refreshReceiptLocationPref();
+    window.addEventListener(SNAP_RECEIPT_LOCATION_PREF_EVENT, onChanged);
+    return () =>
+      window.removeEventListener(SNAP_RECEIPT_LOCATION_PREF_EVENT, onChanged);
+  }, [refreshReceiptLocationPref]);
 
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -286,7 +329,8 @@ const ReceiptUpload = () => {
   }, [inlineCameraOpen, isMobile]);
 
   const openInlineReceiptCamera = () => {
-    if (isProcessing || isSaving) return;
+    if (isProcessing || isSaving || (Boolean(user?.id) && !receiptLocationPrefReady))
+      return;
     /** Browsers only expose the camera on a "secure" URL. `http://localhost` is ok; `http://192.168…` is not. */
     const canUseCamera = Boolean(navigator.mediaDevices?.getUserMedia);
     if (!canUseCamera) {
@@ -342,7 +386,7 @@ const ReceiptUpload = () => {
         const file = new File([blob], `receipt-${Date.now()}.jpg`, {
           type: "image/jpeg",
         });
-        void processAndExtract(file);
+        enqueueReceiptForLocationChoice(file);
       },
       "image/jpeg",
       0.92
@@ -350,12 +394,17 @@ const ReceiptUpload = () => {
   };
 
   const extractLocationFromExif = async (
-    file: File
+    file: File,
+    includeLocation: boolean
   ): Promise<{
     latitude: number | null;
     longitude: number | null;
     locationName: string | null;
   }> => {
+    if (!includeLocation) {
+      return { latitude: null, longitude: null, locationName: null };
+    }
+
     try {
       const exifData = await exifr.parse(file, { gps: true });
       const lat = exifData?.latitude ?? null;
@@ -412,7 +461,45 @@ const ReceiptUpload = () => {
     return { latitude: null, longitude: null, locationName: null };
   };
 
-  const processAndExtract = async (file: File) => {
+  const confirmLocationPreference = (includeLocation: boolean) => {
+    const file = pendingReceiptFile;
+    if (!file) return;
+    setPendingReceiptFile(null);
+    setLocationPrefModalOpen(false);
+    void processAndExtract(file, includeLocation).finally(() => {
+      queueMicrotask(() => {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (mobileGalleryInputRef.current) mobileGalleryInputRef.current.value = "";
+      });
+    });
+  };
+
+  const dismissLocationPreference = () => {
+    setPendingReceiptFile(null);
+    setLocationPrefModalOpen(false);
+    queueMicrotask(() => {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (mobileGalleryInputRef.current) mobileGalleryInputRef.current.value = "";
+    });
+  };
+
+  const enqueueReceiptForLocationChoice = (file: File) => {
+    if (pendingReceiptFile || stage === "processing" || stage === "saving") return;
+    if (receiptLocationDisabledPref) {
+      void processAndExtract(file, false).finally(() => {
+        queueMicrotask(() => {
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          if (mobileGalleryInputRef.current)
+            mobileGalleryInputRef.current.value = "";
+        });
+      });
+      return;
+    }
+    setPendingReceiptFile(file);
+    setLocationPrefModalOpen(true);
+  };
+
+  const processAndExtract = async (file: File, includeLocation: boolean) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -440,7 +527,7 @@ const ReceiptUpload = () => {
     try {
       // Extract GPS from the original file BEFORE compression (canvas strips EXIF)
       const { latitude, longitude, locationName } =
-        await extractLocationFromExif(file);
+        await extractLocationFromExif(file, includeLocation);
 
       setProgress(15);
       setProgressLabel("Optimising image...");
@@ -678,15 +765,15 @@ const ReceiptUpload = () => {
       return;
     }
 
-    void processAndExtract(file).finally(() => {
-      queueMicrotask(() => {
-        input.value = "";
-      });
-    });
+    enqueueReceiptForLocationChoice(file);
   };
 
   const isProcessing = stage === "processing";
   const isSaving = stage === "saving";
+  const receiptPrefsBlockingCapture =
+    Boolean(user?.id) && !receiptLocationPrefReady;
+  const receiptCaptureBlocked =
+    isProcessing || isSaving || receiptPrefsBlockingCapture;
   const receiptInputAccept = isMobile ? "image/*" : "image/*,application/pdf";
   const productInputAccept = "image/*";
 
@@ -703,6 +790,11 @@ const ReceiptUpload = () => {
           <p className="mt-2 text-sm text-slate-300">
             Snap or upload a receipt, then review AI extraction before saving.
           </p>
+          {receiptPrefsBlockingCapture && (
+            <p className="mt-1 text-xs text-slate-500" role="status">
+              Loading capture preferences…
+            </p>
+          )}
         </div>
 
       {/* Receipt type */}
@@ -852,7 +944,7 @@ const ReceiptUpload = () => {
           className="hidden"
           accept="image/*"
           onChange={handleFileChange}
-          disabled={isProcessing || isSaving}
+          disabled={receiptCaptureBlocked}
         />
       ) : (
         <input
@@ -862,7 +954,7 @@ const ReceiptUpload = () => {
           className="hidden"
           accept={receiptInputAccept}
           onChange={handleFileChange}
-          disabled={isProcessing || isSaving}
+          disabled={receiptCaptureBlocked}
         />
       )}
 
@@ -870,7 +962,7 @@ const ReceiptUpload = () => {
         <div className="w-full">
           <label
             htmlFor="receipt-upload"
-            className="flex h-36 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/70 transition-colors hover:bg-slate-800"
+            className={`flex h-36 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/70 transition-colors hover:bg-slate-800 ${receiptCaptureBlocked ? "pointer-events-none cursor-not-allowed opacity-60" : "cursor-pointer"}`}
           >
             <div className="flex flex-col items-center justify-center pt-5 pb-6">
               <p className="mb-2 text-sm text-slate-300">
@@ -915,7 +1007,7 @@ const ReceiptUpload = () => {
             <Button
               className="bg-orange-500 text-white hover:bg-orange-600"
               asChild
-              disabled={isProcessing || isSaving}
+              disabled={receiptCaptureBlocked}
             >
               <label htmlFor="receipt-upload" className="cursor-pointer">
                 {isProcessing ? progressLabel : "Upload Receipt"}
@@ -928,14 +1020,14 @@ const ReceiptUpload = () => {
             <button
               type="button"
               onClick={openInlineReceiptCamera}
-              className={`bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold py-5 px-6 rounded-full w-full shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-orange-400 flex items-center justify-center gap-2 ${isProcessing || isSaving ? "pointer-events-none opacity-60" : ""}`}
+              className={`bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold py-5 px-6 rounded-full w-full shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-orange-400 flex items-center justify-center gap-2 ${receiptCaptureBlocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <Camera className="w-6 h-6 -ml-1 shrink-0" aria-hidden />
               {isProcessing ? progressLabel : "SNAP RECEIPT"}
             </button>
             <label
               htmlFor="receipt-upload-gallery"
-              className={`mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-slate-500 bg-slate-800/80 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800 ${isProcessing || isSaving ? "pointer-events-none opacity-60" : ""}`}
+              className={`mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-slate-500 bg-slate-800/80 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800 ${receiptCaptureBlocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <Images className="h-5 w-5 text-slate-300" aria-hidden />
               Choose from gallery
@@ -1001,6 +1093,67 @@ const ReceiptUpload = () => {
               disabled={inlineCameraStarting || isProcessing}
             >
               Capture
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={locationPrefModalOpen}
+        onOpenChange={(open) => {
+          if (!open) dismissLocationPreference();
+        }}
+      >
+        <DialogContent className="w-[min(calc(100vw-2rem),28rem)] border-slate-600 bg-slate-900 p-4 text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Attach location to this receipt?
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 text-sm text-slate-300">
+                <p>
+                  If you choose to attach location, we may use GPS embedded in the
+                  photo (when available) or ask your browser for{" "}
+                  <strong className="font-semibold text-slate-200">
+                    this device&apos;s
+                  </strong>{" "}
+                  current position — then convert it to a place name.
+                </p>
+                <p>
+                  That may not match the shop (for example if you scan at home or
+                  your photo was taken somewhere else). If you want the receipt
+                  without a place, choose{" "}
+                  <span className="font-medium text-slate-200">
+                    Don&apos;t attach location
+                  </span>
+                  .
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex-col gap-2 sm:flex-col">
+            <Button
+              type="button"
+              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              onClick={() => confirmLocationPreference(true)}
+            >
+              Include location
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700"
+              onClick={() => confirmLocationPreference(false)}
+            >
+              Don&apos;t attach location
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              onClick={dismissLocationPreference}
+            >
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -102,7 +102,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
             </label>
             <input
               type="text"
-              className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+              className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
               value={vendor}
               onChange={(e) => onVendorChange(e.target.value)}
               disabled={isSaving}
@@ -119,7 +119,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                 value={amount}
                 onChange={(e) => onAmountChange(e.target.value)}
                 disabled={isSaving}
@@ -132,7 +132,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
               </label>
               <input
                 type="date"
-                className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                 value={date}
                 onChange={(e) => onDateChange(e.target.value)}
                 disabled={isSaving}

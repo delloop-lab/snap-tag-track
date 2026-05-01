@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 type Receipt = {
   id: string;
@@ -53,6 +54,14 @@ type ReceiptLineItem = {
   description?: string;
   amount?: number;
 };
+
+/** Native selects on dark shell: stop inheriting `text-slate-100` into a light browser control BG. */
+const adminShellSelectClass =
+  "h-10 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 shadow-sm scheme-dark focus:outline-none focus:ring-2 focus:ring-orange-400/40";
+
+/** Search & date Inputs on `/admin/receipts` dark page. */
+const adminShellInputClass =
+  "border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400 ring-offset-slate-900";
 
 const AdminReceipts = () => {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -255,7 +264,7 @@ const AdminReceipts = () => {
             placeholder="Search by Receipt ID..."
             value={receiptIdSearch}
             onChange={(e) => setReceiptIdSearch(e.target.value)}
-            className="w-full sm:max-w-md"
+            className={cn("w-full sm:max-w-md", adminShellInputClass)}
           />
           <Button 
             onClick={() => searchReceiptById(receiptIdSearch)}
@@ -358,11 +367,12 @@ const AdminReceipts = () => {
           placeholder="Search vendor..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className={adminShellInputClass}
         />
         <select
           value={selectedClient}
           onChange={(e) => setSelectedClient(e.target.value)}
-          className="border rounded px-2 py-1"
+          className={adminShellSelectClass}
         >
           <option value="">All Clients</option>
           {clients.map((client) => (
@@ -372,7 +382,7 @@ const AdminReceipts = () => {
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
-          className="border rounded px-2 py-1"
+          className={adminShellSelectClass}
         >
           <option value="">All Types</option>
           {types.map((type) => (
@@ -385,18 +395,20 @@ const AdminReceipts = () => {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             placeholder="From"
+            className={cn("min-w-0 flex-1", adminShellInputClass)}
           />
           <Input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             placeholder="To"
+            className={cn("min-w-0 flex-1", adminShellInputClass)}
           />
         </div>
         <select
           value={dateSort}
           onChange={(e) => setDateSort(e.target.value as "newest" | "oldest")}
-          className="border rounded px-2 py-1"
+          className={`md:col-span-1 ${adminShellSelectClass}`}
         >
           <option value="newest">Date: Newest first</option>
           <option value="oldest">Date: Oldest first</option>
@@ -404,27 +416,27 @@ const AdminReceipts = () => {
       </div>
 
       {/* Receipts Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-xl border border-slate-600 bg-slate-900/50">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Receipt ID</TableHead>
-              <TableHead>Owner Email</TableHead>
-              <TableHead>Vendor</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Line Items</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead>Warranty</TableHead>
-              <TableHead>Image</TableHead>
+            <TableRow className="border-slate-600 hover:bg-transparent">
+              <TableHead className="text-slate-300">Receipt ID</TableHead>
+              <TableHead className="text-slate-300">Owner Email</TableHead>
+              <TableHead className="text-slate-300">Vendor</TableHead>
+              <TableHead className="text-slate-300">Date</TableHead>
+              <TableHead className="text-slate-300">Total</TableHead>
+              <TableHead className="text-slate-300">Type</TableHead>
+              <TableHead className="text-slate-300">Client</TableHead>
+              <TableHead className="text-slate-300">Location</TableHead>
+              <TableHead className="text-slate-300">Line Items</TableHead>
+              <TableHead className="text-slate-300">Tags</TableHead>
+              <TableHead className="text-slate-300">Warranty</TableHead>
+              <TableHead className="text-slate-300">Image</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReceipts.map((receipt) => (
-              <TableRow key={receipt.id}>
+              <TableRow key={receipt.id} className="border-slate-700/80 hover:bg-slate-800/60">
                 <TableCell>{receipt.id}</TableCell>
                 <TableCell>
                   <div className="flex flex-col">
@@ -493,7 +505,12 @@ const AdminReceipts = () => {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="outline" onClick={() => previewReceiptImage(receipt)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-slate-500 bg-slate-950 text-slate-100 hover:bg-slate-800 hover:text-white"
+                    onClick={() => previewReceiptImage(receipt)}
+                  >
                     View
                   </Button>
                 </TableCell>

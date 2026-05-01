@@ -558,47 +558,77 @@ const ReceiptDetail = () => {
 
   return (
     <div className="container mx-auto max-w-4xl p-4 text-slate-100">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-center text-white">Receipt Details</h2>
-        <div className="flex justify-center gap-2 mt-2">
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-balance px-2 text-center text-xl font-bold text-white md:text-2xl">
+          Receipt Details
+        </h2>
+        <div
+          className={cn(
+            "mt-3 w-full max-w-full px-0",
+            isMobile
+              ? "grid grid-cols-2 gap-2"
+              : "flex flex-wrap justify-center gap-2"
+          )}
+        >
           <Button
             variant="outline"
-            className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+            size={isMobile ? "sm" : "default"}
+            className={cn(
+              "border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white",
+              isMobile && "h-9 w-full justify-center text-xs md:text-sm",
+              isMobile && isEditing && "col-span-2"
+            )}
             onClick={() => navigate("/receipts")}
           >
-            Back to Receipts
+            {isMobile ? "Back" : "Back to Receipts"}
           </Button>
           {!isEditing && (
             <>
               <Button 
                 variant="outline" 
+                size={isMobile ? "sm" : "default"}
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                className={cn(
+                  "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
+                  isMobile && "h-9 w-full text-xs"
+                )}
               >
-                <Edit className="h-4 w-4" /> Edit
+                <Edit className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Edit
               </Button>
               <Button
                 variant="outline"
+                size={isMobile ? "sm" : "default"}
                 onClick={() => window.print()}
-                className="flex items-center gap-2 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                className={cn(
+                  "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
+                  isMobile && "h-9 w-full text-xs"
+                )}
               >
-                <Printer className="h-4 w-4" /> Print
+                <Printer className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Print
               </Button>
               <Button
                 variant="outline"
+                size={isMobile ? "sm" : "default"}
                 onClick={openRescanDialog}
-                className="flex items-center gap-2 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                className={cn(
+                  "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
+                  isMobile && "h-9 w-full text-xs leading-tight"
+                )}
                 disabled={isRescanning}
               >
-                <RefreshCcw className={`h-4 w-4 ${isRescanning ? "animate-spin" : ""}`} />
-                {isRescanning ? "Rescanning..." : "Rescan with AI"}
+                <RefreshCcw className={`h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 ${isRescanning ? "animate-spin" : ""}`} />
+                {isRescanning ? "Working…" : isMobile ? "Rescan AI" : "Rescan with AI"}
               </Button>
               <Button
                 variant="destructive"
+                size={isMobile ? "sm" : "default"}
                 onClick={() => setShowDeleteDialog(true)}
-                className="flex items-center gap-2"
+                className={cn(
+                  "flex items-center justify-center gap-1.5 md:gap-2",
+                  isMobile ? "col-span-2 h-9 w-full text-xs" : ""
+                )}
               >
-                <Trash2 className="h-4 w-4" /> Delete
+                <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Delete
               </Button>
             </>
           )}
@@ -687,18 +717,18 @@ const ReceiptDetail = () => {
           {isEditing ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="vendor">Vendor Name</Label>
+                <Label htmlFor="vendor" className="text-slate-200">Vendor Name</Label>
                 <Input
                   id="vendor"
                   value={editedVendor}
                   onChange={(e) => setEditedVendor(e.target.value)}
                   placeholder="Enter vendor name"
-                  className="border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400"
+                  className="!border-slate-500 !bg-slate-800 !text-slate-100 [color-scheme:dark] placeholder:!text-slate-400 focus-visible:!ring-orange-400/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="amount">Total Amount</Label>
+                <Label htmlFor="amount" className="text-slate-200">Total Amount</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -706,12 +736,12 @@ const ReceiptDetail = () => {
                   value={editedAmount}
                   onChange={(e) => setEditedAmount(e.target.value)}
                   placeholder="Enter total amount"
-                  className="border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400"
+                  className="!border-slate-500 !bg-slate-800 !text-slate-100 [color-scheme:dark] placeholder:!text-slate-400 focus-visible:!ring-orange-400/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Purchase Date</Label>
+                <Label className="text-slate-200">Purchase Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -731,17 +761,17 @@ const ReceiptDetail = () => {
                       selected={editedDate}
                       onSelect={setEditedDate}
                       initialFocus
-                      className="pointer-events-auto"
+                      className="pointer-events-auto rounded-md bg-slate-950 p-3 text-slate-100"
                     />
                   </PopoverContent>
                 </Popover>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes" className="text-slate-200">Notes</Label>
                 <textarea
                   id="notes"
-                  className="min-h-[60px] w-full rounded border border-slate-500 bg-slate-800 px-2 py-1 text-slate-100 placeholder:text-slate-400"
+                  className="min-h-[60px] w-full rounded-md border border-slate-500 px-3 py-2 text-sm shadow-sm !bg-slate-800 !text-slate-100 [color-scheme:dark] placeholder:!text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
                   value={editedNotes}
                   onChange={e => setEditedNotes(e.target.value)}
                   placeholder="Add any notes about this receipt..."
@@ -804,9 +834,9 @@ const ReceiptDetail = () => {
                   type="checkbox"
                   checked={editedWarranty}
                   onChange={e => setEditedWarranty(e.target.checked)}
-                  className="h-4 w-4"
+                  className="h-4 w-4 rounded border-slate-400 bg-slate-800 text-orange-600 accent-orange-500 focus-visible:ring-2 focus-visible:ring-orange-400/60"
                 />
-                <label htmlFor="warranty" className="font-medium select-none cursor-pointer">Warranty?</label>
+                <label htmlFor="warranty" className="font-medium select-none cursor-pointer text-slate-100">Warranty?</label>
               </div>
 
               {/* Product Image Upload - appears right after Warranty checkbox when checked */}
@@ -893,31 +923,41 @@ const ReceiptDetail = () => {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="client">Client</Label>
-                <div className="flex gap-2 items-center">
-                  <select
-                    id="client"
-                    className="flex-1 rounded border border-slate-500 bg-slate-800 px-2 py-1 text-slate-100"
-                    value={showNewClientInput ? "__new__" : editedClient}
-                    onChange={e => {
-                      if (e.target.value === "__new__") {
-                        setShowNewClientInput(true);
-                        setEditedClient("");
-                      } else {
-                        setShowNewClientInput(false);
-                        setEditedClient(e.target.value);
-                      }
-                    }}
-                  >
-                    <option value="">Select client...</option>
-                    {allClients.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                    <option value="__new__">Add new client...</option>
-                  </select>
+                <Label htmlFor="client" className="text-slate-200">Client</Label>
+                <div className="flex flex-1 items-center gap-2">
+                  <div className="relative min-w-0 flex-1">
+                    <select
+                      id="client"
+                      className={cn(
+                        "w-full cursor-pointer appearance-none rounded-md border border-slate-500 py-2 pl-3 pr-9 text-sm shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-orange-400/40",
+                        "!bg-slate-800 !text-slate-100 hover:!bg-slate-700"
+                      )}
+                      value={showNewClientInput ? "__new__" : editedClient}
+                      onChange={e => {
+                        if (e.target.value === "__new__") {
+                          setShowNewClientInput(true);
+                          setEditedClient("");
+                        } else {
+                          setShowNewClientInput(false);
+                          setEditedClient(e.target.value);
+                        }
+                      }}
+                    >
+                      <option value="">Select client...</option>
+                      {allClients.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__new__">Add new client...</option>
+                    </select>
+                    <ChevronDown
+                      className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300"
+                      aria-hidden
+                    />
+                  </div>
                   {showNewClientInput && (
                     <Input
-                      className="flex-1 border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400"
+                      className="min-w-0 flex-1 !border-slate-500 !bg-slate-800 !text-slate-100 [color-scheme:dark] placeholder:!text-slate-400"
                       placeholder="Enter new client name"
                       value={editedClient}
                       onChange={e => setEditedClient(e.target.value)}
@@ -926,9 +966,16 @@ const ReceiptDetail = () => {
                 </div>
               </div>
 
-              <div className="flex space-x-2 pt-4">
+              <div className="flex flex-wrap gap-2 pt-4">
                 <Button onClick={handleSaveChanges}>Save Changes</Button>
-                <Button variant="outline" onClick={cancelEditing}>Cancel</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                  onClick={cancelEditing}
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
           ) : (

@@ -7,7 +7,7 @@ import { toast } from "@/components/ui/use-toast";
 import { formatDistanceToNow, format, isAfter, isBefore } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Tag, X, Filter, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Tag, X, Filter, ChevronDown, ChevronUp, Loader2, FolderOpen } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import {
   Popover,
@@ -340,23 +340,33 @@ const ReceiptList = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4 text-slate-100">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
-          <h2 className="text-2xl font-bold text-white">Your Receipts</h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled
-              className="flex items-center gap-1 border-slate-500 bg-slate-800 text-slate-200"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              <ChevronDown className="h-4 w-4 ml-1" />
-            </Button>
-            <Button disabled>Upload New Receipt</Button>
-          </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 text-slate-100 sm:px-6 lg:py-10">
+        <header className="mx-auto mb-8 max-w-2xl text-center">
+          <p className="mb-2 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+            <FolderOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            Receipt library
+          </p>
+          <h1 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            Your receipts
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            Browse everything you have captured. Filter by vendor, amount, dates, or tags, then open a receipt for
+            details.
+          </p>
+        </header>
+        <div className="mb-6 flex flex-wrap justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled
+            className="flex items-center gap-1 border-slate-500 bg-slate-800 text-slate-200"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            <ChevronDown className="ml-1 h-4 w-4" />
+          </Button>
+          <Button disabled>Upload New Receipt</Button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="border border-slate-600 rounded-lg overflow-hidden shadow-sm bg-slate-800 flex sm:flex-col">
               <Skeleton className="w-24 sm:w-full sm:aspect-[3/4] h-24 sm:h-auto flex-shrink-0 bg-slate-700" />
@@ -374,21 +384,32 @@ const ReceiptList = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 text-slate-100">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
-        <h2 className="text-2xl font-bold text-white">Your Receipts</h2>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            <ChevronDown className="h-4 w-4 ml-1" />
-          </Button>
-          <Button onClick={() => navigate("/upload")}>Upload New Receipt</Button>
-        </div>
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 text-slate-100 sm:px-6 lg:py-10">
+      <header className="mx-auto mb-8 max-w-2xl text-center">
+        <p className="mb-2 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+          <FolderOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          Receipt library
+        </p>
+        <h1 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+          Your receipts
+        </h1>
+        <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
+          Browse everything you have captured. Filter by vendor, amount, dates, or tags, then open a receipt for
+          details.
+        </p>
+      </header>
+
+      <div className="mb-6 flex flex-wrap justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-1 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+        >
+          <Filter className="h-4 w-4" />
+          Filters
+          <ChevronDown className="ml-1 h-4 w-4" />
+        </Button>
+        <Button onClick={() => navigate("/upload")}>Upload New Receipt</Button>
       </div>
 
       {/* Filters Section */}
@@ -438,13 +459,13 @@ const ReceiptList = () => {
                       {startDate ? format(startDate, "PP") : "Start date"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto border border-slate-600 bg-slate-900 p-0 text-slate-100">
                     <Calendar
                       mode="single"
                       selected={startDate}
                       onSelect={setStartDate}
                       initialFocus
-                      className="pointer-events-auto"
+                      className="pointer-events-auto rounded-md bg-slate-950 p-3 text-slate-100"
                     />
                   </PopoverContent>
                 </Popover>
@@ -455,13 +476,13 @@ const ReceiptList = () => {
                       {endDate ? format(endDate, "PP") : "End date"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto border border-slate-600 bg-slate-900 p-0 text-slate-100">
                     <Calendar
                       mode="single"
                       selected={endDate}
                       onSelect={setEndDate}
                       initialFocus
-                      className="pointer-events-auto"
+                      className="pointer-events-auto rounded-md bg-slate-950 p-3 text-slate-100"
                     />
                   </PopoverContent>
                 </Popover>
@@ -477,7 +498,7 @@ const ReceiptList = () => {
                     <ChevronDown className="h-4 w-4 ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
+                <DropdownMenuContent className="border-slate-600 bg-slate-900 text-slate-100">
                   {allTags.map((tag) => (
                     <DropdownMenuItem 
                       key={tag.id}

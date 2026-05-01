@@ -39,14 +39,14 @@ export function ReceiptImagePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(92vh,940px)] max-w-[min(100vw-2rem,56rem)] overflow-y-auto border-0 bg-background/95 p-4 sm:p-6">
+      <DialogContent className="max-h-[min(92vh,940px)] max-w-[min(100vw-2rem,56rem)] overflow-y-auto border border-slate-600 bg-slate-900 p-4 sm:p-6">
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {!imagePath ? (
-          <div className="aspect-[3/4] bg-muted rounded-md" />
+          <div className="aspect-[3/4] rounded-md bg-slate-800" />
         ) : !fullUrl ? (
-          <div className="aspect-[3/4] max-h-[min(82vh,880px)] bg-muted animate-pulse rounded-md" />
+          <div className="aspect-[3/4] max-h-[min(82vh,880px)] animate-pulse rounded-md bg-slate-800" />
         ) : (
           <img
             src={fullUrl}
