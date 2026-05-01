@@ -7,7 +7,6 @@ import {
   Building2,
   Home,
   Layers,
-  Mail,
   MessageCircleQuestion,
   RectangleHorizontal,
   ScrollText,
@@ -15,7 +14,6 @@ import {
   FileStack,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
@@ -23,6 +21,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
+import SiteFooter from "@/components/SiteFooter";
 
 /** Rich FAQ entries (accordion). Order is fixed; pricing last. */
 const HELP_FAQ_SECTIONS: { id: string; question: string; content: ReactNode }[] = [
@@ -222,36 +222,10 @@ export default function Help() {
   const { user } = useAuth();
   const scans = scanExamplesByPersona[persona];
 
-  const navBtn =
-    "inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-slate-100 font-semibold px-4 py-2 text-sm md:text-base transition-colors";
-
   return (
     <div className="min-h-screen w-full bg-slate-800 text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 pt-8 md:pt-12 pb-10">
-        {!user && (
-          <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-            <Link to="/" className="shrink-0 rounded-lg outline-offset-4 focus-visible:ring-2 focus-visible:ring-[#7CB87E]/50">
-              <img src="/SnapTagTrack.png" alt="SnapTagTrack" className="h-9 md:h-[50px] w-auto brightness-110" />
-            </Link>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
-              <span
-                className="inline-flex items-center justify-center rounded-xl border border-[#7CB87E]/50 bg-[#7CB87E]/15 px-4 py-2 text-sm font-semibold text-[#7CB87E] md:text-base"
-                aria-current="page"
-              >
-                Help
-              </span>
-              <Link to="/contact" className={navBtn}>
-                Contact
-              </Link>
-              <Link
-                to="/auth"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold text-white md:text-base transition-colors"
-              >
-                Login
-              </Link>
-            </div>
-          </div>
-        )}
+      <div className={`${marketingPageGutterClass} pb-10`}>
+        {!user && <MarketingTopNav active="help" />}
 
         <header className="border-b border-slate-600/80 pb-10 sm:pb-12">
           <div className="mx-auto max-w-6xl">
@@ -291,7 +265,7 @@ export default function Help() {
         </header>
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 pb-28 sm:px-6 lg:px-10">
         <section
           className="mb-10 rounded-2xl border border-slate-600 bg-slate-700/70 p-5 shadow-xl shadow-black/20 sm:p-6"
           aria-labelledby="faq-heading"
@@ -521,21 +495,8 @@ export default function Help() {
           </p>
         </section>
         </div>
-
-        <section className="mt-10 flex flex-col items-center gap-3 rounded-2xl border border-slate-600 bg-slate-700/70 px-6 py-8 text-center shadow-xl shadow-black/20 sm:py-10">
-          <p className="text-sm font-semibold text-slate-200">Questions the guide doesn&apos;t cover?</p>
-          <Button
-            size="lg"
-            className="min-h-[48px] w-full max-w-sm shrink-0 gap-2 rounded-xl border-0 bg-orange-500 font-bold text-white shadow-lg shadow-orange-500/25 transition-[box-shadow,transform] hover:bg-orange-600 hover:text-white hover:shadow-orange-500/35 active:scale-[0.98]"
-            asChild
-          >
-            <Link to="/contact">
-              <Mail className="h-4 w-4" aria-hidden />
-              Need more help?
-            </Link>
-          </Button>
-        </section>
       </main>
+      <SiteFooter variant="slate" />
     </div>
   );
 }

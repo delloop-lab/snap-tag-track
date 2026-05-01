@@ -1,5 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Receipt, FileText, User, HelpCircle, Shield, Mail, LogOut } from "lucide-react";
+import {
+  Home,
+  Receipt,
+  FileText,
+  User,
+  HelpCircle,
+  Shield,
+  Mail,
+  LogOut,
+  ScrollText,
+  ShieldCheck,
+} from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,6 +108,24 @@ export default function AppSidebar() {
         >
           <Mail className="h-5 w-5 shrink-0" />
           Contact
+        </Link>
+        <Link
+          to="/terms"
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/terms") ? activeLink : inactiveLink
+          }`}
+        >
+          <ScrollText className="h-5 w-5 shrink-0" />
+          Terms
+        </Link>
+        <Link
+          to="/privacy"
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/privacy") ? activeLink : inactiveLink
+          }`}
+        >
+          <ShieldCheck className="h-5 w-5 shrink-0" />
+          Privacy
         </Link>
       </nav>
       {user && (

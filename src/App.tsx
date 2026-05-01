@@ -22,8 +22,9 @@ import Admin from "./pages/Admin";
 import AdminReceipts from "./pages/AdminReceipts";
 import Help from "./pages/Help";
 import Contact from "./pages/Contact";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 import AdSummaryMock from "./pages/AdSummaryMock";
-import VersionNumber from "./components/VersionNumber";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -97,7 +98,11 @@ const AppContent = () => {
 
   /** Marketing pages that paint their own canvas when logged out */
   const isMarketingBackdrop =
-    pathname === "/help" || pathname === "/contact" || pathname === AD_SUMMARY_MOCK_PATH;
+    pathname === "/help" ||
+    pathname === "/contact" ||
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
+    pathname === AD_SUMMARY_MOCK_PATH;
   const isSummaryPage = pathname === "/summary";
 
   const shellBgClass = user
@@ -158,6 +163,8 @@ const AppContent = () => {
             } />
             <Route path="/help" element={<Help />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/landing" element={<LandingPage2 />} />
             <Route path="/landing2" element={<LandingPage2 />} />
             <Route path="/admin" element={
@@ -173,8 +180,6 @@ const AppContent = () => {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
-
-        {!hideAppChrome && <VersionNumber />}
       </div>
     </div>
   );

@@ -432,12 +432,6 @@ const Index = () => {
           {totalThisYear} receipt{totalThisYear === 1 ? "" : "s"} this year
         </div>
       </div>
-      <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-600/70 bg-slate-900/95 px-3 py-2 backdrop-blur-sm">
-        <div className="relative">
-          <p className="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Beta v0.9.857</p>
-          <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
-        </div>
-      </footer>
       <ReceiptImagePreviewDialog
         open={!!previewReceipt}
         onOpenChange={(open) => !open && setPreviewReceipt(null)}
@@ -466,7 +460,7 @@ const Index = () => {
   /* ── Desktop layout ── */
   return (
     <>
-      <div className="mx-auto min-h-full w-full max-w-[1600px] px-4 py-6 pb-24 sm:px-6 lg:px-10 lg:py-10">
+      <div className="mx-auto min-h-full w-full max-w-[1600px] px-4 py-6 pb-8 sm:px-6 lg:px-10 lg:py-10">
       {/* Welcome */}
       <div className="mb-6 flex flex-wrap items-start gap-4 sm:gap-6">
         {avatarUrl && (
@@ -650,12 +644,6 @@ const Index = () => {
         </div>
       )}
     </div>
-    <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-600/70 bg-slate-900/95 px-3 py-2 backdrop-blur-sm">
-      <div className="relative">
-        <p className="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Beta v0.9.857</p>
-        <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
-      </div>
-    </footer>
     <ReceiptImagePreviewDialog
       open={!!previewReceipt}
       onOpenChange={(open) => !open && setPreviewReceipt(null)}

@@ -137,6 +137,30 @@ export type Database = {
           },
         ]
       }
+      terms_registration_acceptances: {
+        Row: {
+          accepted_at: string
+          id: string
+          signup_context: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          signup_context?: string
+          terms_version?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          signup_context?: string
+          terms_version?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null

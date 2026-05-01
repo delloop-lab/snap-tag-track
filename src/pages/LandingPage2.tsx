@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
+import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
+import SiteFooter from "@/components/SiteFooter";
 
 type Persona = "personal" | "contractor";
 
@@ -93,44 +95,18 @@ export default function LandingPage2() {
     return (
       <div>
         {classicLayout}
-        <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-300 bg-white/95 px-4 py-2 backdrop-blur-sm">
-          <div className="relative">
-            <p className="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500">Beta v0.9.857</p>
-            <p className="text-center text-xs text-gray-600">&copy; 2025–2026 Snap Tag Track</p>
-          </div>
-        </footer>
+        <SiteFooter variant="classic" />
       </div>
     );
   }
 
   return (
     <main className="min-h-screen bg-slate-800 text-slate-100 pb-28">
-      <section className="mx-auto max-w-6xl px-4 pt-8 md:pt-12 pb-14 md:pb-20">
-        <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
-          <img src="/SnapTagTrack.png" alt="Snap Tag Track logo" className="h-9 md:h-[50px] w-auto" />
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap justify-end">
-            <Link
-              to="/help"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-slate-100 font-semibold px-4 py-2 text-sm md:text-base"
-            >
-              Help
-            </Link>
-            <Link
-              to="/contact"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-slate-100 font-semibold px-4 py-2 text-sm md:text-base"
-            >
-              Contact
-            </Link>
-            <Link
-              to="/auth"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 text-sm md:text-base"
-            >
-              Login
-            </Link>
-          </div>
-        </div>
+      <section className={`${marketingPageGutterClass} pb-14 md:pb-20`}>
+        <MarketingTopNav />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <p className="inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs text-[#7CB87E] mb-4">
               Always-Ready Companion
@@ -145,7 +121,7 @@ export default function LandingPage2() {
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
-                Get Started Now (Free)
+                Get Started it&apos;s Free
               </Link>
               <div className="hidden md:inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1 w-fit">
                 <button
@@ -187,6 +163,7 @@ export default function LandingPage2() {
               </div>
             </motion.div>
           </div>
+        </div>
         </div>
       </section>
 
@@ -352,12 +329,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
-        <div className="relative">
-          <p className="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Beta v0.9.857</p>
-          <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
-        </div>
-      </footer>
+      <SiteFooter variant="slate" />
     </main>
   );
 }

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
+import { TERMS_PUBLISHED_VERSION_ID } from "@/lib/termsVersion";
 import { createClient } from '@supabase/supabase-js';
-import { Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import SiteFooter from "@/components/SiteFooter";
 
 const AuthPage = () => {
   const [email, setEmail] = useState("");
@@ -15,7 +17,12 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTermsRegistration, setAcceptedTermsRegistration] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isSignUp) setAcceptedTermsRegistration(false);
+  }, [isSignUp]);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -48,9 +55,19 @@ const AuthPage = () => {
     }
 
     try {
+      if (isSignUp && !acceptedTermsRegistration) {
+        toast({
+          title: "Accept terms to register",
+          description: "Tick the box to confirm you agree to the Terms & Conditions and Privacy Policy.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       if (isSignUp) {
         // For sign up, first register the user
-        const { data, error } = await authClient.auth.signUp({
+        const { error } = await authClient.auth.signUp({
           email,
           password,
         });
@@ -64,13 +81,35 @@ const AuthPage = () => {
         });
         
         if (signInError) throw signInError;
-        
-        toast({
-          title: "Account created successfully",
-          description: "Welcome to SnapTagTrack!",
-        });
-        
-        // Redirect to home page
+
+        const { data: userData } = await authClient.auth.getUser();
+        const uid = userData.user?.id;
+        if (uid) {
+          const { error: logErr } = await authClient.from("terms_registration_acceptances").insert({
+            user_id: uid,
+            terms_version: TERMS_PUBLISHED_VERSION_ID,
+            signup_context: "registration",
+          });
+          if (logErr) {
+            console.error("terms_registration_acceptances insert:", logErr);
+            toast({
+              title: "Account created",
+              description:
+                "We could not store your Terms acceptance on the server. Your account works; please contact support if this keeps happening.",
+            });
+          } else {
+            toast({
+              title: "Account created successfully",
+              description: "Welcome to SnapTagTrack!",
+            });
+          }
+        } else {
+          toast({
+            title: "Account created successfully",
+            description: "Welcome to SnapTagTrack!",
+          });
+        }
+
         navigate("/");
       } else {
         // Regular sign in flow
@@ -96,7 +135,15 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-slate-800 p-4 text-slate-100">
+    <>
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-800 px-4 py-12 pb-28 text-slate-100">
+      <Link
+        to="/"
+        className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 shadow-md transition-colors hover:bg-slate-700 hover:text-white md:left-6 md:top-6"
+      >
+        <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+        Back
+      </Link>
       <div className="relative w-full max-w-md space-y-8 overflow-hidden rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-slate-100 shadow-2xl backdrop-blur-sm">
         {/* Decorative elements */}
         <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-sky-900/30 blur-3xl opacity-70" />
@@ -155,6 +202,29 @@ const AuthPage = () => {
               </div>
             </div>
 
+            {isSignUp && (
+              <div className="flex items-start gap-3 rounded-lg border border-slate-600 bg-slate-950/50 p-3">
+                <input
+                  id="acceptedTermsRegistration"
+                  type="checkbox"
+                  checked={acceptedTermsRegistration}
+                  onChange={(e) => setAcceptedTermsRegistration(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-500 bg-slate-900 text-orange-500 focus:ring-orange-400"
+                />
+                <Label htmlFor="acceptedTermsRegistration" className="text-sm font-normal leading-relaxed text-slate-300 cursor-pointer select-none">
+                  I agree to the{" "}
+                  <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]">
+                    Terms &amp; Conditions
+                  </Link>
+                  {" "}and{" "}
+                  <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]">
+                    Privacy Policy
+                  </Link>
+                  .
+                </Label>
+              </div>
+            )}
+
             <div className="flex items-center">
               <input
                 id="rememberMe"
@@ -170,7 +240,7 @@ const AuthPage = () => {
           <Button
             type="submit"
             className="h-11 w-full rounded-lg bg-orange-500 font-medium text-white shadow-md transition-all duration-200 hover:bg-orange-600 hover:shadow-lg"
-            disabled={loading}
+            disabled={loading || (isSignUp && !acceptedTermsRegistration)}
           >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
@@ -191,9 +261,24 @@ const AuthPage = () => {
                 : "Don't have an account? Sign Up"}
             </button>
           </div>
+          {!isSignUp && (
+            <p className="text-center text-xs text-slate-500">
+              By signing in you agree to our{" "}
+              <Link to="/terms" className="text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]">
+                Terms &amp; Conditions
+              </Link>
+              {" "}and{" "}
+              <Link to="/privacy" className="text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          )}
         </form>
       </div>
     </div>
+    <SiteFooter variant="slate" />
+    </>
   );
 };
 
