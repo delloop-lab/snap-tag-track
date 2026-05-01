@@ -119,7 +119,7 @@ export default function LandingPage2() {
               See It.
             </h1>
             <p className="text-slate-300 mt-4 text-base md:text-lg">
-              Snap a store receipt or invoice, tag it, and track spending instantly. Get reminded before warranties expire.
+              Snap receipts or invoices, tag them, and track spending instantly. Get warranty expiry reminders. Built for families and contractors.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
