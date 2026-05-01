@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
@@ -100,9 +100,6 @@ const ReceiptSummaryList = () => {
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [imageLoaded, setImageLoaded] = useState<{ [key: string]: boolean }>({});
-  const [showMobileBanner, setShowMobileBanner] = useState(true);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchDeltaX, setTouchDeltaX] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isBulkRescanning, setIsBulkRescanning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
@@ -396,29 +393,40 @@ const ReceiptSummaryList = () => {
   if (isMobile) {
     return (
       <div className="pt-1 px-2">
-        {showMobileBanner && (
-          <div
-            className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-2 text-center relative"
-            onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
-            onTouchMove={e => {
-              if (touchStartX !== null) {
-                setTouchDeltaX(e.touches[0].clientX - touchStartX);
-              }
-            }}
-            onTouchEnd={() => {
-              if (touchDeltaX < -50) setShowMobileBanner(false); // swipe left
-              setTouchStartX(null);
-              setTouchDeltaX(0);
-            }}
-            style={{ transform: touchDeltaX < 0 ? `translateX(${touchDeltaX}px)` : undefined, transition: 'transform 0.2s' }}
-          >
-            <p className="text-yellow-800 text-sm">
-              For the best experience, we recommend viewing the receipt summary on a larger screen.<br />
-              You can still view and filter your receipts here, but some features may be limited.
-            </p>
+        <h2 className="text-xl font-bold mb-2 text-center">Receipt Summary</h2>
+        {/* Spend by tag (replaces desktop-only warning on mobile) */}
+        {receipts.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-3">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center md:text-left">
+              Spend by Tag
+            </h3>
+            {tagSpendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={tagSpendData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={48}
+                    outerRadius={78}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {tagSpendData.map((_, idx) => (
+                      <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-6">Tag receipts to see breakdown</p>
+            )}
           </div>
         )}
-        <h2 className="text-xl font-bold mb-2 text-center">Receipt Summary</h2>
         {/* Summary stats */}
         <div className="flex gap-3 overflow-x-auto pb-2 mb-4 snap-x">
           <div className="min-w-[140px] bg-blue-50 rounded-lg p-3 flex flex-col items-center justify-center snap-center">
