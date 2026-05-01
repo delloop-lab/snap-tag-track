@@ -210,11 +210,29 @@ const ReceiptList = () => {
     let undoClicked = false;
     const timeoutId = setTimeout(async () => {
       if (!undoClicked) {
+        // Delete child tag rows first to avoid FK constraint errors.
+        const { error: tagsDeleteError } = await supabase
+          .from("receipt_tags")
+          .delete()
+          .eq("receipt_id", id);
+        if (tagsDeleteError) {
+          setReceipts((prev) => [deletedReceipt, ...prev]);
+          toast({
+            title: "Error",
+            description: "Failed to delete receipt tags",
+            variant: "destructive",
+          });
+          setRecentlyDeleted(null);
+          return;
+        }
+
         const { error: dbError } = await supabase
           .from("receipts")
           .delete()
-          .eq("id", id);
+          .eq("id", id)
+          .eq("user_id", deletedReceipt.user_id);
         if (dbError) {
+          setReceipts((prev) => [deletedReceipt, ...prev]);
           toast({
             title: "Error",
             description: "Failed to delete receipt",
@@ -322,11 +340,15 @@ const ReceiptList = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto p-4 text-slate-100">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
-          <h2 className="text-2xl font-bold">Your Receipts</h2>
+          <h2 className="text-2xl font-bold text-white">Your Receipts</h2>
           <div className="flex gap-2">
-            <Button variant="outline" disabled className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              disabled
+              className="flex items-center gap-1 border-slate-500 bg-slate-800 text-slate-200"
+            >
               <Filter className="h-4 w-4" />
               Filters
               <ChevronDown className="h-4 w-4 ml-1" />
@@ -336,8 +358,8 @@ const ReceiptList = () => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="border rounded-lg overflow-hidden shadow-sm bg-white flex sm:flex-col">
-              <Skeleton className="w-24 sm:w-full sm:aspect-[3/4] h-24 sm:h-auto flex-shrink-0 bg-gray-100" />
+            <div key={i} className="border border-slate-600 rounded-lg overflow-hidden shadow-sm bg-slate-800 flex sm:flex-col">
+              <Skeleton className="w-24 sm:w-full sm:aspect-[3/4] h-24 sm:h-auto flex-shrink-0 bg-slate-700" />
               <div className="p-3 flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
@@ -352,14 +374,14 @@ const ReceiptList = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 text-slate-100">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
-        <h2 className="text-2xl font-bold">Your Receipts</h2>
+        <h2 className="text-2xl font-bold text-white">Your Receipts</h2>
         <div className="flex gap-2">
           <Button 
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1"
+            className="flex items-center gap-1 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
           >
             <Filter className="h-4 w-4" />
             Filters
@@ -371,7 +393,7 @@ const ReceiptList = () => {
 
       {/* Filters Section */}
       {showFilters && (
-        <div className="bg-muted/50 rounded-lg p-4 mb-6 space-y-4">
+        <div className="mb-6 space-y-4 rounded-lg border border-slate-600 bg-slate-900/70 p-4 text-slate-100">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="vendor-filter">
@@ -382,6 +404,7 @@ const ReceiptList = () => {
                 placeholder="Filter by vendor"
                 value={vendorFilter}
                 onChange={(e) => setVendorFilter(e.target.value)}
+                className="border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"
               />
             </div>
             
@@ -393,13 +416,15 @@ const ReceiptList = () => {
                   type="number"
                   value={minAmount}
                   onChange={(e) => setMinAmount(e.target.value)}
+                  className="border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"
                 />
-                <span>to</span>
+                <span className="text-slate-300">to</span>
                 <Input
                   placeholder="Max"
                   type="number"
                   value={maxAmount}
                   onChange={(e) => setMaxAmount(e.target.value)}
+                  className="border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -409,7 +434,7 @@ const ReceiptList = () => {
               <div className="flex items-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="outline" className="w-full justify-start border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white">
                       {startDate ? format(startDate, "PP") : "Start date"}
                     </Button>
                   </PopoverTrigger>
@@ -423,10 +448,10 @@ const ReceiptList = () => {
                     />
                   </PopoverContent>
                 </Popover>
-                <span>to</span>
+                <span className="text-slate-300">to</span>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="outline" className="w-full justify-start border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white">
                       {endDate ? format(endDate, "PP") : "End date"}
                     </Button>
                   </PopoverTrigger>
@@ -447,7 +472,7 @@ const ReceiptList = () => {
               <label className="text-sm font-medium">Tags</label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white">
                     Select tags
                     <ChevronDown className="h-4 w-4 ml-2" />
                   </Button>
@@ -486,14 +511,14 @@ const ReceiptList = () => {
           </div>
           
           <div className="flex justify-end">
-            <Button variant="outline" onClick={resetFilters}>Reset Filters</Button>
+            <Button variant="outline" className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white" onClick={resetFilters}>Reset Filters</Button>
           </div>
         </div>
       )}
 
       {filteredReceipts.length === 0 ? (
         <div className="text-center py-10">
-          <p className="text-muted-foreground">
+          <p className="text-slate-300">
             {receipts.length === 0 
               ? "You haven't uploaded any receipts yet."
               : "No receipts match your filters."}
@@ -510,7 +535,7 @@ const ReceiptList = () => {
             <Button 
               variant="outline"
               onClick={resetFilters} 
-              className="mt-4"
+              className="mt-4 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
             >
               Clear Filters
             </Button>
@@ -521,12 +546,12 @@ const ReceiptList = () => {
           {filteredReceipts.map((receipt) => (
             <div
               key={receipt.id}
-              className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white flex sm:flex-col"
+              className="border border-slate-600 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-slate-800 flex sm:flex-col"
             >
               {/* Image — row on mobile, top on sm+ */}
               <button
                 type="button"
-                className="w-24 sm:w-full sm:aspect-[3/4] flex-shrink-0 bg-gray-100 relative cursor-zoom-in border-0 p-0 text-left focus:outline-none focus:ring-2 focus:ring-orange-400 rounded-none sm:rounded-t-lg overflow-hidden"
+                className="w-24 sm:w-full sm:aspect-[3/4] flex-shrink-0 bg-slate-700 relative cursor-zoom-in border-0 p-0 text-left focus:outline-none focus:ring-2 focus:ring-orange-400 rounded-none sm:rounded-t-lg overflow-hidden"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (receipt.image_path) setPreviewReceipt({ image_path: receipt.image_path, vendor_name: receipt.vendor_name });
@@ -549,7 +574,7 @@ const ReceiptList = () => {
               <div
                 role="button"
                 tabIndex={0}
-                className="p-3 flex-1 flex flex-col justify-between min-w-0 cursor-pointer hover:bg-muted/40 sm:rounded-b-lg"
+                className="p-3 flex-1 flex flex-col justify-between min-w-0 cursor-pointer hover:bg-slate-700/70 sm:rounded-b-lg"
                 onClick={() => navigate(`/receipt/${receipt.id}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -560,11 +585,15 @@ const ReceiptList = () => {
               >
                 <div>
                   <div className="flex justify-between items-start gap-1">
-                    <h3 className="font-semibold text-sm truncate">{receipt.vendor_name || "Unknown Vendor"}</h3>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-semibold text-slate-100">
+                        {receipt.vendor_name || "Unknown Vendor"}
+                      </h3>
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 p-0 flex-shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                      className="h-6 w-6 p-0 flex-shrink-0 text-slate-400 hover:text-red-300 hover:bg-red-900/40"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(receipt.id, receipt.image_path, receipt.tags);
@@ -573,13 +602,13 @@ const ReceiptList = () => {
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="mt-0.5 text-xs text-slate-300">
                     {receipt.purchase_date
                       ? format(new Date(receipt.purchase_date), "MMM d, yyyy")
                       : formatDistanceToNow(new Date(receipt.updated_at), { addSuffix: true })}
                   </p>
                   {receipt.total_amount != null && (
-                    <p className="mt-1 font-bold text-sm text-gray-800">
+                    <p className="mt-1 text-sm font-bold text-slate-100">
                       {formatCurrency(receipt.total_amount, (receipt as any).currency)}
                     </p>
                   )}

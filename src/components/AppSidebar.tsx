@@ -1,11 +1,11 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Receipt, FileText, User, HelpCircle, LogOut, Camera, Shield, Mail } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Home, Receipt, FileText, User, HelpCircle, Shield, Mail, LogOut } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
-  { label: "Home", icon: Home, path: "/" },
+  { label: "Dashboard", icon: Home, path: "/" },
   { label: "Receipts", icon: Receipt, path: "/receipts" },
   { label: "Summary", icon: FileText, path: "/summary" },
   { label: "Profile", icon: User, path: "/profile" },
@@ -13,7 +13,6 @@ const navItems = [
 
 export default function AppSidebar() {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -41,44 +40,31 @@ export default function AppSidebar() {
     };
   }, [user]);
 
+  const inactiveLink =
+    "text-slate-300 hover:bg-slate-700 hover:text-white";
+  const activeLink = "bg-orange-500/20 text-orange-300 ring-1 ring-orange-400/35";
+
   return (
-    <aside className="hidden md:flex flex-col w-56 fixed inset-y-0 left-0 bg-white border-r border-gray-200 z-40">
-      {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-gray-200">
-        <Link to="/landing2">
-          <img src="/SnapTagTrack.png" alt="SnapTagTrack" className="h-8 w-auto" />
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-slate-600 bg-slate-900 md:flex">
+      <div className="flex h-16 items-center border-b border-slate-600 px-4">
+        <Link to="/landing2" className="block">
+          <img src="/SnapTagTrack.png" alt="SnapTagTrack" className="h-8 w-auto brightness-110" />
         </Link>
       </div>
 
-      {/* Snap CTA */}
-      <div className="px-4 py-4">
-        <button
-          onClick={() => navigate("/upload")}
-          className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
-        >
-          <Camera className="w-4 h-4" />
-          Snap Receipt
-        </button>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
+      <nav className="space-y-0.5 overflow-y-auto px-3 py-2">
         {navItems.map(({ label, icon: Icon, path }) => {
           const isActive =
-            path === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(path);
+            path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
           return (
             <Link
               key={path}
               to={path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-orange-50 text-orange-600"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive ? activeLink : inactiveLink
               }`}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
+              <Icon className="h-5 w-5 shrink-0" />
               {label}
             </Link>
           );
@@ -86,50 +72,45 @@ export default function AppSidebar() {
         {isAdmin && (
           <Link
             to="/admin"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              location.pathname.startsWith("/admin")
-                ? "bg-orange-50 text-orange-600"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              location.pathname.startsWith("/admin") ? activeLink : inactiveLink
             }`}
           >
-            <Shield className="w-5 h-5 flex-shrink-0" />
+            <Shield className="h-5 w-5 shrink-0" />
             Admin
           </Link>
         )}
         <Link
           to="/help"
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            location.pathname.startsWith("/help")
-              ? "bg-orange-50 text-orange-600"
-              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/help") ? activeLink : inactiveLink
           }`}
         >
-          <HelpCircle className="w-5 h-5 flex-shrink-0" />
+          <HelpCircle className="h-5 w-5 shrink-0" />
           Help
         </Link>
         <Link
           to="/contact"
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            location.pathname.startsWith("/contact")
-              ? "bg-orange-50 text-orange-600"
-              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/contact") ? activeLink : inactiveLink
           }`}
         >
-          <Mail className="w-5 h-5 flex-shrink-0" />
+          <Mail className="h-5 w-5 shrink-0" />
           Contact
         </Link>
       </nav>
-
-      {/* Logout */}
-      <div className="px-3 pb-6 pt-2 border-t border-gray-100">
-        <button
-          onClick={signOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-        >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          Logout
-        </button>
-      </div>
+      {user && (
+        <div className="px-3 pb-4 pt-2">
+          <button
+            type="button"
+            onClick={signOut}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-950/40 hover:text-red-200"
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            Logout
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

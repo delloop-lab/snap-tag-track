@@ -519,56 +519,66 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
-            Analytics Overview
-          </h2>
+    <div className="min-h-screen text-slate-100">
+      <div className="mx-auto max-w-[1600px] px-4 py-8 sm:py-10">
+        <div className="mx-auto max-w-[1600px]">
+          <header className="mb-8 rounded-2xl border border-slate-600 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur-sm sm:p-6">
+            <p className="mb-2 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+              Admin area
+            </p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Administration
+            </h1>
+            <p className="mt-2 text-sm text-slate-300 sm:text-base">
+              Manage users, receipts, processing jobs, and platform-wide statistics.
+            </p>
+          </header>
           
           {stats.loading ? (
-            <div className="text-center text-gray-400">Loading...</div>
+            <div className="text-center text-slate-400">Loading...</div>
           ) : (
             <div className="space-y-8">
-              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-xl shadow-black/20 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle>Global Processing</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-slate-200 mb-3">
                     Run AI extraction for unprocessed receipts across all users and update receipt details.
                   </p>
                   {globalRescanProgress && (
-                    <p className="text-sm text-gray-700 mb-3">
+                    <p className="text-sm text-slate-200 mb-3">
                       Progress: {globalRescanProgress.done} / {globalRescanProgress.total}
                     </p>
                   )}
                   <Button onClick={runGlobalAiRescan} disabled={isRunningGlobalRescan}>
                     {isRunningGlobalRescan ? "Running AI reprocess..." : "Run AI for unprocessed receipts"}
                   </Button>
-                  <div className="mt-5 border-t pt-4">
-                    <p className="text-sm text-gray-600 mb-3">
+                  <div className="mt-5 border-t border-slate-600 pt-4">
+                    <p className="text-sm text-slate-300 mb-3">
                       Refresh and normalize the Receipt Titles (Issuer) list from existing receipt data only (no AI run).
                     </p>
                     <Button
                       variant="outline"
+                      className="border-slate-400 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
                       onClick={normalizeIssuerNamesWithoutAI}
                       disabled={isRefreshingIssuers}
                     >
                       {isRefreshingIssuers ? "Refreshing issuer list..." : "Refresh issuer list without AI"}
                     </Button>
                   </div>
-                  <div className="mt-5 border-t pt-4">
-                    <p className="text-sm text-gray-600 mb-3">
+                  <div className="mt-5 border-t border-slate-600 pt-4">
+                    <p className="text-sm text-slate-200 mb-3">
                       Generate missing receipt thumbnails for all users.
                     </p>
                     {globalThumbsProgress && (
-                      <p className="text-sm text-gray-700 mb-3">
+                      <p className="text-sm text-slate-200 mb-3">
                         Progress: {globalThumbsProgress.done} / {globalThumbsProgress.total}
                       </p>
                     )}
                     <Button
                       variant="outline"
+                      className="border-slate-400 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
                       onClick={runGlobalThumbnailBackfill}
                       disabled={isRunningGlobalThumbs}
                     >
@@ -580,48 +590,54 @@ const Admin = () => {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-shadow">
+                <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg transition-all hover:border-slate-500 hover:shadow-xl">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">New Users (Last 6 Months)</CardTitle>
-                    <Users className="h-4 w-4 text-blue-500" />
+                    <CardTitle className="text-sm font-medium text-slate-400">New Users (Last 6 Months)</CardTitle>
+                    <span className="rounded-lg border border-slate-600 bg-slate-800 p-2">
+                      <Users className="h-4 w-4 text-blue-400" />
+                    </span>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{stats.totalUsers}</div>
-                    <p className="text-xs text-gray-500">Created within 6 months</p>
+                    <div className="text-4xl font-bold">{stats.totalUsers}</div>
+                    <p className="text-xs text-slate-400">Created within 6 months</p>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-shadow">
+                <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg transition-all hover:border-slate-500 hover:shadow-xl">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">Total Receipts</CardTitle>
-                    <Receipt className="h-4 w-4 text-green-500" />
+                    <CardTitle className="text-sm font-medium text-slate-400">Total Receipts</CardTitle>
+                    <span className="rounded-lg border border-slate-600 bg-slate-800 p-2">
+                      <Receipt className="h-4 w-4 text-green-400" />
+                    </span>
                   </CardHeader>
                   <CardContent>
                     <Button 
                       variant="ghost" 
-                      className="p-0 h-auto hover:bg-transparent"
+                      className="h-auto p-0 text-slate-100 hover:bg-transparent hover:text-white"
                       onClick={() => navigate("/admin/receipts")}
                     >
-                      <div className="text-3xl font-bold">{stats.totalReceipts}</div>
-                      <p className="text-xs text-gray-500">Uploaded receipts</p>
+                      <div className="text-4xl font-bold">{stats.totalReceipts}</div>
+                      <p className="text-xs text-slate-400">Uploaded receipts</p>
                     </Button>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-shadow">
+                <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg transition-all hover:border-slate-500 hover:shadow-xl">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">Total Warranties</CardTitle>
-                    <ShieldCheck className="h-4 w-4 text-purple-500" />
+                    <CardTitle className="text-sm font-medium text-slate-400">Total Warranties</CardTitle>
+                    <span className="rounded-lg border border-slate-600 bg-slate-800 p-2">
+                      <ShieldCheck className="h-4 w-4 text-purple-400" />
+                    </span>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{stats.totalWarranties}</div>
-                    <p className="text-xs text-gray-500">Active warranties</p>
+                    <div className="text-4xl font-bold">{stats.totalWarranties}</div>
+                    <p className="text-xs text-slate-400">Active warranties</p>
                   </CardContent>
                 </Card>
               </div>
 
               {/* User List */}
-              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-blue-500" />
@@ -630,8 +646,9 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent>
                   {usersLoading ? (
-                    <div className="text-center text-gray-400">Loading users...</div>
+                    <div className="text-center text-slate-400">Loading users...</div>
                   ) : (
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -660,7 +677,7 @@ const Admin = () => {
                                       {[user.first_name, user.last_name].filter(Boolean).join(" ")}
                                     </div>
                                   ) : (
-                                    <div className="text-gray-500 italic">No name set</div>
+                                    <div className="text-slate-400 italic">No name set</div>
                                   )}
                                 </div>
                               </div>
@@ -673,12 +690,13 @@ const Admin = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
 
               {/* Client List */}
-              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-green-500" />
@@ -687,10 +705,11 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent>
                   {clientsLoading ? (
-                    <div className="text-center text-gray-400">Loading clients...</div>
+                    <div className="text-center text-slate-400">Loading clients...</div>
                   ) : clients.length === 0 ? (
-                    <div className="text-center text-gray-500">No clients found</div>
+                    <div className="text-center text-slate-400">No clients found</div>
                   ) : (
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -713,6 +732,7 @@ const Admin = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -720,7 +740,7 @@ const Admin = () => {
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Tag Distribution Chart */}
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg backdrop-blur-sm">
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 p-6 pb-0">
                     <BarChart3 className="h-5 w-5 text-blue-500" />
                     Tag Distribution
@@ -744,30 +764,30 @@ const Admin = () => {
                     </ResponsiveContainer>
                   </div>
                 </Card>
-                <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg backdrop-blur-sm">
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 p-6 pb-0">
                     <Receipt className="h-5 w-5 text-purple-500" />
                     Receipt Titles (Issuer)
                   </h2>
                   <div className="p-6 pt-0">
                     {stats.receiptTitleCounts.length === 0 ? (
-                      <p className="text-sm text-gray-500">No receipt titles found.</p>
+                      <p className="text-sm text-slate-400">No receipt titles found.</p>
                     ) : (
                       <div className="max-h-[300px] overflow-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
+                            <tr className="border-b border-slate-600">
                               <th className="text-left py-2">Title</th>
                               <th className="text-right py-2">Count</th>
                             </tr>
                           </thead>
                           <tbody>
                             {stats.receiptTitleCounts.map((item) => (
-                              <tr key={item.title} className="border-b last:border-0">
+                              <tr key={item.title} className="border-b border-slate-600 last:border-0">
                                 <td className="py-2">
                                   <button
                                     type="button"
-                                    className="text-blue-700 hover:underline"
+                                    className="text-sky-300 hover:text-sky-200 hover:underline"
                                     onClick={() => openIssuerReceipts(item.title)}
                                   >
                                     {item.title}
@@ -785,7 +805,7 @@ const Admin = () => {
               </div>
 
               {/* Tag Table */}
-              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Tag className="h-5 w-5 text-green-500" />
@@ -796,15 +816,15 @@ const Admin = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Tag</th>
-                          <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Count</th>
-                          <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Percentage</th>
+                        <tr className="border-b border-slate-600">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Tag</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-400">Count</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-400">Percentage</th>
                         </tr>
                       </thead>
                       <tbody>
                         {stats.tagCounts.map((tc, index) => (
-                          <tr key={tc.tag} className="border-b hover:bg-gray-50/50 transition-colors">
+                          <tr key={tc.tag} className="border-b border-slate-600 hover:bg-slate-800/50 transition-colors">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
                                 <div 
@@ -815,7 +835,7 @@ const Admin = () => {
                               </div>
                             </td>
                             <td className="text-right py-3 px-4 font-medium">{tc.count}</td>
-                            <td className="text-right py-3 px-4 text-gray-500">
+                            <td className="text-right py-3 px-4 text-slate-400">
                               {((tc.count / stats.totalReceipts) * 100).toFixed(1)}%
                             </td>
                           </tr>
@@ -835,9 +855,9 @@ const Admin = () => {
                     </DialogDescription>
                   </DialogHeader>
                   {issuerReceiptsLoading ? (
-                    <p className="text-sm text-gray-500">Loading receipts...</p>
+                    <p className="text-sm text-slate-400">Loading receipts...</p>
                   ) : issuerReceipts.length === 0 ? (
-                    <p className="text-sm text-gray-500">No receipts found for this issuer.</p>
+                    <p className="text-sm text-slate-400">No receipts found for this issuer.</p>
                   ) : (
                     <div className="max-h-[70vh] overflow-auto space-y-3">
                       {issuerReceipts.map((r) => (
@@ -849,7 +869,7 @@ const Admin = () => {
                           />
                           <div className="flex-1">
                             <p className="font-medium">{r.vendor_name || "Unknown issuer"}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-slate-400">
                               {r.purchase_date ? format(new Date(r.purchase_date), "MMM d, yyyy") : "No date"} ·
                               {" $"}{(r.total_amount ?? 0).toFixed(2)} · User {r.user_id.slice(0, 8)}
                             </p>

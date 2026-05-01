@@ -100,6 +100,15 @@
   }
 }
 
+@layer utilities {
+  /** Subtle dot grid for neutral app chrome (not full-bleed coloured pages). */
+  .bg-app-dotted {
+    background-color: rgb(249 250 251); /* gray-50 */
+    background-image: radial-gradient(rgb(148 163 184 / 0.4) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(20px);}
   to { opacity: 1; transform: none;}

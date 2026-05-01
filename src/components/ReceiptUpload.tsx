@@ -6,7 +6,15 @@ import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { Progress } from "@/components/ui/progress";
-import { Camera } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Camera, Images } from "lucide-react";
 import exifr from "exifr";
 import ReceiptReview from "./ReceiptReview";
 import { siblingThumbStorageKey } from "@/lib/siblingThumbPath";
@@ -93,6 +101,7 @@ type Stage = "idle" | "processing" | "review" | "saving";
 
 interface ReviewState {
   filePath: string;
+  fileType: string;
   rawText: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -113,7 +122,11 @@ interface ReviewState {
  * - Returns the original file unchanged if it's already small or if the
  *   browser can't draw it (e.g. some HEIC on Android)
  */
-async function compressImage(file: File, maxPx = 1920, quality = 0.88): Promise<{ blob: Blob; ext: string }> {
+async function compressImage(
+  file: File,
+  maxPx = 1920,
+  quality = 0.88
+): Promise<{ blob: Blob; ext: string; contentType: string }> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -130,14 +143,27 @@ async function compressImage(file: File, maxPx = 1920, quality = 0.88): Promise<
       canvas.height = ch;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        resolve({ blob: file, ext: file.name.split(".").pop() || "jpg" });
+        const fallbackExt = file.name.split(".").pop() || "jpg";
+        resolve({
+          blob: file,
+          ext: fallbackExt,
+          contentType: file.type || "application/octet-stream",
+        });
         return;
       }
       ctx.drawImage(img, 0, 0, cw, ch);
       canvas.toBlob(
         (blob) => {
-          if (blob) resolve({ blob, ext: "jpg" });
-          else resolve({ blob: file, ext: file.name.split(".").pop() || "jpg" });
+          if (blob) {
+            resolve({ blob, ext: "jpg", contentType: "image/jpeg" });
+          } else {
+            const fallbackExt = file.name.split(".").pop() || "jpg";
+            resolve({
+              blob: file,
+              ext: fallbackExt,
+              contentType: file.type || "application/octet-stream",
+            });
+          }
         },
         "image/jpeg",
         quality
@@ -146,7 +172,12 @@ async function compressImage(file: File, maxPx = 1920, quality = 0.88): Promise<
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve({ blob: file, ext: file.name.split(".").pop() || "jpg" });
+      const fallbackExt = file.name.split(".").pop() || "jpg";
+      resolve({
+        blob: file,
+        ext: fallbackExt,
+        contentType: file.type || "application/octet-stream",
+      });
     };
 
     img.src = url;
@@ -168,7 +199,14 @@ const ReceiptUpload = () => {
   const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mobileGalleryInputRef = useRef<HTMLInputElement>(null);
   const productImageInputRef = useRef<HTMLInputElement>(null);
+  /** In-app camera — avoids broken Android `<input capture>` → no `change` event. */
+  const inlineVideoRef = useRef<HTMLVideoElement>(null);
+  const inlineStreamRef = useRef<MediaStream | null>(null);
+
+  const [inlineCameraOpen, setInlineCameraOpen] = useState(false);
+  const [inlineCameraStarting, setInlineCameraStarting] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -193,6 +231,123 @@ const ReceiptUpload = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const stopInlineCamera = () => {
+    if (inlineVideoRef.current) inlineVideoRef.current.srcObject = null;
+    inlineStreamRef.current?.getTracks().forEach((t) => t.stop());
+    inlineStreamRef.current = null;
+  };
+
+  React.useEffect(() => {
+    if (!inlineCameraOpen || !isMobile) return;
+
+    let cancelled = false;
+
+    const start = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      setInlineCameraStarting(true);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        inlineStreamRef.current = stream;
+        const vid = inlineVideoRef.current;
+        if (vid) {
+          vid.srcObject = stream;
+          await vid.play().catch(() => {});
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const msg =
+            err instanceof Error ? err.message : "Could not access the camera.";
+          toast({
+            title: "Camera unavailable",
+            description: `${msg} Try “Choose from gallery” instead.`,
+            variant: "destructive",
+          });
+          setInlineCameraOpen(false);
+        }
+      } finally {
+        if (!cancelled) setInlineCameraStarting(false);
+      }
+    };
+
+    void start();
+
+    return () => {
+      cancelled = true;
+      stopInlineCamera();
+    };
+  }, [inlineCameraOpen, isMobile]);
+
+  const openInlineReceiptCamera = () => {
+    if (isProcessing || isSaving) return;
+    /** Browsers only expose the camera on a "secure" URL. `http://localhost` is ok; `http://192.168…` is not. */
+    const canUseCamera = Boolean(navigator.mediaDevices?.getUserMedia);
+    if (!canUseCamera) {
+      toast({
+        title: "Camera needs a secure URL",
+        description: window.isSecureContext
+          ? "Allow camera for this site or use “Choose from gallery”."
+          : "Plain http:// URLs (except localhost) cannot use the camera. Restart dev with HTTPS (vite now uses it—you should see https:// in the terminal) and open that link from your phone, or use Choose from gallery.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setInlineCameraOpen(true);
+  };
+
+  const captureReceiptFromInlineCamera = () => {
+    const video = inlineVideoRef.current;
+    if (!video || video.videoWidth < 2 || video.videoHeight < 2) {
+      toast({
+        title: "Camera not ready",
+        description: "Wait for the preview, then tap Capture again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      toast({
+        title: "Could not capture",
+        description: "Your browser blocked drawing the camera frame.",
+        variant: "destructive",
+      });
+      return;
+    }
+    ctx.drawImage(video, 0, 0, w, h);
+    canvas.toBlob(
+      (blob) => {
+        stopInlineCamera();
+        setInlineCameraOpen(false);
+        if (!blob) {
+          toast({
+            title: "Could not encode photo",
+            description: "Try again or pick from gallery.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const file = new File([blob], `receipt-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        void processAndExtract(file);
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
 
   const extractLocationFromExif = async (
     file: File
@@ -291,7 +446,7 @@ const ReceiptUpload = () => {
       setProgressLabel("Optimising image...");
 
       // Compress: resize to max 1920 px, re-encode as JPEG
-      const { blob: compressedBlob, ext } = await compressImage(file);
+      const { blob: compressedBlob, ext, contentType } = await compressImage(file);
 
       const fileName = `${uuidv4()}.${ext}`;
 
@@ -300,21 +455,26 @@ const ReceiptUpload = () => {
 
       const { error: uploadError } = await supabase.storage
         .from("receipts")
-        .upload(fileName, compressedBlob, { contentType: "image/jpeg" });
+        .upload(fileName, compressedBlob, { contentType });
 
       if (uploadError) {
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      const thumbBlob = await createThumbnailJpeg(compressedBlob);
-      if (thumbBlob) {
-        const thumbName = siblingThumbStorageKey(fileName);
-        const { error: thumbErr } = await supabase.storage
-          .from("receipts")
-          .upload(thumbName, thumbBlob, { contentType: "image/jpeg", upsert: true });
-        if (thumbErr) {
-          console.warn("Thumbnail upload failed (list may use full image):", thumbErr.message);
+      // Never fail the whole upload if thumbnail generation doesn't support source format (e.g. HEIC).
+      try {
+        const thumbBlob = await createThumbnailJpeg(compressedBlob);
+        if (thumbBlob) {
+          const thumbName = siblingThumbStorageKey(fileName);
+          const { error: thumbErr } = await supabase.storage
+            .from("receipts")
+            .upload(thumbName, thumbBlob, { contentType: "image/jpeg", upsert: true });
+          if (thumbErr) {
+            console.warn("Thumbnail upload failed (list may use full image):", thumbErr.message);
+          }
         }
+      } catch (thumbError) {
+        console.warn("Thumbnail generation skipped for this image:", thumbError);
       }
 
       setProgress(45);
@@ -332,7 +492,7 @@ const ReceiptUpload = () => {
         throw new Error(fnData?.error ?? "AI processing returned no result");
       }
 
-      const extracted = fnData.data;
+      const extracted = fnData.data ?? {};
 
       setProgress(85);
       setProgressLabel("Finalizing...");
@@ -343,6 +503,7 @@ const ReceiptUpload = () => {
 
       setReviewState({
         filePath: fileName,
+        fileType: contentType || "application/octet-stream",
         rawText: extracted.raw_text ?? null,
         latitude,
         longitude,
@@ -361,12 +522,14 @@ const ReceiptUpload = () => {
       setStage("review");
     } catch (error) {
       console.error("processAndExtract error:", error);
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
       toast({
         title: "Processing failed",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        description: message,
         variant: "destructive",
       });
+      setNonImageWarning(`Processing failed: ${message}`);
       setStage("idle");
       setProgress(0);
     }
@@ -394,7 +557,7 @@ const ReceiptUpload = () => {
           client_name: receiptType === "Business" ? clientName : null,
           notes: notes || null,
           warranty,
-          file_type: "image/jpeg",
+          file_type: reviewState.fileType || "application/octet-stream",
           latitude: reviewState.latitude,
           longitude: reviewState.longitude,
           location_name: reviewState.locationName,
@@ -436,7 +599,23 @@ const ReceiptUpload = () => {
       }
 
       window.dispatchEvent(new CustomEvent("receiptAdded"));
-      toast({ title: "Receipt saved", description: "Your receipt has been processed." });
+      toast({
+        title: "Receipt saved",
+        description: tagNow ? (
+          "Your receipt has been processed."
+        ) : (
+          <span>
+            Your receipt has been processed.
+            <button
+              type="button"
+              className="ml-2 underline font-semibold"
+              onClick={() => navigate(`/receipt/${receiptId}`)}
+            >
+              Tag now
+            </button>
+          </span>
+        ),
+      });
 
       setReviewState(null);
       setStage("idle");
@@ -459,19 +638,29 @@ const ReceiptUpload = () => {
     }
   };
 
+  const clearReceiptFileInputs = () => {
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (mobileGalleryInputRef.current) mobileGalleryInputRef.current.value = "";
+  };
+
   const handleRescan = () => {
     setReviewState(null);
     setStage("idle");
     setProgress(0);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    clearReceiptFileInputs();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
+    setNonImageWarning("");
 
     const isPdf = file.type === "application/pdf";
-    const isImage = file.type.startsWith("image/") || file.type === "" || file.name.match(/\.(jpe?g|png|heic|heif|webp)$/i);
+    const isImage =
+      file.type.startsWith("image/") ||
+      file.type === "" ||
+      file.name.match(/\.(jpe?g|png|heic|heif|webp)$/i);
 
     if (!isImage && !isPdf) {
       toast({
@@ -489,23 +678,38 @@ const ReceiptUpload = () => {
       return;
     }
 
-    processAndExtract(file);
+    void processAndExtract(file).finally(() => {
+      queueMicrotask(() => {
+        input.value = "";
+      });
+    });
   };
 
   const isProcessing = stage === "processing";
   const isSaving = stage === "saving";
+  const receiptInputAccept = isMobile ? "image/*" : "image/*,application/pdf";
+  const productInputAccept = "image/*";
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4">
-      <h2 className="text-2xl font-bold mb-4">
-        {isMobile ? "New Receipt" : "Upload Receipt"}
-      </h2>
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 text-slate-100 sm:px-6 lg:py-8">
+      <div className="mx-auto max-w-2xl rounded-2xl border border-slate-600 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur-sm sm:p-6">
+        <div className="mb-6 text-center">
+          <p className="mb-2 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+            Quick capture
+          </p>
+          <h2 className="text-2xl font-extrabold tracking-tight text-white">
+            {isMobile ? "New Receipt" : "Upload Receipt"}
+          </h2>
+          <p className="mt-2 text-sm text-slate-300">
+            Snap or upload a receipt, then review AI extraction before saving.
+          </p>
+        </div>
 
       {/* Receipt type */}
-      <div className="w-full max-w-md mb-4">
-        <label className="block mb-2 font-medium">Type</label>
+      <div className="mb-4 w-full">
+        <label className="mb-2 block font-medium text-slate-200">Type</label>
         <select
-          className="border rounded px-2 py-1 w-full"
+          className="h-11 w-full rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-slate-100"
           value={receiptType}
           onChange={(e) => setReceiptType(e.target.value)}
           disabled={isProcessing || isSaving}
@@ -516,11 +720,11 @@ const ReceiptUpload = () => {
       </div>
 
       {receiptType === "Business" && (
-        <div className="w-full max-w-md mb-4">
-          <label className="block mb-2 font-medium">Client Name</label>
+        <div className="mb-4 w-full">
+          <label className="mb-2 block font-medium text-slate-200">Client Name</label>
           <div className="flex gap-2">
             <select
-              className="border rounded px-2 py-1 flex-1"
+              className="h-11 flex-1 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-slate-100"
               value={clientName}
               onChange={(e) => {
                 if (e.target.value === "__new__") {
@@ -544,7 +748,7 @@ const ReceiptUpload = () => {
             {showNewClientInput && (
               <input
                 type="text"
-                className="border rounded px-2 py-1 flex-1"
+                className="h-11 flex-1 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-400"
                 placeholder="Enter new client name"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
@@ -554,13 +758,13 @@ const ReceiptUpload = () => {
         </div>
       )}
 
-      <div className="w-full max-w-md mb-4">
-        <label className="block mb-2 font-medium" htmlFor="notes">
+      <div className="mb-4 w-full">
+        <label className="mb-2 block font-medium text-slate-200" htmlFor="notes">
           Notes (optional)
         </label>
         <textarea
           id="notes"
-          className="border rounded px-2 py-1 w-full min-h-[60px]"
+          className="min-h-[84px] w-full rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-400"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add any notes about this receipt..."
@@ -568,7 +772,7 @@ const ReceiptUpload = () => {
         />
       </div>
 
-      <div className="w-full max-w-md mb-4 flex items-center gap-2">
+      <div className="mb-4 flex w-full items-center gap-2 rounded-md border border-slate-600 bg-slate-800/60 px-3 py-2">
         <input
           id="warranty"
           type="checkbox"
@@ -583,9 +787,9 @@ const ReceiptUpload = () => {
       </div>
 
       {warranty && (
-        <div className="w-full max-w-md mb-4 p-4 border rounded-lg bg-gray-50">
-          <label className="block mb-2 font-medium">Product Image (Optional)</label>
-          <p className="text-sm text-gray-600 mb-3">
+        <div className="mb-4 w-full rounded-lg border border-slate-600 bg-slate-800/70 p-4">
+          <label className="mb-2 block font-medium text-slate-100">Product Image (Optional)</label>
+          <p className="mb-3 text-sm text-slate-300">
             Take a photo of the product for warranty reference
           </p>
           {productImagePreview ? (
@@ -593,7 +797,7 @@ const ReceiptUpload = () => {
               <img
                 src={productImagePreview}
                 alt="Product preview"
-                className="w-full h-32 object-contain bg-white rounded border"
+                className="h-32 w-full rounded border border-slate-500 bg-slate-900 object-contain"
               />
               <button
                 type="button"
@@ -601,7 +805,7 @@ const ReceiptUpload = () => {
                   setProductImageFile(null);
                   setProductImagePreview(null);
                 }}
-                className="mt-2 text-sm text-red-600 hover:text-red-700"
+                className="mt-2 text-sm text-red-300 hover:text-red-200"
                 disabled={isProcessing || isSaving}
               >
                 Remove
@@ -614,7 +818,7 @@ const ReceiptUpload = () => {
                 id="product-image-upload"
                 type="file"
                 className="hidden"
-                accept="image/*"
+                accept={productInputAccept}
                 capture={isMobile ? "environment" : undefined}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -630,7 +834,7 @@ const ReceiptUpload = () => {
               />
               <label
                 htmlFor="product-image-upload"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700"
+                className="inline-flex cursor-pointer items-center rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
               >
                 <Camera className="w-4 h-4 mr-2" />
                 {isMobile ? "Take Product Photo" : "Upload Product Image"}
@@ -640,30 +844,41 @@ const ReceiptUpload = () => {
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        id="receipt-upload"
-        type="file"
-        className="hidden"
-        accept="image/jpeg,image/png,image/heic,application/pdf"
-        capture={isMobile ? "environment" : undefined}
-        onChange={handleFileChange}
-        disabled={isProcessing || isSaving}
-      />
+      {isMobile ? (
+        <input
+          ref={mobileGalleryInputRef}
+          id="receipt-upload-gallery"
+          type="file"
+          className="hidden"
+          accept="image/*"
+          onChange={handleFileChange}
+          disabled={isProcessing || isSaving}
+        />
+      ) : (
+        <input
+          ref={fileInputRef}
+          id="receipt-upload"
+          type="file"
+          className="hidden"
+          accept={receiptInputAccept}
+          onChange={handleFileChange}
+          disabled={isProcessing || isSaving}
+        />
+      )}
 
       {!isMobile && (
-        <div className="w-full max-w-md">
+        <div className="w-full">
           <label
             htmlFor="receipt-upload"
-            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80"
+            className="flex h-36 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/70 transition-colors hover:bg-slate-800"
           >
             <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <p className="mb-2 text-sm text-muted-foreground">
+              <p className="mb-2 text-sm text-slate-300">
                 <span className="font-semibold">Click to upload</span> or drag
                 and drop
               </p>
-              <p className="text-xs text-muted-foreground">
-                JPEG, PNG or HEIC — auto-optimised before upload
+              <p className="text-xs text-slate-400">
+                JPEG, PNG, HEIC or WEBP — auto-optimised before upload
               </p>
             </div>
           </label>
@@ -671,8 +886,8 @@ const ReceiptUpload = () => {
       )}
 
       {isProcessing && (
-        <div className="w-full max-w-md">
-          <div className="mb-2 flex justify-between text-sm text-gray-600">
+        <div className="w-full">
+          <div className="mb-2 flex justify-between text-sm text-slate-300">
             <span>{progressLabel}</span>
             <span>{progress}%</span>
           </div>
@@ -681,43 +896,53 @@ const ReceiptUpload = () => {
       )}
 
       {nonImageWarning && (
-        <div className="w-full max-w-md p-3 bg-red-100 text-red-700 rounded border border-red-300 text-center text-sm">
+        <div className="w-full rounded-md border border-red-500/60 bg-red-950/40 p-3 text-center text-sm text-red-200">
           {nonImageWarning}
         </div>
       )}
 
-      <div className="flex gap-2 mt-4">
+      <div className="mt-5 flex gap-2">
         {!isMobile && (
           <>
             <Button
               variant="outline"
+              className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
               onClick={() => navigate("/")}
               disabled={isProcessing || isSaving}
             >
               Cancel
             </Button>
             <Button
-              onClick={() => document.getElementById("receipt-upload")?.click()}
+              className="bg-orange-500 text-white hover:bg-orange-600"
+              asChild
               disabled={isProcessing || isSaving}
             >
-              {isProcessing ? progressLabel : "Upload Receipt"}
+              <label htmlFor="receipt-upload" className="cursor-pointer">
+                {isProcessing ? progressLabel : "Upload Receipt"}
+              </label>
             </Button>
           </>
         )}
         {isMobile && (
-          <div className="w-full flex flex-col items-center" style={{ maxWidth: 340 }}>
+          <div className="flex w-full flex-col items-center" style={{ maxWidth: 340 }}>
             <button
               type="button"
-              className="bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold py-5 px-6 rounded-full w-full shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-orange-400 flex items-center justify-center gap-2 disabled:opacity-60"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing || isSaving}
+              onClick={openInlineReceiptCamera}
+              className={`bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold py-5 px-6 rounded-full w-full shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-orange-400 flex items-center justify-center gap-2 ${isProcessing || isSaving ? "pointer-events-none opacity-60" : ""}`}
             >
-              <Camera className="w-6 h-6 -ml-1" />
+              <Camera className="w-6 h-6 -ml-1 shrink-0" aria-hidden />
               {isProcessing ? progressLabel : "SNAP RECEIPT"}
             </button>
+            <label
+              htmlFor="receipt-upload-gallery"
+              className={`mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-slate-500 bg-slate-800/80 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800 ${isProcessing || isSaving ? "pointer-events-none opacity-60" : ""}`}
+            >
+              <Images className="h-5 w-5 text-slate-300" aria-hidden />
+              Choose from gallery
+            </label>
             <button
               type="button"
-              className="border border-orange-400 text-orange-500 font-semibold rounded-full w-full py-3 mt-2 transition-all duration-150 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+              className="mt-2 w-full rounded-full border border-orange-400 bg-transparent py-3 font-semibold text-orange-300 transition-all duration-150 hover:bg-orange-500/10 focus:outline-none focus:ring-2 focus:ring-orange-300/50"
               onClick={() => navigate("/")}
               disabled={isProcessing || isSaving}
             >
@@ -726,6 +951,60 @@ const ReceiptUpload = () => {
           </div>
         )}
       </div>
+      </div>
+
+      <Dialog
+        open={inlineCameraOpen && isMobile}
+        onOpenChange={(open) => {
+          if (!open) {
+            stopInlineCamera();
+          }
+          setInlineCameraOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[min(90vh,640px)] w-[min(calc(100vw-2rem),28rem)] border-slate-600 bg-slate-900 p-4 text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="text-white">Scan receipt</DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Hold the receipt flat in frame, tap Capture — then AI will analyse it like a gallery photo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative mx-auto aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
+            <video
+              ref={inlineVideoRef}
+              className="h-full w-full object-cover"
+              playsInline
+              muted
+              autoPlay
+              aria-label="Live camera preview for receipt capture"
+            />
+            {inlineCameraStarting && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-sm text-slate-200">
+                Starting camera…
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700"
+              onClick={() => setInlineCameraOpen(false)}
+              disabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+              onClick={captureReceiptFromInlineCamera}
+              disabled={inlineCameraStarting || isProcessing}
+            >
+              Capture
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {reviewState && (
         <ReceiptReview
@@ -746,6 +1025,7 @@ const ReceiptUpload = () => {
             setReviewState((s) => (s ? { ...s, date: v } : s))
           }
           onConfirm={confirmAndSave}
+          onClose={handleRescan}
           onRescan={handleRescan}
           isSaving={isSaving}
         />

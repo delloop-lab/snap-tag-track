@@ -26,6 +26,7 @@ import AdSummaryMock from "./pages/AdSummaryMock";
 import VersionNumber from "./components/VersionNumber";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 const queryClient = new QueryClient();
 
@@ -89,10 +90,25 @@ const AppContent = () => {
   const location = useLocation();
   const { user } = useAuth();
   const hideAppChrome = location.pathname === AD_SUMMARY_MOCK_PATH;
-  const showNavbar = user || location.pathname !== "/";
+  // Only show app mobile navbar for authenticated in-app routes.
+  // Marketing/auth pages render their own header/navigation.
+  const showNavbar = Boolean(user);
+  const { pathname } = location;
+
+  /** Marketing pages that paint their own canvas when logged out */
+  const isMarketingBackdrop =
+    pathname === "/help" || pathname === "/contact" || pathname === AD_SUMMARY_MOCK_PATH;
+  const isSummaryPage = pathname === "/summary";
+
+  const shellBgClass = user
+    ? cn(
+        "min-h-screen flex",
+        isSummaryPage ? "bg-app-dotted md:bg-slate-800 text-slate-100" : "bg-slate-800 text-slate-100",
+      )
+    : cn("min-h-screen flex", isMarketingBackdrop ? "bg-gray-50" : "bg-app-dotted");
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className={cn("min-h-screen flex", shellBgClass)}>
       {/* Desktop sidebar */}
       {user && !hideAppChrome && <AppSidebar />}
 

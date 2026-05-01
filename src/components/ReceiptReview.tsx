@@ -29,6 +29,7 @@ interface ReceiptReviewProps {
   onDateChange: (v: string) => void;
   onConfirm: (tagNow: boolean) => void;
   onRescan: () => void;
+  onClose: () => void;
   isSaving: boolean;
 }
 
@@ -63,6 +64,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
   onDateChange,
   onConfirm,
   onRescan,
+  onClose,
   isSaving,
 }) => {
   const [showLineItems, setShowLineItems] = useState(false);
@@ -70,15 +72,18 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
     confidenceConfig[confidence] ?? confidenceConfig.medium;
 
   return (
-    <Dialog open={open}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isSaving) onClose();
+      }}
+    >
       <DialogContent
-        className="max-w-sm w-full flex flex-col gap-0 p-0 bg-white rounded-2xl shadow-2xl overflow-hidden"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-600 bg-slate-900 p-0 text-slate-100 shadow-2xl"
       >
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-gray-100">
-          <div className="text-xl font-bold text-gray-900 mb-2">
+        <div className="border-b border-slate-600 px-6 pb-4 pt-6">
+          <div className="mb-2 text-xl font-bold text-white">
             Review Receipt
           </div>
           <span
@@ -90,14 +95,14 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
         </div>
 
         {/* Editable fields */}
-        <div className="px-6 py-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 px-6 py-5">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">
               Vendor
             </label>
             <input
               type="text"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
               value={vendor}
               onChange={(e) => onVendorChange(e.target.value)}
               disabled={isSaving}
@@ -107,14 +112,14 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">
                 Total ({currency || "?"})
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                 value={amount}
                 onChange={(e) => onAmountChange(e.target.value)}
                 disabled={isSaving}
@@ -122,12 +127,12 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
               />
             </div>
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">
                 Date
               </label>
               <input
                 type="date"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                 value={date}
                 onChange={(e) => onDateChange(e.target.value)}
                 disabled={isSaving}
@@ -139,7 +144,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
             <div>
               <button
                 type="button"
-                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                className="flex items-center gap-1 text-xs font-semibold text-sky-300 hover:text-sky-200"
                 onClick={() => setShowLineItems((v) => !v)}
               >
                 {showLineItems ? (
@@ -151,11 +156,11 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
                 {lineItems.length !== 1 ? "s" : ""}
               </button>
               {showLineItems && (
-                <div className="mt-2 border border-gray-100 rounded-lg divide-y divide-gray-100 text-xs max-h-40 overflow-y-auto">
+                <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-slate-600 text-xs divide-y divide-slate-600 bg-slate-800">
                   {lineItems.map((item, i) => (
                     <div
                       key={i}
-                      className="flex justify-between px-3 py-1.5 text-gray-700"
+                      className="flex justify-between px-3 py-1.5 text-slate-200"
                     >
                       <span className="truncate pr-4">{item.description}</span>
                       <span className="font-medium whitespace-nowrap">
@@ -170,9 +175,9 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="px-6 pb-6 flex flex-col gap-2 border-t border-gray-100 pt-4">
+        <div className="flex flex-col gap-2 border-t border-slate-600 px-6 pb-6 pt-4">
           <button
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white text-base font-bold py-3.5 rounded-full shadow transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-green-400 w-full disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 py-3.5 text-base font-bold text-white shadow transition-all duration-150 hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-60"
             onClick={() => onConfirm(true)}
             disabled={isSaving}
           >
@@ -180,7 +185,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
             {isSaving ? "Saving..." : "Save & Tag Now"}
           </button>
           <button
-            className="flex items-center justify-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm font-semibold py-3 rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200 w-full disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-500 bg-slate-800 py-3 text-sm font-semibold text-slate-200 transition-all duration-150 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-60"
             onClick={() => onConfirm(false)}
             disabled={isSaving}
           >
@@ -188,7 +193,7 @@ const ReceiptReview: React.FC<ReceiptReviewProps> = ({
             Save & Tag Later
           </button>
           <button
-            className="flex items-center justify-center gap-2 text-gray-400 hover:text-gray-600 text-xs font-medium py-2 rounded-full transition-all duration-150 focus:outline-none w-full disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-full py-2 text-xs font-medium text-slate-400 transition-all duration-150 hover:text-slate-200 focus:outline-none disabled:opacity-50"
             onClick={onRescan}
             disabled={isSaving}
           >

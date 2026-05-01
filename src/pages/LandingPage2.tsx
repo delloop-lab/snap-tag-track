@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
@@ -7,7 +7,7 @@ type Persona = "personal" | "contractor";
 const QR_IMAGE = "/home/_assets/media/8d0db40693fba92d239ee56243f720ee.png";
 
 const classicLayout = (
-  <main className="flex min-h-screen justify-center items-center p-3 sm:p-4 md:p-8 relative bg-white">
+  <main className="flex min-h-screen justify-center items-center p-3 sm:p-4 md:p-8 relative bg-white pb-24">
     <div className="flex flex-col md:flex-row w-full max-w-screen-md mx-auto md:max-w-[1100px] bg-white rounded-none md:rounded-[24px] shadow-none md:shadow-[0_8px_32px_rgba(44,62,80,0.10)] overflow-hidden">
       <section className="flex-[0_0_100%] md:flex-[0_0_40%] w-full max-w-full md:max-w-[440px] p-3 sm:p-4 md:p-[2.2rem_2rem_0_2vw] min-w-0 md:min-w-[300px] z-[5]">
         <div className="flex flex-col justify-center h-full min-h-[450px] md:min-h-[650px]">
@@ -68,7 +68,6 @@ const classicLayout = (
 
 export default function LandingPage2() {
   const location = useLocation();
-  const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const initialVersion = params.get("v") === "classic" ? "classic" : "new";
   const [version, setVersion] = useState<"classic" | "new">(initialVersion);
@@ -90,34 +89,23 @@ export default function LandingPage2() {
   const personaHeroImage =
     persona === "personal" ? "/snaptagtrack_1.jpg" : "/snaptagtrack_2.jpg";
 
-  const setVariant = (next: "classic" | "new") => {
-    setVersion(next);
-    const nextParams = new URLSearchParams(location.search);
-    nextParams.set("v", next);
-    navigate({ pathname: location.pathname, search: nextParams.toString() }, { replace: true });
-  };
-
   if (version === "classic") {
     return (
       <div>
         {classicLayout}
-        <footer className="fixed bottom-3 right-3 z-50">
-          <select
-            className="text-xs border rounded bg-white px-2 py-1 shadow"
-            value={version}
-            onChange={(e) => setVariant(e.target.value as "classic" | "new")}
-          >
-            <option value="classic">Original Classic</option>
-            <option value="new">New Modern</option>
-          </select>
+        <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-300 bg-white/95 px-4 py-2 backdrop-blur-sm">
+          <div className="relative">
+            <p className="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-gray-500">Beta v0.9.857</p>
+            <p className="text-center text-xs text-gray-600">&copy; 2025–2026 Snap Tag Track</p>
+          </div>
         </footer>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-800 text-slate-100">
-      <section className="max-w-6xl mx-auto px-4 pt-8 md:pt-12 pb-14 md:pb-20">
+    <main className="min-h-screen bg-slate-800 text-slate-100 pb-28">
+      <section className="mx-auto max-w-6xl px-4 pt-8 md:pt-12 pb-14 md:pb-20">
         <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
           <img src="/SnapTagTrack.png" alt="Snap Tag Track logo" className="h-9 md:h-[50px] w-auto" />
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap justify-end">
@@ -202,7 +190,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+      <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-24">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl md:text-3xl font-bold">Built for Households and Contractors</h2>
           <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
@@ -240,7 +228,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+      <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-24">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl md:text-3xl font-bold">Your Mode, Your Outcomes</h2>
           <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
@@ -272,7 +260,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-10 md:pb-14">
+      <section className="mx-auto max-w-6xl px-4 pb-10 md:pb-14">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {[
             [
@@ -313,7 +301,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-16 md:pb-24">
+      <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-24">
         <h2 className="text-2xl md:text-3xl font-bold mb-5">Snap Tag Track vs Traditional Bank-Linked Apps</h2>
         <div className="rounded-2xl border border-slate-600 overflow-hidden">
           <table className="w-full text-sm">
@@ -342,7 +330,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-24">
+      <section className="mx-auto max-w-6xl px-4 pb-24">
         <h2 className="text-2xl md:text-3xl font-bold mb-5">Simple Install Guide</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
@@ -356,7 +344,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 pb-28">
+      <section className="mx-auto max-w-6xl px-4 pb-28">
         <div className="hidden md:flex flex-col rounded-2xl bg-white text-slate-700 p-6 items-center justify-center max-w-sm mx-auto">
           <img src={QR_IMAGE} alt="Launch instantly QR code" className="w-40 h-40 mb-3" />
           <p className="text-sm font-semibold">Launch Instantly</p>
@@ -364,15 +352,11 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <footer className="fixed bottom-3 right-3 z-50">
-        <select
-          className="text-xs border border-slate-500 rounded bg-slate-900 text-slate-100 px-2 py-1"
-          value={version}
-          onChange={(e) => setVariant(e.target.value as "classic" | "new")}
-        >
-          <option value="classic">Original Classic</option>
-          <option value="new">New Modern</option>
-        </select>
+      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
+        <div className="relative">
+          <p className="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Beta v0.9.857</p>
+          <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
+        </div>
       </footer>
     </main>
   );

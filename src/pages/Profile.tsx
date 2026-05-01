@@ -272,16 +272,31 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow space-y-8">
-      <h2 className="text-2xl font-bold text-center">Edit Profile</h2>
+    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
+      <header className="mx-auto mb-8 max-w-2xl text-center">
+        <p className="mb-3 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+          Account settings
+        </p>
+        <h1 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+          Profile
+        </h1>
+        <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
+          Update your details and manage profile tools in one place.
+        </p>
+      </header>
+
+      <div className="space-y-8 rounded-2xl border border-slate-600 bg-slate-900/70 p-6 text-slate-100 shadow-xl shadow-black/20 backdrop-blur-sm sm:p-8">
       {loadWarning && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="status">
+        <p
+          className="text-sm rounded-md border border-amber-600/60 bg-amber-950/40 px-3 py-2 text-amber-100"
+          role="status"
+        >
           {loadWarning}
         </p>
       )}
       <form onSubmit={handleSave} className="space-y-6">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative w-24 h-24 flex flex-col items-center justify-center rounded-full border border-muted bg-muted/30 overflow-hidden">
+          <div className="relative flex h-24 w-24 flex-col items-center justify-center overflow-hidden rounded-full border border-slate-500 bg-slate-800/80">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -289,7 +304,7 @@ const Profile = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-2xl text-muted-foreground font-medium" aria-hidden>
+              <span className="text-2xl font-medium text-slate-300" aria-hidden>
                 {(firstName?.[0] ?? lastName?.[0] ?? user?.email?.[0] ?? "?").toUpperCase()}
               </span>
             )}
@@ -297,7 +312,7 @@ const Profile = () => {
           <Button
             type="button"
             variant="outline"
-            className="mt-2 text-xs px-2 py-1"
+            className="mt-2 border-slate-500 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700 hover:text-white"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading}
           >
@@ -314,7 +329,7 @@ const Profile = () => {
         </div>
         <div>
           <label className="block mb-1 font-medium" htmlFor="profile-first-name">
-            First name <span className="text-red-600 font-normal text-sm">required</span>
+            First name <span className="text-sm font-normal text-red-400">required</span>
           </label>
           <Input
             id="profile-first-name"
@@ -325,11 +340,12 @@ const Profile = () => {
             required
             aria-required="true"
             autoComplete="given-name"
+            className="border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900 placeholder:text-slate-300"
           />
         </div>
         <div>
           <label className="block mb-1 font-medium" htmlFor="profile-last-name">
-            Last name <span className="text-red-600 font-normal text-sm">required</span>
+            Last name <span className="text-sm font-normal text-red-400">required</span>
           </label>
           <Input
             id="profile-last-name"
@@ -340,17 +356,18 @@ const Profile = () => {
             required
             aria-required="true"
             autoComplete="family-name"
+            className="border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900 placeholder:text-slate-300"
           />
         </div>
         <div>
           <label className="block mb-1 font-medium" htmlFor="profile-country">
-            Country <span className="text-red-600 font-normal text-sm">required</span>
+            Country <span className="text-sm font-normal text-red-400">required</span>
           </label>
           <select
             id="profile-country"
             className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "flex h-10 w-full rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
             value={country}
@@ -368,37 +385,42 @@ const Profile = () => {
             ))}
           </select>
         </div>
-        {success && <div className="text-green-600 text-center">{success}</div>}
-        {error && <div className="text-red-600 text-center">{error}</div>}
+        {success && <div className="text-center text-green-400">{success}</div>}
+        {error && <div className="text-center text-red-400">{error}</div>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Saving..." : "Save Changes"}
         </Button>
       </form>
 
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-semibold mb-4">Settings</h3>
+      <div className="border-t border-slate-600 pt-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Settings</h3>
         <div className="space-y-6">
-          <div className="rounded-md border border-slate-200 p-4 space-y-3">
-            <p className="font-medium">AI Rescan</p>
-            <p className="text-sm text-gray-600">
+          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
+            <p className="font-medium text-slate-100">AI Rescan</p>
+            <p className="text-sm text-slate-300">
               Bulk rescan receipts with AI from the Receipts Summary page (including &ldquo;Rescan All with AI&rdquo;).
             </p>
-            <Button type="button" variant="outline" className="w-full" onClick={() => navigate("/summary")}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+              onClick={() => navigate("/summary")}
+            >
               AI Rescan
             </Button>
           </div>
-          <div className="rounded-md border border-slate-200 p-4 space-y-3">
-            <p className="font-medium">Thumbnail Scans</p>
-            <p className="text-sm text-gray-600">
+          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
+            <p className="font-medium text-slate-100">Thumbnail Scans</p>
+            <p className="text-sm text-slate-300">
               Generate small preview images for receipts uploaded before thumbnail support. Safe to run more than once; existing thumbnails are skipped.
             </p>
             {thumbBackfill.total > 0 && (
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-slate-200">
                 Progress: {thumbBackfill.done} / {thumbBackfill.total}
               </p>
             )}
             {thumbBackfill.last && !thumbBackfill.running && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-slate-400">
                 Last run: created {thumbBackfill.last.created}, skipped {thumbBackfill.last.skipped}, failed{" "}
                 {thumbBackfill.last.failed}.
               </p>
@@ -406,7 +428,7 @@ const Profile = () => {
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
               onClick={runThumbBackfill}
               disabled={loading || thumbBackfill.running || !user}
             >
@@ -414,6 +436,7 @@ const Profile = () => {
             </Button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

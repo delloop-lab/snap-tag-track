@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
+  Tooltip as RechartTooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -359,19 +359,6 @@ const ReceiptSummaryList = () => {
 
   const CHART_COLORS = ["#f97316","#3b82f6","#22c55e","#a855f7","#ec4899","#14b8a6","#eab308","#ef4444"];
 
-  const monthlyData = useMemo(() => {
-    const map: Record<string, number> = {};
-    receipts.forEach(r => {
-      if (!r.purchase_date || !r.total_amount) return;
-      const key = r.purchase_date.slice(0, 7);
-      map[key] = (map[key] || 0) + r.total_amount;
-    });
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-12)
-      .map(([month, total]) => ({ month: month.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${y.slice(2)}`), total: parseFloat(total.toFixed(2)) }));
-  }, [receipts]);
-
   const tagSpendData = useMemo(() => {
     const map: Record<string, number> = {};
     receipts.forEach(r => {
@@ -390,11 +377,16 @@ const ReceiptSummaryList = () => {
   if (isMobile) {
     return (
       <div className="pt-1 px-2">
-        <h2 className="text-xl font-bold mb-2 text-center">Receipt Summary</h2>
+        <header className="mb-3 rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-center shadow-sm">
+          <p className="mb-1 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-[11px] font-medium text-[#7CB87E]">
+            Overview
+          </p>
+          <h2 className="text-xl font-bold text-white">Summary</h2>
+        </header>
         {/* Spend by tag (replaces desktop-only warning on mobile) */}
         {receipts.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-3">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center md:text-left">
+          <div className="mb-3 rounded-xl border border-slate-600 bg-slate-800 p-4 shadow-sm">
+            <h3 className="mb-3 text-center text-sm font-semibold uppercase tracking-wide text-slate-300 md:text-left">
               Spend by Tag
             </h3>
             {tagSpendData.length > 0 ? (
@@ -420,42 +412,42 @@ const ReceiptSummaryList = () => {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-gray-400 text-center py-6">Tag receipts to see breakdown</p>
+              <p className="py-6 text-center text-sm text-slate-400">Tag receipts to see breakdown</p>
             )}
           </div>
         )}
         {/* Summary stats */}
         <div className="flex gap-3 overflow-x-auto pb-2 mb-4 snap-x">
-          <div className="min-w-[140px] bg-blue-50 rounded-lg p-3 flex flex-col items-center justify-center snap-center">
-            <div className="text-xs text-muted-foreground">Total Spent</div>
-            <div className="text-lg font-bold">${totalFiltered.toFixed(2)}</div>
+          <div className="min-w-[140px] rounded-lg border border-slate-600 bg-slate-800/90 p-3 flex flex-col items-center justify-center snap-center">
+            <div className="text-xs text-slate-400">Total Spent</div>
+            <div className="text-lg font-bold text-slate-100">${totalFiltered.toFixed(2)}</div>
           </div>
-          <div className="min-w-[140px] bg-green-50 rounded-lg p-3 flex flex-col items-center justify-center snap-center">
-            <div className="text-xs text-muted-foreground">Receipts</div>
-            <div className="text-lg font-bold">{filteredReceipts.length}</div>
+          <div className="min-w-[140px] rounded-lg border border-slate-600 bg-slate-800/90 p-3 flex flex-col items-center justify-center snap-center">
+            <div className="text-xs text-slate-400">Receipts</div>
+            <div className="text-lg font-bold text-slate-100">{filteredReceipts.length}</div>
           </div>
           <button
             type="button"
-            className={`min-w-[140px] rounded-lg p-3 flex flex-col items-center justify-center snap-center border-2 transition-colors ${showWarrantyOnly ? 'border-green-600 bg-green-200' : 'bg-yellow-50 border-transparent'}`}
+            className={`min-w-[140px] rounded-lg p-3 flex flex-col items-center justify-center snap-center border-2 transition-colors ${showWarrantyOnly ? 'border-green-500 bg-green-900/30' : 'border-slate-600 bg-slate-800/90'}`}
             onClick={() => setShowWarrantyOnly(v => !v)}
             aria-pressed={showWarrantyOnly}
             title="Show only receipts with warranty"
           >
-            <div className="text-xs text-muted-foreground">Warranty</div>
-            <div className="text-lg font-bold">{filteredReceipts.filter(r => r.warranty).length}</div>
+            <div className="text-xs text-slate-400">Warranty</div>
+            <div className="text-lg font-bold text-slate-100">{filteredReceipts.filter(r => r.warranty).length}</div>
           </button>
         </div>
         {/* Filters */}
-        <Button variant="outline" className="w-full mb-3 flex items-center justify-between" onClick={() => setShowFiltersMobile(v => !v)}>
+        <Button variant="outline" className="mb-3 flex w-full items-center justify-between border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white" onClick={() => setShowFiltersMobile(v => !v)}>
           Filters {showFiltersMobile ? <ChevronUp className="ml-2 w-4 h-4" /> : <ChevronDown className="ml-2 w-4 h-4" />}
         </Button>
         {showFiltersMobile && (
-          <div className="bg-muted/50 rounded-lg p-3 mb-4 space-y-3">
-            <Input placeholder="Search vendor..." value={search} onChange={e => setSearch(e.target.value)} className="w-full" />
+          <div className="mb-4 space-y-3 rounded-lg border border-slate-600 bg-slate-800 p-3">
+            <Input placeholder="Search vendor..." value={search} onChange={e => setSearch(e.target.value)} className="w-full border-slate-500 bg-slate-900 text-slate-100 placeholder:text-slate-400" />
             <select 
               value={selectedClient} 
               onChange={e => setSelectedClient(e.target.value)} 
-              className="w-full border rounded px-2 py-1"
+              className="w-full rounded border border-slate-500 bg-slate-900 px-2 py-1 text-slate-100"
             >
               <option value="">All Clients</option>
               {clients.map(c => (
@@ -465,7 +457,7 @@ const ReceiptSummaryList = () => {
             <select 
               value={selectedType} 
               onChange={e => setSelectedType(e.target.value)} 
-              className="w-full border rounded px-2 py-1"
+              className="w-full rounded border border-slate-500 bg-slate-900 px-2 py-1 text-slate-100"
             >
               <option value="">All Types</option>
               <option value="Personal">Personal</option>
@@ -473,11 +465,11 @@ const ReceiptSummaryList = () => {
             </select>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full flex justify-between items-center">
+                <Button variant="outline" className="flex w-full items-center justify-between border-slate-500 bg-slate-900 text-slate-100 hover:bg-slate-700 hover:text-white">
                   {selectedTags.length === 0 ? "Filter by tags" : selectedTags.map(tag => tag.name).join(", ")}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[200px]">
+              <DropdownMenuContent className="w-[220px] border-slate-600 bg-slate-900 text-slate-100">
                 {uniqueTagNames.map((tagName: string, idx: number) => (
                   <DropdownMenuCheckboxItem
                     key={tagName}
@@ -501,7 +493,7 @@ const ReceiptSummaryList = () => {
         {loading ? (
           <div className="flex flex-col gap-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow p-3 flex flex-col gap-2">
+              <div key={i} className="flex flex-col gap-2 rounded-lg border border-slate-600 bg-slate-800 p-3 shadow">
                 <div className="flex items-start gap-3">
                   {/* No image skeleton in mobile */}
                   <div className="flex-1 min-w-0 space-y-2">
@@ -517,26 +509,26 @@ const ReceiptSummaryList = () => {
             ))}
           </div>
         ) : receipts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10 text-lg">
+          <div className="py-10 text-center text-lg text-slate-400">
             There Are No Receipts to Show
           </div>
         ) : filteredReceipts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10 text-lg">
+          <div className="py-10 text-center text-lg text-slate-400">
             There Are No Receipts to Show
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             {filteredReceipts.map(r => (
-              <div key={r.id} className="bg-white rounded-lg shadow p-2 flex flex-col gap-1 transition-all duration-300 cursor-pointer"
+              <div key={r.id} className="flex cursor-pointer flex-col gap-1 rounded-lg border border-slate-600 bg-slate-800 p-2 shadow transition-all duration-300"
                 onClick={() => setExpanded(e => ({ ...e, [r.id]: !e[r.id] }))}
               >
                 <div className="flex items-start gap-2 justify-between">
                   {/* No image in mobile summary */}
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{r.vendor_name || "Unknown Vendor"}</div>
-                    <div className="text-xs text-muted-foreground truncate">{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "No date"}</div>
-                    <div className="font-bold mt-1 text-xs">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
-                    {r.warranty && <span className="inline-flex items-center gap-1 text-green-700 bg-green-100 rounded px-2 py-0.5 text-xs mt-1"><ShieldCheck className="w-3 h-3" /> Warranty</span>}
+                    <div className="truncate text-sm font-semibold text-slate-100">{r.vendor_name || "Unknown Vendor"}</div>
+                    <div className="truncate text-xs text-slate-400">{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "No date"}</div>
+                    <div className="mt-1 text-xs font-bold text-slate-100">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
+                    {r.warranty && <span className="mt-1 inline-flex items-center gap-1 rounded bg-green-900/40 px-2 py-0.5 text-xs text-green-300"><ShieldCheck className="w-3 h-3" /> Warranty</span>}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
                         <Badge key={rt.tags.id} variant="outline" className={`text-xs ${getTagColor(rt.tags.name)}`}>
@@ -548,7 +540,7 @@ const ReceiptSummaryList = () => {
                   <Button 
                     size={expanded[r.id] ? "sm" : "sm"}
                     variant="outline" 
-                    className={expanded[r.id] ? "text-base ml-2" : "text-xs ml-2"}
+                    className={expanded[r.id] ? "ml-2 border-slate-500 bg-slate-900 text-base text-slate-100 hover:bg-slate-700 hover:text-white" : "ml-2 border-slate-500 bg-slate-900 text-xs text-slate-100 hover:bg-slate-700 hover:text-white"}
                     onClick={e => {
                       e.stopPropagation();
                       sessionStorage.setItem('scrollPosition', window.scrollY.toString());
@@ -560,7 +552,7 @@ const ReceiptSummaryList = () => {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="text-xs ml-2"
+                    className="ml-2 border-slate-500 bg-slate-700 text-xs text-slate-100 hover:bg-slate-600 hover:text-white"
                     onClick={(e) => {
                       e.stopPropagation();
                       openEditMetaModal(r);
@@ -578,12 +570,28 @@ const ReceiptSummaryList = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-4">Receipt Summary</h2>
-      <div className="flex flex-wrap gap-3 md:gap-4 items-center mb-4 sticky top-0 z-20 bg-white border-b border-gray-200 py-2">
-        <Input placeholder="Search vendor..." value={search} onChange={e => setSearch(e.target.value)} className="w-40 min-w-[140px]" />
+    <div className="container mx-auto p-4 pb-24 text-slate-900">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <header className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-slate-900 sm:px-5">
+        <p className="mb-2 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+          Overview
+        </p>
+        <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Summary</h2>
+        <p className="mt-1 text-sm text-slate-600">Review receipts, filter quickly, and manage tags and warranty details.</p>
+      </header>
+      <div className="sticky top-0 z-20 mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-slate-900 shadow-lg md:gap-4 md:px-4">
+        <Input
+          placeholder="Search vendor..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-40 min-w-[140px] border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+        />
         <div className="flex items-center gap-1">
-          <select value={selectedType} onChange={e => setSelectedType(e.target.value)} className="border rounded px-2 py-1 w-36 min-w-[120px]">
+          <select
+            value={selectedType}
+            onChange={e => setSelectedType(e.target.value)}
+            className="w-36 min-w-[120px] rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-900"
+          >
             <option value="">All Types</option>
             <option value="Personal">Personal</option>
             <option value="Business">Business</option>
@@ -591,7 +599,7 @@ const ReceiptSummaryList = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="ml-1 cursor-pointer text-muted-foreground"><HelpCircle size={16} /></span>
+                <span className="ml-1 cursor-pointer text-slate-400"><HelpCircle size={16} /></span>
               </TooltipTrigger>
               <TooltipContent>Choose whether this is a personal or business receipt.</TooltipContent>
             </Tooltip>
@@ -601,7 +609,7 @@ const ReceiptSummaryList = () => {
           <select 
             value={selectedClient} 
             onChange={e => setSelectedClient(e.target.value)} 
-            className="border rounded px-2 py-1 w-36 min-w-[120px]"
+            className="w-36 min-w-[120px] rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-900"
           >
             <option value="">All Clients</option>
             {clients.map(c => (
@@ -611,30 +619,34 @@ const ReceiptSummaryList = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="ml-1 cursor-pointer text-muted-foreground"><HelpCircle size={16} /></span>
+                <span className="ml-1 cursor-pointer text-slate-400"><HelpCircle size={16} /></span>
               </TooltipTrigger>
               <TooltipContent>Select a client for business receipts.</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="border rounded px-2 py-1 w-28 min-w-[100px]">
+        <select
+          value={selectedYear}
+          onChange={e => setSelectedYear(e.target.value)}
+          className="w-28 min-w-[100px] rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-900"
+        >
           <option value="">All Years</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <div className="flex gap-2 items-center">
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36 min-w-[120px]" />
-          <span className="text-muted-foreground text-xs">to</span>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36 min-w-[120px]" />
+          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36 min-w-[120px] border-slate-300 bg-white text-slate-900" />
+          <span className="text-xs text-slate-500">to</span>
+          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36 min-w-[120px] border-slate-300 bg-white text-slate-900" />
         </div>
         <div className="flex items-center gap-1">
-          <Input type="number" placeholder="Min total" value={minTotal} onChange={e => setMinTotal(e.target.value)} className="w-28 min-w-[90px]" />
-          <span className="text-muted-foreground text-xs">to</span>
-          <Input type="number" placeholder="Max total" value={maxTotal} onChange={e => setMaxTotal(e.target.value)} className="w-28 min-w-[90px]" />
+          <Input type="number" placeholder="Min total" value={minTotal} onChange={e => setMinTotal(e.target.value)} className="w-28 min-w-[90px] border-slate-300 bg-white text-slate-900 placeholder:text-slate-400" />
+          <span className="text-xs text-slate-500">to</span>
+          <Input type="number" placeholder="Max total" value={maxTotal} onChange={e => setMaxTotal(e.target.value)} className="w-28 min-w-[90px] border-slate-300 bg-white text-slate-900 placeholder:text-slate-400" />
         </div>
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full flex justify-between items-center">
+              <Button variant="outline" className="w-full justify-between border-slate-300 bg-white text-slate-900 hover:bg-slate-50">
                 {selectedTags.length === 0 ? "Filter by tags" : selectedTags.map(tag => tag.name).join(", ")}
               </Button>
             </DropdownMenuTrigger>
@@ -659,7 +671,7 @@ const ReceiptSummaryList = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="ml-1 cursor-pointer text-muted-foreground"><HelpCircle size={16} /></span>
+                <span className="ml-1 cursor-pointer text-slate-400"><HelpCircle size={16} /></span>
               </TooltipTrigger>
               <TooltipContent>Tags help you categorize and filter receipts (e.g., Power, Water, Gas, etc.).</TooltipContent>
             </Tooltip>
@@ -669,28 +681,28 @@ const ReceiptSummaryList = () => {
           <Button
             variant={showWarrantyOnly ? "default" : "outline"}
             onClick={() => setShowWarrantyOnly(v => !v)}
-            className="h-9 min-w-[160px] mt-2 md:mt-0"
+            className="mt-2 h-9 min-w-[160px] md:mt-0"
           >
             {showWarrantyOnly ? "Showing Warranty Only" : "Show Warranty Only"}
           </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="ml-1 cursor-pointer text-muted-foreground"><HelpCircle size={16} /></span>
+                <span className="ml-1 cursor-pointer text-slate-400"><HelpCircle size={16} /></span>
               </TooltipTrigger>
               <TooltipContent>Show only receipts with a warranty. Warranty end date is purchase date + 3 years.</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <Button
             variant="default"
-            className="h-9 min-w-[120px] mt-2 md:mt-0 ml-2 bg-blue-600 hover:bg-blue-700 text-white font-bold"
+            className="h-9 min-w-[120px] mt-2 md:mt-0 ml-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"
             onClick={() => window.print()}
           >
             <Printer className="w-4 h-4 mr-2" /> Print
           </Button>
           <Button
             variant="outline"
-            className="h-9 min-w-[140px] mt-2 md:mt-0 ml-2"
+            className="ml-2 mt-2 h-9 min-w-[140px] border-slate-300 bg-white text-slate-900 hover:bg-slate-50 md:mt-0"
             onClick={handleBulkRescan}
             disabled={isBulkRescanning || receipts.length === 0}
           >
@@ -708,115 +720,64 @@ const ReceiptSummaryList = () => {
           </Button>
         </div>
       </div>
-      <div className="mb-4 text-lg font-semibold">
-        Total for filtered receipts: <span className="text-primary">${totalFiltered.toFixed(2)}</span>
+      <div className="mb-4 text-lg font-semibold text-slate-900">
+        Total for filtered receipts: <span className="text-orange-600">${totalFiltered.toFixed(2)}</span>
       </div>
 
-      {/* Charts */}
-      {receipts.length > 0 && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-          {/* Monthly spend bar chart */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Monthly Spend</h3>
-            {monthlyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={monthlyData} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
-                  <Bar dataKey="total" fill="#f97316" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-10">Not enough data yet</p>
-            )}
-          </div>
-
-          {/* Spend by tag donut */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Spend by Tag</h3>
-            {tagSpendData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={tagSpendData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={3}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {tagSpendData.map((_, idx) => (
-                      <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-10">Tag receipts to see breakdown</p>
-            )}
-          </div>
-        </div>
-      )}
-
       {filteredReceipts.length === 0 ? (
-        <div className="text-center text-muted-foreground py-10 text-lg">
+        <div className="py-10 text-center text-lg text-slate-500">
           There Are No Receipts to Show
         </div>
       ) : (
-        <div className="overflow-x-auto w-full">
-          <table className="min-w-full border text-xs md:text-sm">
+        <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="w-full overflow-x-auto">
+          <table className="min-w-full text-xs text-slate-800 md:text-sm">
             <thead>
-              <tr className="bg-muted">
-                <th className="p-1 md:p-2 border">Vendor</th>
-                <th className="p-1 md:p-2 border">Date</th>
-                <th className="p-1 md:p-2 border">Total</th>
-                <th className="p-1 md:p-2 border">Type</th>
-                <th className="p-1 md:p-2 border">Client</th>
-                <th className="p-1 md:p-2 border">Tags</th>
-                <th className="p-1 md:p-2 border">Warranty</th>
-                {showWarrantyEndDate && <th className="p-1 md:p-2 border">Warranty End Date</th>}
-                <th className="p-1 md:p-2 border">Image</th>
-                <th className="p-1 md:p-2 border">Text</th>
-                <th className="p-1 md:p-2 border">Notes</th>
-                <th className="p-1 md:p-2 border">Edit</th>
+              <tr className="bg-slate-100 text-slate-700">
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Vendor</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Date</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Total</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Type</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Client</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Tags</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Warranty</th>
+                {showWarrantyEndDate && <th className="border-b border-slate-200 p-2 text-left md:p-3">Warranty End Date</th>}
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Image</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Text</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Notes</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Edit</th>
               </tr>
             </thead>
             <tbody>
               {filteredReceipts.map(r => (
                 <tr 
                   key={r.id}
-                  className={highlightId === r.id ? "bg-blue-50 cursor-pointer" : "cursor-pointer"}
+                  className={highlightId === r.id ? "bg-orange-500/15 cursor-pointer" : "cursor-pointer"}
                   onClick={() => navigate(`/receipt/${r.id}`)}
                 >
-                  <td className="p-1 md:p-2 border">{r.vendor_name || "-"}</td>
-                  <td className="p-1 md:p-2 border">{r.purchase_date ? format(new Date(r.purchase_date), "PPP") : "-"}</td>
-                  <td className="p-1 md:p-2 border">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</td>
-                  <td className="p-1 md:p-2 border">{r.type || "-"}</td>
-                  <td className="p-1 md:p-2 border">{r.client_name || "-"}</td>
-                  <td className="p-1 md:p-2 border">
+                  <td className="border-b border-slate-100 p-2 md:p-3">{r.vendor_name || "-"}</td>
+                  <td className="border-b border-slate-100 p-2 md:p-3">{r.purchase_date ? format(new Date(r.purchase_date), "PPP") : "-"}</td>
+                  <td className="border-b border-slate-100 p-2 md:p-3">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</td>
+                  <td className="border-b border-slate-100 p-2 md:p-3">{r.type || "-"}</td>
+                  <td className="border-b border-slate-100 p-2 md:p-3">{r.client_name || "-"}</td>
+                  <td className="border-b border-slate-100 p-2 md:p-3">
                     {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
                       <Badge key={rt.tags.id} variant="outline" className={`text-xs ${getTagColor(rt.tags.name)}`}>
                         {rt.tags.name}
                       </Badge>
                     ))}
                   </td>
-                  <td className="p-1 md:p-2 border text-center">
+                  <td className="border-b border-slate-100 p-2 text-center md:p-3">
                     {r.warranty ? <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Yes</span> : <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">No</span>}
                   </td>
                   {showWarrantyEndDate && (
-                    <td className="p-1 md:p-2 border text-center">
+                    <td className="border-b border-slate-100 p-2 text-center md:p-3">
                       {r.warranty && r.purchase_date && isValid(new Date(r.purchase_date))
                         ? format(addYears(new Date(r.purchase_date), 3), "PPP")
                         : "-"}
                     </td>
                   )}
-                  <td className="p-1 md:p-2 border">
+                  <td className="border-b border-slate-100 p-2 md:p-3">
                     <Button size="sm" variant="outline" onClick={async (e) => {
                       e.stopPropagation();
                       if (r.image_path) {
@@ -825,13 +786,13 @@ const ReceiptSummaryList = () => {
                       }
                     }}>View Image</Button>
                   </td>
-                  <td className="p-1 md:p-2 border">
+                  <td className="border-b border-slate-100 p-2 md:p-3">
                     <Button size="sm" variant="outline" onClick={(e) => {
                       e.stopPropagation();
                       handleViewText(r.text_content || "No text extracted");
                     }}>View Text</Button>
                   </td>
-                  <td className="p-1 md:p-2 border">
+                  <td className="border-b border-slate-100 p-2 md:p-3">
                     {r.notes ? (
                       <Button size="sm" variant="outline" onClick={(e) => {
                         e.stopPropagation();
@@ -841,7 +802,7 @@ const ReceiptSummaryList = () => {
                       "-"
                     )}
                   </td>
-                  <td className="p-1 md:p-2 border">
+                  <td className="border-b border-slate-100 p-2 md:p-3">
                     <Button
                       size="sm"
                       variant="secondary"
@@ -857,27 +818,35 @@ const ReceiptSummaryList = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
+      </div>
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg max-w-lg w-full">
-            <h3 className="text-lg font-bold mb-2">{modalTitle}</h3>
-            <pre className="whitespace-pre-wrap max-h-96 overflow-y-auto mb-4">{modalText}</pre>
-            <Button onClick={() => setShowModal(false)}>Close</Button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-slate-600 bg-slate-900 p-6 text-slate-100 shadow-lg">
+            <h3 className="mb-2 text-lg font-bold text-white">{modalTitle}</h3>
+            <pre className="mb-4 max-h-96 overflow-y-auto whitespace-pre-wrap rounded border border-slate-600 bg-slate-800 p-3 text-slate-100">{modalText}</pre>
+            <Button
+              variant="outline"
+              className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+              onClick={() => setShowModal(false)}
+            >
+              Close
+            </Button>
           </div>
         </div>
       )}
       {editingReceipt && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-5">
-            <h3 className="text-lg font-bold mb-1">Edit Tags & Warranty</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+          <div className="w-full max-w-2xl rounded-xl border border-slate-600 bg-slate-900 p-5 text-slate-100 shadow-lg">
+            <h3 className="mb-1 text-lg font-bold text-white">Edit Tags & Warranty</h3>
+            <p className="mb-4 text-sm text-slate-400">
               {editingReceipt.vendor_name || "Unknown Vendor"}
             </p>
 
             <div className="mb-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-100">
                 <input
                   type="checkbox"
                   checked={editingWarranty}
@@ -897,6 +866,7 @@ const ReceiptSummaryList = () => {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
+                className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
                 onClick={() => setEditingReceipt(null)}
                 disabled={savingReceiptMeta}
               >

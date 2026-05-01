@@ -226,7 +226,7 @@ const AdminReceipts = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto p-4 text-slate-100">
         <div className="space-y-4">
           <Skeleton className="h-8 w-[200px]" />
           <Skeleton className="h-[400px] w-full" />
@@ -236,20 +236,26 @@ const AdminReceipts = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">All Receipts</h2>
-        <Button variant="outline" onClick={() => navigate("/admin")}>Back to Admin</Button>
+    <div className="container mx-auto p-4 text-slate-100">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-2xl font-bold text-white">All Receipts</h2>
+        <Button
+          variant="outline"
+          className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white sm:w-auto"
+          onClick={() => navigate("/admin")}
+        >
+          Back to Admin
+        </Button>
       </div>
 
       {/* Receipt ID Search */}
       <div className="mb-6">
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <Input
             placeholder="Search by Receipt ID..."
             value={receiptIdSearch}
             onChange={(e) => setReceiptIdSearch(e.target.value)}
-            className="max-w-md"
+            className="w-full sm:max-w-md"
           />
           <Button 
             onClick={() => searchReceiptById(receiptIdSearch)}
@@ -259,8 +265,8 @@ const AdminReceipts = () => {
           </Button>
         </div>
         {foundReceipt && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-lg font-semibold mb-2">Found Receipt</h3>
+          <div className="mt-4 p-4 rounded-lg border border-sky-800/60 bg-sky-950/40">
+            <h3 className="text-lg font-semibold mb-2 text-white">Found Receipt</h3>
             <img
               src={foundReceipt.image_url || "/placeholder.svg"}
               alt={foundReceipt.vendor_name || "Receipt"}
@@ -275,37 +281,37 @@ const AdminReceipts = () => {
                 Open full size
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm text-gray-600">ID</p>
+                <p className="text-sm text-slate-400">ID</p>
                 <p className="font-medium">{foundReceipt.id}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Owner</p>
+                <p className="text-sm text-slate-400">Owner</p>
                 <p className="font-medium">{foundReceipt.user_email}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Vendor</p>
+                <p className="text-sm text-slate-400">Vendor</p>
                 <p className="font-medium">{foundReceipt.vendor_name || "-"}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Date</p>
+                <p className="text-sm text-slate-400">Date</p>
                 <p className="font-medium">
                   {foundReceipt.purchase_date ? format(new Date(foundReceipt.purchase_date), "PPP") : "-"}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-sm text-slate-400">Total</p>
                 <p className="font-medium">
                   {foundReceipt.total_amount ? `$${foundReceipt.total_amount.toFixed(2)}` : "-"}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Type</p>
+                <p className="text-sm text-slate-400">Type</p>
                 <p className="font-medium">{foundReceipt.type || "-"}</p>
               </div>
-              <div className="col-span-2">
-                <p className="text-sm text-gray-600">Line items</p>
+              <div className="sm:col-span-2">
+                <p className="text-sm text-slate-400">Line items</p>
                 {readLineItems(foundReceipt.line_items).length > 0 ? (
                   <ul className="list-disc ml-5">
                     {readLineItems(foundReceipt.line_items).map((li, idx) => (
@@ -320,7 +326,7 @@ const AdminReceipts = () => {
                 )}
               </div>
               <div>
-                <p className="text-sm text-gray-600">Location</p>
+                <p className="text-sm text-slate-400">Location</p>
                 <div className="font-medium">
                   {foundReceipt.location_name ? (
                     <>
@@ -422,7 +428,7 @@ const AdminReceipts = () => {
                 <TableCell>{receipt.id}</TableCell>
                 <TableCell>
                   <div className="flex flex-col">
-                    <span className="text-sm text-gray-500">{receipt.user_email}</span>
+                    <span className="text-sm text-slate-400">{receipt.user_email}</span>
                   </div>
                 </TableCell>
                 <TableCell>{receipt.vendor_name || "-"}</TableCell>
@@ -463,7 +469,7 @@ const AdminReceipts = () => {
                         </div>
                       ))}
                       {readLineItems(receipt.line_items).length > 3 && (
-                        <div className="text-gray-500">+{readLineItems(receipt.line_items).length - 3} more</div>
+                        <div className="text-slate-400">+{readLineItems(receipt.line_items).length - 3} more</div>
                       )}
                     </div>
                   ) : (
@@ -483,7 +489,7 @@ const AdminReceipts = () => {
                   {receipt.warranty ? (
                     <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Yes</span>
                   ) : (
-                    <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">No</span>
+                    <span className="inline-block px-2 py-1 bg-slate-800 text-slate-300 rounded text-xs">No</span>
                   )}
                 </TableCell>
                 <TableCell>

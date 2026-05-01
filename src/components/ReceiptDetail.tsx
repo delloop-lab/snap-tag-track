@@ -254,11 +254,19 @@ const ReceiptDetail = () => {
     if (!receipt) return;
 
     try {
-      // Delete from database
+      // Delete child tag rows first to avoid FK constraint errors.
+      const { error: tagsDeleteError } = await supabase
+        .from("receipt_tags")
+        .delete()
+        .eq("receipt_id", receipt.id);
+      if (tagsDeleteError) throw tagsDeleteError;
+
+      // Delete receipt row.
       const { error: dbError } = await supabase
         .from("receipts")
         .delete()
-        .eq("id", receipt.id);
+        .eq("id", receipt.id)
+        .eq("user_id", receipt.user_id);
 
       if (dbError) throw dbError;
 
@@ -540,7 +548,7 @@ const ReceiptDetail = () => {
   if (!receipt) {
     return (
       <div className="text-center py-10">
-        <p className="text-muted-foreground">Receipt not found</p>
+        <p className="text-slate-300">Receipt not found</p>
         <Button onClick={() => navigate("/receipts")} className="mt-4">
           Back to Receipts
         </Button>
@@ -549,31 +557,37 @@ const ReceiptDetail = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="container mx-auto max-w-4xl p-4 text-slate-100">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-center">Receipt Details</h2>
+        <h2 className="text-2xl font-bold text-center text-white">Receipt Details</h2>
         <div className="flex justify-center gap-2 mt-2">
-          <Button variant="outline" onClick={() => navigate("/receipts")}>Back to Receipts</Button>
+          <Button
+            variant="outline"
+            className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+            onClick={() => navigate("/receipts")}
+          >
+            Back to Receipts
+          </Button>
           {!isEditing && (
             <>
               <Button 
                 variant="outline" 
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
               >
                 <Edit className="h-4 w-4" /> Edit
               </Button>
               <Button
                 variant="outline"
                 onClick={() => window.print()}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
               >
                 <Printer className="h-4 w-4" /> Print
               </Button>
               <Button
                 variant="outline"
                 onClick={openRescanDialog}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
                 disabled={isRescanning}
               >
                 <RefreshCcw className={`h-4 w-4 ${isRescanning ? "animate-spin" : ""}`} />
@@ -593,11 +607,11 @@ const ReceiptDetail = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-1">
         <div className="space-y-4">
-          <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
+          <div className="overflow-hidden rounded-lg border border-slate-600 shadow-sm print:shadow-none">
             <img
               src={imageUrl || "/placeholder.svg"}
               alt="Receipt"
-              className="w-full h-auto object-contain bg-gray-50 print:max-h-[500px]"
+              className="h-auto w-full object-contain bg-slate-700 print:max-h-[500px]"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "/placeholder.svg";
               }}
@@ -606,15 +620,15 @@ const ReceiptDetail = () => {
           
           {/* Product Image in View Mode */}
           {!isEditing && receipt?.warranty && (
-            <div className="border rounded-lg overflow-hidden shadow-sm print:shadow-none">
-              <div className="p-4 bg-gray-50">
+            <div className="overflow-hidden rounded-lg border border-slate-600 shadow-sm print:shadow-none">
+              <div className="bg-slate-800 p-4">
                 <h3 className="text-lg font-semibold mb-2">Product Image</h3>
                 {productImageUrl ? (
                   <div className="space-y-4">
                     <img
                       src={productImageUrl}
                       alt="Product"
-                      className="w-full h-auto object-contain bg-white"
+                      className="h-auto w-full rounded bg-slate-900 object-contain"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = "/placeholder.svg";
                       }}
@@ -645,8 +659,8 @@ const ReceiptDetail = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">No product image uploaded</p>
+                  <div className="py-8 text-center">
+                    <p className="mb-4 text-slate-300">No product image uploaded</p>
                     <input
                       type="file"
                       id="product-image-upload-view"
@@ -658,7 +672,7 @@ const ReceiptDetail = () => {
                     />
                     <label
                       htmlFor="product-image-upload-view"
-                      className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 text-sm"
+                      className="inline-flex cursor-pointer items-center rounded-md bg-slate-900 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700"
                     >
                       {isUploadingProductImage ? "Uploading..." : isMobile ? "Take Product Photo" : "Upload Product Image"}
                     </label>
@@ -679,6 +693,7 @@ const ReceiptDetail = () => {
                   value={editedVendor}
                   onChange={(e) => setEditedVendor(e.target.value)}
                   placeholder="Enter vendor name"
+                  className="border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400"
                 />
               </div>
 
@@ -691,6 +706,7 @@ const ReceiptDetail = () => {
                   value={editedAmount}
                   onChange={(e) => setEditedAmount(e.target.value)}
                   placeholder="Enter total amount"
+                  className="border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400"
                 />
               </div>
 
@@ -701,15 +717,15 @@ const ReceiptDetail = () => {
                     <Button
                       variant={"outline"}
                       className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !editedDate && "text-muted-foreground"
+                        "w-full justify-start border-slate-500 bg-slate-800 text-left font-normal text-slate-100 hover:bg-slate-700 hover:text-white",
+                        !editedDate && "text-slate-400"
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {editedDate ? format(editedDate, "PPP") : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto border-slate-600 bg-slate-900 p-0 text-slate-100" align="start">
                     <Calendar
                       mode="single"
                       selected={editedDate}
@@ -725,7 +741,7 @@ const ReceiptDetail = () => {
                 <Label htmlFor="notes">Notes</Label>
                 <textarea
                   id="notes"
-                  className="border rounded px-2 py-1 w-full min-h-[60px]"
+                  className="min-h-[60px] w-full rounded border border-slate-500 bg-slate-800 px-2 py-1 text-slate-100 placeholder:text-slate-400"
                   value={editedNotes}
                   onChange={e => setEditedNotes(e.target.value)}
                   placeholder="Add any notes about this receipt..."
@@ -733,14 +749,14 @@ const ReceiptDetail = () => {
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground print:text-base print:text-black">Uploaded on</p>
+                <p className="text-sm text-slate-400 print:text-base print:text-black">Uploaded on</p>
                 <p className="font-medium print:text-lg">
                   {receipt.created_at ? format(new Date(receipt.created_at), "PPp") : "Not available"}
                 </p>
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground print:text-base print:text-black">Location</p>
+                <p className="text-sm text-slate-400 print:text-base print:text-black">Location</p>
                 {receipt.location_name ? (
                   <div className="space-y-2">
                     <p className="font-medium print:text-lg">{receipt.location_name}</p>
@@ -766,7 +782,7 @@ const ReceiptDetail = () => {
                           href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
+                          className="text-sm text-sky-300 hover:underline"
                         >
                           View on OpenStreetMap
                         </a>
@@ -795,15 +811,15 @@ const ReceiptDetail = () => {
 
               {/* Product Image Upload - appears right after Warranty checkbox when checked */}
               {editedWarranty && (
-                <div className="border rounded-lg overflow-hidden shadow-sm mb-4">
-                  <div className="p-4 bg-gray-50">
+                <div className="mb-4 overflow-hidden rounded-lg border border-slate-600 shadow-sm">
+                  <div className="bg-slate-800 p-4">
                     <h3 className="text-lg font-semibold mb-2">Product Image</h3>
                     {productImageUrl ? (
                       <div className="space-y-4">
                         <img
                           src={productImageUrl}
                           alt="Product"
-                          className="w-full h-auto object-contain bg-white rounded"
+                          className="h-auto w-full rounded bg-slate-900 object-contain"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = "/placeholder.svg";
                           }}
@@ -834,8 +850,8 @@ const ReceiptDetail = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-4">
-                        <p className="text-muted-foreground mb-3 text-sm">No product image uploaded</p>
+                      <div className="py-4 text-center">
+                        <p className="mb-3 text-sm text-slate-300">No product image uploaded</p>
                         <div className="flex flex-col items-center gap-2">
                           <input
                             type="file"
@@ -849,7 +865,7 @@ const ReceiptDetail = () => {
                           {isMobile ? (
                             <button
                               type="button"
-                              className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 text-sm"
+                              className="cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700"
                               onClick={() => {
                                 const input = document.getElementById('product-image-upload') as HTMLInputElement;
                                 if (input) {
@@ -864,7 +880,7 @@ const ReceiptDetail = () => {
                           ) : (
                             <label
                               htmlFor="product-image-upload"
-                              className="px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 text-sm"
+                              className="cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700"
                             >
                               {isUploadingProductImage ? "Uploading..." : "Upload Product Image"}
                             </label>
@@ -881,7 +897,7 @@ const ReceiptDetail = () => {
                 <div className="flex gap-2 items-center">
                   <select
                     id="client"
-                    className="border rounded px-2 py-1 flex-1"
+                    className="flex-1 rounded border border-slate-500 bg-slate-800 px-2 py-1 text-slate-100"
                     value={showNewClientInput ? "__new__" : editedClient}
                     onChange={e => {
                       if (e.target.value === "__new__") {
@@ -901,7 +917,7 @@ const ReceiptDetail = () => {
                   </select>
                   {showNewClientInput && (
                     <Input
-                      className="flex-1"
+                      className="flex-1 border-slate-500 bg-slate-800 text-slate-100 placeholder:text-slate-400"
                       placeholder="Enter new client name"
                       value={editedClient}
                       onChange={e => setEditedClient(e.target.value)}
@@ -944,15 +960,15 @@ const ReceiptDetail = () => {
               </div>
 
               {receipt.notes && (
-                <div className="bg-muted p-3 rounded-md print:bg-white print:border print:p-4">
-                  <p className="text-sm text-muted-foreground mb-1 font-medium print:text-base print:text-black">Notes</p>
+                <div className="rounded-md border border-slate-600 bg-slate-800 p-3 print:border print:bg-white print:p-4">
+                  <p className="mb-1 text-sm font-medium text-slate-300 print:text-base print:text-black">Notes</p>
                   <p className="whitespace-pre-wrap text-sm print:text-base">{receipt.notes}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4 print:grid-cols-3 print:gap-6">
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground print:text-base print:text-black">Date</p>
+                  <p className="text-sm text-slate-400 print:text-base print:text-black">Date</p>
                   <p className="font-medium print:text-lg">
                     {receipt.purchase_date 
                       ? format(new Date(receipt.purchase_date), "PPP") 
@@ -961,12 +977,12 @@ const ReceiptDetail = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground print:text-base print:text-black">Total</p>
+                  <p className="text-sm text-slate-400 print:text-base print:text-black">Total</p>
                   <p className="font-medium print:text-lg">{formatCurrency(receipt.total_amount, receipt.currency)}</p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground print:text-base print:text-black">Uploaded on</p>
+                  <p className="text-sm text-slate-400 print:text-base print:text-black">Uploaded on</p>
                   <p className="font-medium print:text-lg">
                     {receipt.created_at ? format(new Date(receipt.created_at), "PPp") : "Not available"}
                   </p>
@@ -974,7 +990,7 @@ const ReceiptDetail = () => {
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground print:text-base print:text-black">Location</p>
+                <p className="text-sm text-slate-400 print:text-base print:text-black">Location</p>
                 {receipt.location_name ? (
                   <div className="space-y-2">
                     <p className="font-medium print:text-lg">{receipt.location_name}</p>
@@ -1000,7 +1016,7 @@ const ReceiptDetail = () => {
                           href={`https://www.openstreetmap.org/?mlat=${receipt.latitude}&mlon=${receipt.longitude}&zoom=15`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
+                          className="text-sm text-sky-300 hover:underline"
                         >
                           View on OpenStreetMap
                         </a>
@@ -1013,7 +1029,7 @@ const ReceiptDetail = () => {
               </div>
 
               <div className="space-y-2 print:space-y-3">
-                <p className="text-sm text-muted-foreground print:text-base print:text-black">Tags</p>
+                <p className="text-sm text-slate-400 print:text-base print:text-black">Tags</p>
                 <div className="flex flex-wrap gap-2 print:gap-3">
                   {(() => {
                     const seen = new Set<string>();
@@ -1032,16 +1048,16 @@ const ReceiptDetail = () => {
                 <div className="space-y-2">
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+                    className="flex items-center gap-1 text-sm font-medium text-sky-300 hover:text-sky-200"
                     onClick={() => setShowLineItems((v) => !v)}
                   >
                     {showLineItems ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     {showLineItems ? "Hide" : "Show"} {receipt.line_items.length} line item{receipt.line_items.length !== 1 ? "s" : ""}
                   </button>
                   {showLineItems && (
-                    <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 text-sm">
+                    <div className="divide-y divide-slate-600 rounded-lg border border-slate-600 text-sm">
                       {receipt.line_items.map((item, i) => (
-                        <div key={i} className="flex justify-between px-3 py-2 text-gray-700">
+                        <div key={i} className="flex justify-between px-3 py-2 text-slate-200">
                           <span className="truncate pr-4">{item.description}</span>
                           <span className="font-medium whitespace-nowrap">
                             {formatCurrency(item.amount, receipt.currency)}
@@ -1055,8 +1071,8 @@ const ReceiptDetail = () => {
 
               {!isMobile && (
                 <div className="space-y-2 print:space-y-3 no-print">
-                  <p className="text-sm text-muted-foreground print:text-base print:text-black">Extracted Text</p>
-                  <div className="bg-muted p-3 rounded-md max-h-96 overflow-y-auto print:bg-white print:border print:p-4 print:max-h-none">
+                  <p className="text-sm text-slate-400 print:text-base print:text-black">Extracted Text</p>
+                  <div className="max-h-96 overflow-y-auto rounded-md border border-slate-600 bg-slate-800 p-3 print:border print:bg-white print:p-4 print:max-h-none">
                     <pre className="whitespace-pre-wrap font-mono text-sm print:text-base">
                       {receipt.text_content || "No text extracted"}
                     </pre>

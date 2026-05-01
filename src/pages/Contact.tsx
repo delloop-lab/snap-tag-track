@@ -71,39 +71,31 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen w-full bg-slate-800 text-slate-100">
-      {/* Same chrome as modern landing — visible on desktop when logged out (app navbar is mobile-only). */}
-      <section className="mx-auto max-w-6xl px-4 pt-8 md:pt-12 pb-14 md:pb-16">
-        <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" className="shrink-0 rounded-lg outline-offset-4 focus-visible:ring-2 focus-visible:ring-[#7CB87E]/50">
-            <img src="/SnapTagTrack.png" alt="SnapTagTrack" className="h-9 md:h-[50px] w-auto brightness-110" />
-          </Link>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <Link to="/help" className={navBtn}>
-              Help
+      <section className="mx-auto max-w-[1600px] px-4 pt-8 md:pt-12 pb-14 md:pb-16">
+        {!user && (
+          <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+            <Link to="/" className="shrink-0 rounded-lg outline-offset-4 focus-visible:ring-2 focus-visible:ring-[#7CB87E]/50">
+              <img src="/SnapTagTrack.png" alt="SnapTagTrack" className="h-9 md:h-[50px] w-auto brightness-110" />
             </Link>
-            <span
-              className="inline-flex items-center justify-center rounded-xl border border-[#7CB87E]/50 bg-[#7CB87E]/15 px-4 py-2 text-sm font-semibold text-[#7CB87E] md:text-base"
-              aria-current="page"
-            >
-              Contact
-            </span>
-            {user ? (
-              <Link
-                to="/"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold text-white md:text-base transition-colors"
-              >
-                Home
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <Link to="/help" className={navBtn}>
+                Help
               </Link>
-            ) : (
+              <span
+                className="inline-flex items-center justify-center rounded-xl border border-[#7CB87E]/50 bg-[#7CB87E]/15 px-4 py-2 text-sm font-semibold text-[#7CB87E] md:text-base"
+                aria-current="page"
+              >
+                Contact
+              </span>
               <Link
                 to="/auth"
                 className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold text-white md:text-base transition-colors"
               >
                 Login
               </Link>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <p className="mb-4 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">

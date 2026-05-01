@@ -96,19 +96,19 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-2xl border border-gray-200 relative overflow-hidden">
+    <div className="flex min-h-screen w-full items-center justify-center bg-slate-800 p-4 text-slate-100">
+      <div className="relative w-full max-w-md space-y-8 overflow-hidden rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-slate-100 shadow-2xl backdrop-blur-sm">
         {/* Decorative elements */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-50 rounded-full blur-3xl opacity-50"></div>
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-orange-50 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-sky-900/30 blur-3xl opacity-70" />
+        <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-orange-900/30 blur-3xl opacity-70" />
         
-        <div className="text-center relative">
+        <div className="relative text-center">
           <img 
             src="/SnapTagTrack.png" 
             alt="SnapTagTrack Logo" 
             className="w-48 h-auto mx-auto mb-4"
           />
-          <p className="mt-2 text-sm text-gray-600 font-medium">
+          <p className="mt-2 text-sm font-medium text-slate-300">
             {isSignUp ? "Create your account" : "Sign in to your account"}
           </p>
         </div>
@@ -116,7 +116,7 @@ const AuthPage = () => {
         <form className="mt-8 space-y-6 relative" onSubmit={handleAuth}>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium text-slate-200">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -124,12 +124,12 @@ const AuthPage = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
                 required
-                className="h-11"
+                className="h-11 border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium text-slate-200">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -139,12 +139,12 @@ const AuthPage = () => {
                   placeholder="Password"
                   required
                   minLength={6}
-                  className="h-11"
+                  className="h-11 border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-200"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -161,15 +161,15 @@ const AuthPage = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={() => setRememberMe(!rememberMe)}
-                className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="mr-2 h-4 w-4 rounded border-slate-500 bg-slate-900 text-orange-500 focus:ring-orange-400"
               />
-              <Label htmlFor="rememberMe" className="text-sm">Remember Me</Label>
+              <Label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</Label>
             </div>
           </div>
 
           <Button
             type="submit"
-            className="w-full h-11 bg-gradient-to-r from-[#0066FF] to-[#0052CC] hover:from-[#0052CC] hover:to-[#0047B3] text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            className="h-11 w-full rounded-lg bg-orange-500 font-medium text-white shadow-md transition-all duration-200 hover:bg-orange-600 hover:shadow-lg"
             disabled={loading}
           >
             {loading ? (
@@ -183,7 +183,7 @@ const AuthPage = () => {
           <div className="text-center">
             <button
               type="button"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              className="text-sm font-medium text-sky-300 transition-colors hover:text-sky-200"
               onClick={() => setIsSignUp(!isSignUp)}
             >
               {isSignUp

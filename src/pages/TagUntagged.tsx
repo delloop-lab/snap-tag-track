@@ -57,12 +57,16 @@ const TagUntagged = () => {
   }, [user]);
 
   if (!isMobile) {
-    return <div className="p-8 text-center text-lg">This view is only available on mobile.</div>;
+    return (
+      <div className="p-8 text-center text-lg text-slate-300">
+        This view is only available on mobile.
+      </div>
+    );
   }
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4 text-center">Tag Untagged Receipts</h2>
+    <div className="min-h-full p-4 text-slate-100">
+      <h2 className="mb-4 text-center text-2xl font-bold text-white">Tag Untagged Receipts</h2>
       {loading ? (
         <div className="flex justify-center items-center h-40">
           <svg className="animate-spin h-10 w-10 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -71,23 +75,23 @@ const TagUntagged = () => {
           </svg>
         </div>
       ) : receipts.length === 0 ? (
-        <div className="text-center text-muted-foreground">All your receipts are tagged! ��</div>
+        <div className="text-center text-slate-300">All your receipts are tagged!</div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-2 snap-x">
           {receipts.map(receipt => (
             <div
               key={receipt.id}
-              className="border rounded-lg overflow-hidden shadow-sm flex-shrink-0 w-56 bg-white snap-center"
+              className="flex-shrink-0 w-56 snap-center overflow-hidden rounded-lg border border-slate-600 bg-slate-800 shadow-sm"
               style={{ minWidth: '224px', maxWidth: '224px' }}
             >
-              <div className="aspect-[3/4] bg-gray-100 relative">
+              <div className="relative aspect-[3/4] bg-slate-700">
                 {receipt.image_path && !imageLoaded[receipt.id] && (
-                  <div className="absolute inset-0 flex flex-col justify-center items-center gap-2 bg-gray-200 animate-pulse rounded-md px-4 py-6">
-                    <div className="h-4 w-3/4 bg-gray-300 rounded mb-1" />
-                    <div className="h-3 w-2/3 bg-gray-300 rounded mb-1" />
-                    <div className="h-3 w-1/2 bg-gray-300 rounded mb-1" />
-                    <div className="h-3 w-5/6 bg-gray-300 rounded mb-1" />
-                    <div className="h-4 w-1/3 bg-gray-300 rounded mt-2" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-md bg-slate-700 animate-pulse px-4 py-6">
+                    <div className="mb-1 h-4 w-3/4 rounded bg-slate-500" />
+                    <div className="mb-1 h-3 w-2/3 rounded bg-slate-500" />
+                    <div className="mb-1 h-3 w-1/2 rounded bg-slate-500" />
+                    <div className="mb-1 h-3 w-5/6 rounded bg-slate-500" />
+                    <div className="mt-2 h-4 w-1/3 rounded bg-slate-500" />
                   </div>
                 )}
                 {receipt.image_path && (
@@ -104,12 +108,12 @@ const TagUntagged = () => {
                 )}
               </div>
               <div className="p-3">
-                <h3 className="font-medium text-base truncate max-w-[140px]">{receipt.vendor_name || "Unknown Vendor"}</h3>
-                <p className="text-xs text-muted-foreground mb-2">
+                <h3 className="max-w-[140px] truncate text-base font-medium text-slate-100">{receipt.vendor_name || "Unknown Vendor"}</h3>
+                <p className="mb-2 text-xs text-slate-300">
                   {receipt.purchase_date ? format(new Date(receipt.purchase_date), 'MMM d, yyyy') : "No date"}
                 </p>
                 <Button
-                  className="w-full mt-2"
+                  className="mt-2 w-full"
                   onClick={() => navigate(`/receipt/${receipt.id}`)}
                 >
                   Tag Now
