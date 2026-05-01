@@ -33,6 +33,7 @@ import {
 import type { RescanPreferences } from "@/lib/rescanPreferences";
 import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 import { toast } from "@/components/ui/use-toast";
+import { validateWarrantyWithPurchaseDate } from "@/lib/warrantyRules";
 
 // Tag color palette
 const tagColors = [
@@ -227,6 +228,11 @@ const ReceiptSummaryList = () => {
 
   const saveReceiptMeta = async () => {
     if (!user || !editingReceipt || savingReceiptMeta) return;
+    const metaErr = validateWarrantyWithPurchaseDate(editingWarranty, editingReceipt.purchase_date ?? null);
+    if (metaErr) {
+      toast({ title: "Purchase date needed", description: metaErr, variant: "destructive" });
+      return;
+    }
     setSavingReceiptMeta(true);
     try {
       await supabase
@@ -846,15 +852,21 @@ const ReceiptSummaryList = () => {
             </p>
 
             <div className="mb-4">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-100">
+              <label className={`flex items-center gap-2 text-sm font-medium ${editingReceipt.purchase_date?.trim() ? "text-slate-100" : "text-slate-500"}`}>
                 <input
                   type="checkbox"
                   checked={editingWarranty}
                   onChange={(e) => setEditingWarranty(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-400 bg-slate-800 accent-orange-500 focus-visible:ring-2 focus-visible:ring-orange-400/60"
+                  disabled={!editingReceipt.purchase_date?.trim()}
+                  className="h-4 w-4 rounded border-slate-400 bg-slate-800 accent-orange-500 focus-visible:ring-2 focus-visible:ring-orange-400/60 disabled:opacity-50"
                 />
                 Warranty applies to this receipt
               </label>
+              {!editingReceipt.purchase_date?.trim() && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Add a purchase date on the receipt first (open receipt &amp; edit) before marking warranty.
+                </p>
+              )}
             </div>
 
             <div className="mb-5">

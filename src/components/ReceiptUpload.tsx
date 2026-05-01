@@ -19,6 +19,7 @@ import exifr from "exifr";
 import ReceiptReview from "./ReceiptReview";
 import { siblingThumbStorageKey } from "@/lib/siblingThumbPath";
 import { createThumbnailJpeg } from "@/lib/imageThumbnail";
+import { validateWarrantyWithPurchaseDate } from "@/lib/warrantyRules";
 
 /** Keep in sync with Profile `RECEIPT_LOCATION_PREF_EVENT`. */
 const SNAP_RECEIPT_LOCATION_PREF_EVENT = "snap:receipt-location-pref-changed";
@@ -624,6 +625,12 @@ const ReceiptUpload = () => {
 
   const confirmAndSave = async (tagNow: boolean) => {
     if (!reviewState || !user) return;
+    const warrantyDateErr = validateWarrantyWithPurchaseDate(warranty, reviewState.date);
+    if (warrantyDateErr) {
+      toast({ title: "Purchase date needed", description: warrantyDateErr, variant: "destructive" });
+      setStage("review");
+      return;
+    }
     setStage("saving");
 
     try {
@@ -864,18 +871,23 @@ const ReceiptUpload = () => {
         />
       </div>
 
-      <div className="mb-4 flex w-full items-center gap-2 rounded-md border border-slate-600 bg-slate-800/60 px-3 py-2">
-        <input
-          id="warranty"
-          type="checkbox"
-          checked={warranty}
-          onChange={(e) => setWarranty(e.target.checked)}
-          className="h-4 w-4"
-          disabled={isProcessing || isSaving}
-        />
-        <label htmlFor="warranty" className="font-medium select-none cursor-pointer">
-          Warranty?
-        </label>
+      <div className="mb-4 flex w-full flex-col gap-1 rounded-md border border-slate-600 bg-slate-800/60 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <input
+            id="warranty"
+            type="checkbox"
+            checked={warranty}
+            onChange={(e) => setWarranty(e.target.checked)}
+            className="h-4 w-4"
+            disabled={isProcessing || isSaving || !reviewState.date?.trim()}
+          />
+          <label htmlFor="warranty" className="font-medium select-none cursor-pointer">
+            Warranty?
+          </label>
+        </div>
+        {!reviewState.date?.trim() && (
+          <p className="pl-6 text-xs text-slate-400">Set a purchase date in the review step to track warranty.</p>
+        )}
       </div>
 
       {warranty && (

@@ -34,6 +34,7 @@ import {
   patchDiffLines,
 } from "@/lib/rescanPreferences";
 import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
+import { validateWarrantyWithPurchaseDate } from "@/lib/warrantyRules";
 
 interface LineItem {
   description: string;
@@ -378,6 +379,12 @@ const ReceiptDetail = () => {
 
   const handleSaveChanges = async () => {
     if (!receipt) return;
+    const nextPurchaseIso = editedDate ? format(editedDate, "yyyy-MM-dd") : null;
+    const warrantyErr = validateWarrantyWithPurchaseDate(editedWarranty, nextPurchaseIso);
+    if (warrantyErr) {
+      toast({ title: "Purchase date needed", description: warrantyErr, variant: "destructive" });
+      return;
+    }
     const parsedAmount = editedAmount ? parseFloat(editedAmount) : null;
     try {
       const { error } = await supabase
@@ -828,15 +835,22 @@ const ReceiptDetail = () => {
                 {isEditing && <TagInput receiptId={receipt.id} onTagsChange={fetchReceipt} />}
               </div>
 
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  id="warranty"
-                  type="checkbox"
-                  checked={editedWarranty}
-                  onChange={e => setEditedWarranty(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-400 bg-slate-800 text-orange-600 accent-orange-500 focus-visible:ring-2 focus-visible:ring-orange-400/60"
-                />
-                <label htmlFor="warranty" className="font-medium select-none cursor-pointer text-slate-100">Warranty?</label>
+              <div className="mb-2 flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="warranty"
+                    type="checkbox"
+                    checked={editedWarranty}
+                    onChange={(e) => setEditedWarranty(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-400 bg-slate-800 text-orange-600 accent-orange-500 focus-visible:ring-2 focus-visible:ring-orange-400/60"
+                  />
+                  <label htmlFor="warranty" className="font-medium select-none cursor-pointer text-slate-100">
+                    Warranty?
+                  </label>
+                </div>
+                {editedWarranty && !editedDate && (
+                  <p className="text-xs text-amber-400/90">Add a purchase date before saving with warranty turned on.</p>
+                )}
               </div>
 
               {/* Product Image Upload - appears right after Warranty checkbox when checked */}
