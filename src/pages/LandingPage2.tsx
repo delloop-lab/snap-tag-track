@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -69,6 +70,7 @@ const classicLayout = (
 );
 
 export default function LandingPage2() {
+  const { user } = useAuth();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const initialVersion = params.get("v") === "classic" ? "classic" : "new";
@@ -103,7 +105,7 @@ export default function LandingPage2() {
   return (
     <main className="min-h-screen bg-slate-800 text-slate-100 pb-28">
       <section className={`${marketingPageGutterClass} pb-14 md:pb-20`}>
-        <MarketingTopNav />
+        {!user && <MarketingTopNav />}
 
         <div className="mx-auto max-w-6xl">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">

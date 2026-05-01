@@ -87,6 +87,22 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 /** Standalone screenshot page — omit app chrome entirely. Not linked anywhere. */
 const AD_SUMMARY_MOCK_PATH = "/ad-summary-mock";
 
+/** Marketing-only landing URLs: never show app sidebar + marketing login chrome together */
+const PublicLandingRoute = () => {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-slate-100">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </div>
+    );
+  }
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+  return <LandingPage2 />;
+};
+
 const AppContent = () => {
   const location = useLocation();
   const { user } = useAuth();
@@ -165,8 +181,8 @@ const AppContent = () => {
             <Route path="/contact" element={<Contact />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
-            <Route path="/landing" element={<LandingPage2 />} />
-            <Route path="/landing2" element={<LandingPage2 />} />
+            <Route path="/landing" element={<PublicLandingRoute />} />
+            <Route path="/landing2" element={<PublicLandingRoute />} />
             <Route path="/admin" element={
               <AdminRoute>
                 <Admin />
