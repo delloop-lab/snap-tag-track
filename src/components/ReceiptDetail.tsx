@@ -35,6 +35,12 @@ import {
 } from "@/lib/rescanPreferences";
 import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 import { validateWarrantyWithPurchaseDate } from "@/lib/warrantyRules";
+import { useUserShoppingPreferences } from "@/hooks/useUserShoppingPreferences";
+import {
+  describeWarrantyMonths,
+  suggestedReturnDeadline,
+  warrantyEndFromReceipt,
+} from "@/lib/userShoppingPreferences";
 
 interface LineItem {
   description: string;
@@ -54,6 +60,7 @@ type Receipt = {
   updated_at: string;
   notes: string | null;
   warranty: boolean;
+  warranty_expires_at?: string | null;
   receipt_tags: { tag_id: string; tags: { id: string; name: string } }[];
   client_name: string | null;
   type: string | null;
@@ -67,6 +74,7 @@ type Receipt = {
 const ReceiptDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { warrantyDefaultMonths, returnWindowDays } = useUserShoppingPreferences();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
@@ -116,6 +124,7 @@ const ReceiptDetail = () => {
           updated_at,
           notes,
           warranty,
+          warranty_expires_at,
           client_name,
           type,
           latitude,
@@ -148,6 +157,7 @@ const ReceiptDetail = () => {
         updated_at: data.updated_at,
         notes: data.notes || "",
         warranty: data.warranty ?? false,
+        warranty_expires_at: data.warranty_expires_at ?? null,
         receipt_tags: data.receipt_tags || [],
         client_name: data.client_name || "",
         type: data.type || "",
@@ -1010,11 +1020,37 @@ const ReceiptDetail = () => {
                     <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">No</span>
                   )}
                 </div>
-                {receipt.warranty && receipt.purchase_date && (
+                {receipt.warranty && (receipt.purchase_date || receipt.warranty_expires_at) && (
                   <div className="mt-1 print:mt-2">
-                    <span className="font-medium">Warranty End Date:</span>
+                    <span className="font-medium">Warranty end date:</span>
                     <span className="ml-2">
-                      {format(new Date(new Date(receipt.purchase_date).setFullYear(new Date(receipt.purchase_date).getFullYear() + 3)), "PPP")}
+                      {(() => {
+                        const end = warrantyEndFromReceipt(
+                          receipt.purchase_date,
+                          receipt.warranty_expires_at ?? null,
+                          warrantyDefaultMonths,
+                        );
+                        return end ? format(end, "PPP") : "—";
+                      })()}
+                    </span>
+                    {!receipt.warranty_expires_at && receipt.purchase_date && (
+                      <p className="mt-1 text-xs text-slate-400 print:text-[10px] print:text-slate-600">
+                        From your profile default: {describeWarrantyMonths(warrantyDefaultMonths)} after the purchase date
+                        (adjust in Profile settings).
+                      </p>
+                    )}
+                  </div>
+                )}
+                {receipt.purchase_date && returnWindowDays > 0 && (
+                  <div className="mt-1 print:mt-2">
+                    <span className="font-medium">Return reminder:</span>
+                    <span className="ml-2">
+                      {(() => {
+                        const by = suggestedReturnDeadline(receipt.purchase_date, returnWindowDays);
+                        return by
+                          ? `${format(by, "PPP")} (${returnWindowDays} day${returnWindowDays === 1 ? "" : "s"} after purchase, from Profile)`
+                          : "—";
+                      })()}
                     </span>
                   </div>
                 )}

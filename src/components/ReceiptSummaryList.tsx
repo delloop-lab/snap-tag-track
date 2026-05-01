@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { format, addYears, isValid } from "date-fns";
+import { format } from "date-fns";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,6 +34,11 @@ import type { RescanPreferences } from "@/lib/rescanPreferences";
 import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 import { toast } from "@/components/ui/use-toast";
 import { validateWarrantyWithPurchaseDate } from "@/lib/warrantyRules";
+import { useUserShoppingPreferences } from "@/hooks/useUserShoppingPreferences";
+import {
+  describeWarrantyMonths,
+  warrantyEndFromReceipt,
+} from "@/lib/userShoppingPreferences";
 
 // Tag color palette
 const tagColors = [
@@ -68,6 +73,7 @@ interface Receipt {
   client_name: string | null;
   notes: string | null;
   warranty: boolean;
+  warranty_expires_at?: string | null;
   image_path: string | null;
   text_content: string | null;
   line_items?: unknown[] | null;
@@ -116,6 +122,8 @@ const ReceiptSummaryList = () => {
 
   // Get the highlight ID from URL query params
   const highlightId = new URLSearchParams(location.search).get("highlight");
+
+  const { warrantyDefaultMonths } = useUserShoppingPreferences();
 
   const fetchData = async () => {
     if (!user) return;
@@ -696,7 +704,11 @@ const ReceiptSummaryList = () => {
               <TooltipTrigger asChild>
                 <span className="ml-1 cursor-pointer text-slate-400"><HelpCircle size={16} /></span>
               </TooltipTrigger>
-              <TooltipContent>Show only receipts with a warranty. Warranty end date is purchase date + 3 years.</TooltipContent>
+              <TooltipContent>
+                Show only receipts with a warranty. End date uses your profile default (
+                {describeWarrantyMonths(warrantyDefaultMonths)} from purchase) unless you saved an end date on the
+                receipt.
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <Button
@@ -778,8 +790,15 @@ const ReceiptSummaryList = () => {
                   </td>
                   {showWarrantyEndDate && (
                     <td className="border-b border-slate-100 p-2 text-center md:p-3">
-                      {r.warranty && r.purchase_date && isValid(new Date(r.purchase_date))
-                        ? format(addYears(new Date(r.purchase_date), 3), "PPP")
+                      {r.warranty
+                        ? (() => {
+                            const end = warrantyEndFromReceipt(
+                              r.purchase_date ?? null,
+                              r.warranty_expires_at ?? null,
+                              warrantyDefaultMonths,
+                            );
+                            return end ? format(end, "PPP") : "-";
+                          })()
                         : "-"}
                     </td>
                   )}

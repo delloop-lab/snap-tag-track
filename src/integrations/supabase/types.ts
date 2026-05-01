@@ -176,7 +176,9 @@ export type Database = {
           receipt_location_disabled: boolean
           rescan_empty_only: boolean
           rescan_preview_diff: boolean
+          return_window_days: number
           user_type: "admin" | "user"
+          warranty_default_months: number
         }
         Insert: {
           avatar_url?: string | null
@@ -189,7 +191,9 @@ export type Database = {
           receipt_location_disabled?: boolean
           rescan_empty_only?: boolean
           rescan_preview_diff?: boolean
+          return_window_days?: number
           user_type?: "admin" | "user"
+          warranty_default_months?: number
         }
         Update: {
           avatar_url?: string | null
@@ -202,7 +206,9 @@ export type Database = {
           receipt_location_disabled?: boolean
           rescan_empty_only?: boolean
           rescan_preview_diff?: boolean
+          return_window_days?: number
           user_type?: "admin" | "user"
+          warranty_default_months?: number
         }
         Relationships: []
       }

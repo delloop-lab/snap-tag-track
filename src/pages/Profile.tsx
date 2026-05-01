@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
 import { COUNTRY_DISPLAY_NAMES_EN } from "@/lib/countryDisplayNames";
+import { notifyUserShoppingPrefsChanged } from "@/lib/userShoppingPreferences";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
@@ -39,6 +40,8 @@ function looksLikeAbsoluteUrl(str: string): boolean {
   return /^https?:\/\//i.test(str.trim());
 }
 
+type WarrantyDurationUnit = "years" | "months";
+
 const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -63,6 +66,11 @@ const Profile = () => {
   const [receiptLocationDisabled, setReceiptLocationDisabled] = useState(false);
   const [receiptLocationPrefSaving, setReceiptLocationPrefSaving] = useState(false);
 
+  const [warrantyDurationUnit, setWarrantyDurationUnit] = useState<WarrantyDurationUnit>("years");
+  const [warrantyDurationAmount, setWarrantyDurationAmount] = useState("3");
+  const [returnWindowDaysInput, setReturnWindowDaysInput] = useState("30");
+  const [regionalShoppingSaving, setRegionalShoppingSaving] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -80,15 +88,35 @@ const Profile = () => {
             avatar_url: string | null;
             country?: string | null;
             receipt_location_disabled?: boolean | null;
+            warranty_default_months?: number | null;
+            return_window_days?: number | null;
           }
         | null = null;
       let selErr: { message: string } | null = null;
 
       let res = await supabase
         .from("users")
-        .select("first_name, last_name, avatar_url, country, receipt_location_disabled")
+        .select(
+          "first_name, last_name, avatar_url, country, receipt_location_disabled, warranty_default_months, return_window_days",
+        )
         .eq("id", user.id)
         .maybeSingle();
+
+      if (res.error) {
+        const prefMsg = res.error.message ?? "";
+        if (/warranty_default_months|return_window_days/i.test(prefMsg)) {
+          setLoadWarning(
+            (w) =>
+              w ||
+              "Run the latest database migration to save warranty length and return-window preferences on the server.",
+          );
+        }
+        res = await supabase
+          .from("users")
+          .select("first_name, last_name, avatar_url, country, receipt_location_disabled")
+          .eq("id", user.id)
+          .maybeSingle();
+      }
 
       if (res.error) {
         selErr = res.error;
@@ -145,6 +173,30 @@ const Profile = () => {
           ? data.receipt_location_disabled
           : undefined;
       setReceiptLocationDisabled(locOpt === true);
+
+      const wdMonths =
+        data && "warranty_default_months" in data ? data.warranty_default_months : undefined;
+      const rWindow =
+        data && "return_window_days" in data ? data.return_window_days : undefined;
+
+      if (typeof wdMonths === "number" && wdMonths >= 1 && wdMonths <= 600) {
+        if (wdMonths % 12 === 0) {
+          setWarrantyDurationUnit("years");
+          setWarrantyDurationAmount(String(wdMonths / 12));
+        } else {
+          setWarrantyDurationUnit("months");
+          setWarrantyDurationAmount(String(wdMonths));
+        }
+      } else {
+        setWarrantyDurationUnit("years");
+        setWarrantyDurationAmount("3");
+      }
+
+      if (typeof rWindow === "number" && rWindow >= 0 && rWindow <= 365) {
+        setReturnWindowDaysInput(String(rWindow));
+      } else {
+        setReturnWindowDaysInput("30");
+      }
 
       const stored = data?.avatar_url?.trim() || "";
       if (stored && looksLikeAbsoluteUrl(stored)) {
@@ -337,6 +389,81 @@ const Profile = () => {
     }
   };
 
+  const applyRegionalShoppingDefaults = async () => {
+    if (!user || regionalShoppingSaving) return;
+    setRegionalShoppingSaving(true);
+    setSuccess("");
+    setError("");
+
+    const rawAmt = warrantyDurationAmount.trim();
+    const amt = Number.parseInt(rawAmt, 10);
+    if (!Number.isFinite(amt) || amt < 1) {
+      toast({
+        title: "Check warranty length",
+        description: "Enter a whole number of 1 or more.",
+        variant: "destructive",
+      });
+      setRegionalShoppingSaving(false);
+      return;
+    }
+
+    let warrantyMonths = warrantyDurationUnit === "years" ? amt * 12 : amt;
+    if (warrantyDurationUnit === "years") {
+      if (amt > 50) {
+        toast({
+          title: "Check warranty length",
+          description: "Use at most 50 years (adjust to months if you need a longer window).",
+          variant: "destructive",
+        });
+        setRegionalShoppingSaving(false);
+        return;
+      }
+    }
+    if (warrantyMonths > 600 || warrantyMonths < 1) {
+      toast({
+        title: "Check warranty length",
+        description: "The maximum supported default is 600 months.",
+        variant: "destructive",
+      });
+      setRegionalShoppingSaving(false);
+      return;
+    }
+
+    const retRaw = returnWindowDaysInput.trim();
+    const ret = Number.parseInt(retRaw, 10);
+    if (!Number.isFinite(ret) || ret < 0 || ret > 365) {
+      toast({
+        title: "Check return window",
+        description: "Enter whole days between 0 and 365 (0 hides the reminder on receipts).",
+        variant: "destructive",
+      });
+      setRegionalShoppingSaving(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ warranty_default_months: warrantyMonths, return_window_days: ret })
+        .eq("id", user.id);
+      if (error) throw error;
+      notifyUserShoppingPrefsChanged();
+      toast({
+        title: "Regional defaults saved",
+        description: "Warranty length and return window will apply across Summary, Intelligence, and receipt detail.",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not update preferences.";
+      toast({
+        title: "Could not save",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setRegionalShoppingSaving(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
       <header className="mx-auto mb-8 max-w-2xl text-center">
@@ -479,6 +606,80 @@ const Profile = () => {
                 onCheckedChange={(c) => void applyReceiptLocationOptOut(c)}
               />
             </div>
+          </div>
+          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
+            <p className="font-medium text-slate-100">Warranty and returns</p>
+            <p className="text-sm text-slate-300">
+              Typical warranty coverage where you shop, and how long you plan to return unwanted items without hassle.
+              We use warranty length whenever a receipt has a purchase date but no saved warranty end date; the return
+              window appears as a reminder on receipt detail. For your planning only — not legal advice.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <label htmlFor="warranty-duration-amt" className="block text-sm font-medium text-slate-200">
+                  Default warranty duration
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    id="warranty-duration-amt"
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={warrantyDurationAmount}
+                    onChange={(e) => setWarrantyDurationAmount(e.target.value)}
+                    disabled={loading || regionalShoppingSaving || !user}
+                    aria-label="Warranty duration amount"
+                    className="max-w-[120px] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
+                  />
+                  <select
+                    id="warranty-duration-unit"
+                    value={warrantyDurationUnit}
+                    onChange={(e) =>
+                      setWarrantyDurationUnit(e.target.value === "months" ? "months" : "years")
+                    }
+                    disabled={loading || regionalShoppingSaving || !user}
+                    aria-label="Warranty duration unit"
+                    className={cn(
+                      "flex h-10 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                    )}
+                  >
+                    <option value="years">Years</option>
+                    <option value="months">Months</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <label htmlFor="return-window-days" className="block text-sm font-medium text-slate-200">
+                  Return window (days after purchase)
+                </label>
+                <Input
+                  id="return-window-days"
+                  type="number"
+                  min={0}
+                  max={365}
+                  step={1}
+                  inputMode="numeric"
+                  value={returnWindowDaysInput}
+                  onChange={(e) => setReturnWindowDaysInput(e.target.value)}
+                  disabled={loading || regionalShoppingSaving || !user}
+                  aria-label="Days allowed for hassle-free returns"
+                  className="max-w-[120px] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
+                />
+                <p className="text-xs text-slate-400">Use 0 to hide the return reminder on receipts.</p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+              onClick={() => void applyRegionalShoppingDefaults()}
+              disabled={loading || regionalShoppingSaving || !user}
+            >
+              {regionalShoppingSaving ? "Saving…" : "Save warranty & return settings"}
+            </Button>
           </div>
           <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
             <p className="font-medium text-slate-100">AI Rescan</p>

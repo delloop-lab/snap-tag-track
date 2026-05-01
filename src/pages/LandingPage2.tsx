@@ -114,12 +114,11 @@ export default function LandingPage2() {
               Always-Ready Companion
             </p>
             <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
-              Stop Guessing Where Your Money Went.
-              <br />
-              See It.
+              Never lose a warranty again.
             </h1>
-            <p className="text-slate-300 mt-4 text-base md:text-lg">
-              Snap receipts or invoices, tag them, and track spending instantly. Get warranty expiry reminders. Built for families and contractors.
+            <p className="text-slate-300 mt-4 text-base md:text-lg leading-relaxed">
+              Snap receipts or invoices, tag them instantly, and track spending automatically. Get timely reminders before
+              warranties expire so you stay in control of what you&apos;ve already paid for.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
