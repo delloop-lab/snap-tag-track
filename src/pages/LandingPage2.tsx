@@ -80,7 +80,7 @@ export default function LandingPage2() {
       persona === "personal"
         ? {
             title: "Family-first tracking",
-            text: "Track grocery inflation, spot budget leaks, and keep household proof in one place.",
+            text: "Track purchases so you don't lose money and don't get screwed on warranties.",
           }
         : {
             title: "Contractor-ready evidence",
@@ -117,7 +117,7 @@ export default function LandingPage2() {
               See It.
             </h1>
             <p className="text-slate-300 mt-4 text-base md:text-lg">
-              Snap a store receipt or invoice, tag the project, and track spending instantly. Works even when the internet doesn&apos;t.
+              Snap a store receipt or invoice, tag it, and track spending instantly. Get reminded before warranties expire.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link to="/auth" className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3">
@@ -188,18 +188,20 @@ export default function LandingPage2() {
           </div>
           <div className="rounded-2xl border border-[#7CB87E]/35 bg-slate-700/60 p-6">
             <h3 className="font-bold text-[#7CB87E]">Family Focus</h3>
-            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Track grocery inflation and recurring spending leaks.</p>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">
+              Keep your family budget under control by tracking rising grocery costs and hidden spending leaks.
+            </p>
           </div>
           <div className="rounded-2xl border border-[#4A8AE6]/35 bg-slate-700/60 p-6">
             <h3 className="font-bold text-[#4A8AE6]">Contractor Focus</h3>
-            <p className="text-slate-300 mt-2 text-sm leading-relaxed">Tag every receipt to jobs/clients and keep deductions organised.</p>
+            <p className="text-slate-300 mt-2 text-sm leading-relaxed">
+              Organise receipts by job or client and make sure every deductible cost is accounted for.
+            </p>
           </div>
           <div className={`rounded-2xl border bg-slate-700/60 p-6 ${persona === "personal" ? "border-[#7CB87E]/35" : "border-[#4A8AE6]/35"}`}>
-            <h3 className={`font-bold ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>Always Ready</h3>
+            <h3 className={`font-bold ${persona === "personal" ? "text-[#7CB87E]" : "text-[#4A8AE6]"}`}>Warranty Tracking</h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">
-              {persona === "contractor"
-                ? "You can add details on site or at home."
-                : "You can add details whilst shopping or at home."}
+              Every receipt is stored with its warranty and you&apos;re reminded before it expires.
             </p>
           </div>
         </div>
@@ -231,7 +233,7 @@ export default function LandingPage2() {
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">
               {persona === "personal"
                 ? "Store receipt and product images together for returns, repairs, and support claims."
-                : "Keep each receipt linked to a client/job so tax and reporting season is painless."}
+                : "Keep each receipt and it's image linked to a client/job so tax and reporting season is painless."}
             </p>
           </div>
         </div>
@@ -307,25 +309,15 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-24">
-        <h2 className="text-2xl md:text-3xl font-bold mb-5">Simple Install Guide</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
-            <h3 className="font-semibold text-[#7CB87E]">iPhone</h3>
-            <p className="text-sm text-slate-300 mt-2">Tap Share, then tap Add to Home Screen.</p>
-          </div>
-          <div className="rounded-xl border border-slate-600 bg-slate-700/60 p-5">
-            <h3 className="font-semibold text-orange-300">Android</h3>
-            <p className="text-sm text-slate-300 mt-2">Open browser menu, then tap Install App.</p>
-          </div>
-        </div>
-      </section>
-
       <section className="mx-auto max-w-6xl px-4 pb-28">
-        <div className="hidden md:flex flex-col rounded-2xl bg-white text-slate-700 p-6 items-center justify-center max-w-sm mx-auto">
-          <img src={QR_IMAGE} alt="Launch instantly QR code" className="w-40 h-40 mb-3" />
-          <p className="text-sm font-semibold">Launch Instantly</p>
-          <p className="text-xs text-slate-500 text-center">Scan with your phone to open Snap Tag Track now.</p>
+        <div className="hidden md:flex max-w-sm mx-auto flex-col items-center justify-center rounded-2xl border border-slate-600 bg-slate-700/60 p-6 text-slate-100 shadow-xl shadow-black/20">
+          <div className="rounded-xl bg-white p-3 shadow-md">
+            <img src={QR_IMAGE} alt="Launch instantly QR code" className="h-36 w-36" />
+          </div>
+          <p className="mt-4 text-sm font-semibold text-[#7CB87E]">Launch Instantly</p>
+          <p className="mt-1 text-center text-xs text-slate-300">
+            Scan with your phone to open Snap Tag Track now.
+          </p>
         </div>
       </section>
 

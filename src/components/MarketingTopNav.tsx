@@ -10,9 +10,9 @@ export const marketingLoginBtnClass =
 const marketingActivePillClass =
   "inline-flex items-center justify-center rounded-xl border border-[#7CB87E]/50 bg-[#7CB87E]/15 px-4 py-2 text-sm font-semibold text-[#7CB87E] md:text-base";
 
-export type MarketingTopNavActive = "help" | "contact" | null;
+export type MarketingTopNavActive = "help" | "contact" | "auth" | null;
 
-/** Logo + Help / Contact / Login — aligned across Help, Contact, Terms, Privacy, Landing. */
+/** Logo + Help / Contact / Login — aligned across Help, Contact, Terms, Privacy, Landing, Auth. */
 export default function MarketingTopNav({
   active = null,
   className = "",
@@ -47,9 +47,15 @@ export default function MarketingTopNav({
             Contact
           </Link>
         )}
-        <Link to="/auth" className={marketingLoginBtnClass}>
-          Login
-        </Link>
+        {active === "auth" ? (
+          <span className={marketingActivePillClass} aria-current="page">
+            Login
+          </span>
+        ) : (
+          <Link to="/auth" className={marketingLoginBtnClass}>
+            Login
+          </Link>
+        )}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
     return (
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-300 bg-white/95 px-4 py-2 backdrop-blur-sm">
         <div className="relative mx-auto flex max-w-[1100px] flex-wrap items-center justify-center gap-x-4 gap-y-1">
-          <p className="text-[11px] text-gray-500 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.857</p>
+          <p className="text-[11px] text-gray-500 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.957</p>
           <p className="text-center text-xs text-gray-600">&copy; 2025–2026 Snap Tag Track</p>
           <div className="flex flex-wrap items-center justify-center gap-x-3 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2">
             <Link
@@ -32,7 +32,7 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
       <div className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1">
-        <p className="text-[11px] text-slate-400 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.857</p>
+        <p className="text-[11px] text-slate-400 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.957</p>
         <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
         <div className="flex flex-wrap items-center justify-center gap-x-3 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2">
           <Link

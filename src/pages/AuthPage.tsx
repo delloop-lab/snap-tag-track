@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { TERMS_PUBLISHED_VERSION_ID } from "@/lib/termsVersion";
-import { createClient } from '@supabase/supabase-js';
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+import { Eye, EyeOff } from "lucide-react";
+import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 
 const AuthPage = () => {
@@ -136,14 +137,11 @@ const AuthPage = () => {
 
   return (
     <>
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-800 px-4 py-12 pb-28 text-slate-100">
-      <Link
-        to="/"
-        className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 shadow-md transition-colors hover:bg-slate-700 hover:text-white md:left-6 md:top-6"
-      >
-        <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-        Back
-      </Link>
+    <div className="flex min-h-screen w-full flex-col bg-slate-800 text-slate-100">
+      <div className={`${marketingPageGutterClass} pb-2`}>
+        <MarketingTopNav active="auth" className="mb-6 sm:mb-8" />
+      </div>
+      <div className="flex flex-1 items-center justify-center px-4 py-6 pb-28 sm:px-6">
       <div className="relative w-full max-w-md space-y-8 overflow-hidden rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-slate-100 shadow-2xl backdrop-blur-sm">
         {/* Decorative elements */}
         <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-sky-900/30 blur-3xl opacity-70" />
@@ -275,6 +273,7 @@ const AuthPage = () => {
             </p>
           )}
         </form>
+      </div>
       </div>
     </div>
     <SiteFooter variant="slate" />
