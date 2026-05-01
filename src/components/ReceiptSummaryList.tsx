@@ -32,6 +32,7 @@ import {
 } from "@/lib/rescanPreferences";
 import type { RescanPreferences } from "@/lib/rescanPreferences";
 import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
+import { toast } from "@/components/ui/use-toast";
 
 // Tag color palette
 const tagColors = [
@@ -142,10 +143,6 @@ const ReceiptSummaryList = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    if (isMobile) setShowMobileBanner(true);
-  }, [isMobile]);
 
   // Get unique client names from receipts for client filter
   const clients = Array.from(new Set(receipts.map(r => r.client_name).filter(Boolean)));
