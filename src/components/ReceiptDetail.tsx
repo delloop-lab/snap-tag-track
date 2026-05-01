@@ -36,6 +36,7 @@ import {
 import { resolveReceiptImageUrl } from "@/lib/receiptImageUrl";
 import { validateWarrantyWithPurchaseDate } from "@/lib/warrantyRules";
 import { useUserShoppingPreferences } from "@/hooks/useUserShoppingPreferences";
+import { formatReceiptCurrency } from "@/lib/displayCurrency";
 import {
   describeWarrantyMonths,
   suggestedReturnDeadline,
@@ -74,7 +75,7 @@ type Receipt = {
 const ReceiptDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { warrantyDefaultMonths, returnWindowDays } = useUserShoppingPreferences();
+  const { warrantyDefaultMonths, returnWindowDays, preferredDisplayCurrency } = useUserShoppingPreferences();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
@@ -248,17 +249,8 @@ const ReceiptDetail = () => {
   }, []);
 
   const formatCurrency = (amount: number | null, currencyCode?: string | null) => {
-    if (amount === null) return "Not available";
-    const code = currencyCode ?? receipt?.currency;
-    if (!code) return amount.toFixed(2);
-    try {
-      return new Intl.NumberFormat('en-GB', {
-        style: 'currency',
-        currency: code,
-      }).format(amount);
-    } catch {
-      return `${code} ${amount.toFixed(2)}`;
-    }
+    const fromReceipt = currencyCode ?? receipt?.currency ?? null;
+    return formatReceiptCurrency(amount, fromReceipt, preferredDisplayCurrency, { nullLabel: "Not available" });
   };
 
   const handleDelete = async () => {

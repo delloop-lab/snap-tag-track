@@ -39,6 +39,7 @@ import {
   describeWarrantyMonths,
   warrantyEndFromReceipt,
 } from "@/lib/userShoppingPreferences";
+import { formatReceiptCurrency } from "@/lib/displayCurrency";
 
 // Tag color palette
 const tagColors = [
@@ -123,7 +124,10 @@ const ReceiptSummaryList = () => {
   // Get the highlight ID from URL query params
   const highlightId = new URLSearchParams(location.search).get("highlight");
 
-  const { warrantyDefaultMonths } = useUserShoppingPreferences();
+  const { warrantyDefaultMonths, preferredDisplayCurrency } = useUserShoppingPreferences();
+
+  const formatMoneyCell = (amount: number | null, currency?: string | null) =>
+    formatReceiptCurrency(amount, currency ?? null, preferredDisplayCurrency, { nullLabel: "-" });
 
   const fetchData = async () => {
     if (!user) return;
@@ -434,7 +438,7 @@ const ReceiptSummaryList = () => {
         <div className="flex gap-3 overflow-x-auto pb-2 mb-4 snap-x">
           <div className="min-w-[140px] rounded-lg border border-slate-600 bg-slate-800/90 p-3 flex flex-col items-center justify-center snap-center">
             <div className="text-xs text-slate-400">Total Spent</div>
-            <div className="text-lg font-bold text-slate-100">${totalFiltered.toFixed(2)}</div>
+            <div className="text-lg font-bold text-slate-100">{formatMoneyCell(totalFiltered, null)}</div>
           </div>
           <div className="min-w-[140px] rounded-lg border border-slate-600 bg-slate-800/90 p-3 flex flex-col items-center justify-center snap-center">
             <div className="text-xs text-slate-400">Receipts</div>
@@ -541,7 +545,7 @@ const ReceiptSummaryList = () => {
                   <div className="flex-1 min-w-0">
                     <div className="truncate text-sm font-semibold text-slate-100">{r.vendor_name || "Unknown Vendor"}</div>
                     <div className="truncate text-xs text-slate-400">{r.purchase_date ? format(new Date(r.purchase_date), 'MMM d, yyyy') : "No date"}</div>
-                    <div className="mt-1 text-xs font-bold text-slate-100">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</div>
+                    <div className="mt-1 text-xs font-bold text-slate-100">{formatMoneyCell(r.total_amount, r.currency)}</div>
                     {r.warranty && <span className="mt-1 inline-flex items-center gap-1 rounded bg-green-900/40 px-2 py-0.5 text-xs text-green-300"><ShieldCheck className="w-3 h-3" /> Warranty</span>}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {(r.receipt_tags || []).map((rt: ReceiptTag) => rt.tags && (
@@ -739,7 +743,7 @@ const ReceiptSummaryList = () => {
         </div>
       </div>
       <div className="mb-4 text-lg font-semibold text-slate-900">
-        Total for filtered receipts: <span className="text-orange-600">${totalFiltered.toFixed(2)}</span>
+        Total for filtered receipts: <span className="text-orange-600">{formatMoneyCell(totalFiltered, null)}</span>
       </div>
 
       {filteredReceipts.length === 0 ? (
@@ -775,7 +779,7 @@ const ReceiptSummaryList = () => {
                 >
                   <td className="border-b border-slate-100 p-2 md:p-3">{r.vendor_name || "-"}</td>
                   <td className="border-b border-slate-100 p-2 md:p-3">{r.purchase_date ? format(new Date(r.purchase_date), "PPP") : "-"}</td>
-                  <td className="border-b border-slate-100 p-2 md:p-3">{r.total_amount != null ? `$${r.total_amount.toFixed(2)}` : "-"}</td>
+                  <td className="border-b border-slate-100 p-2 md:p-3">{formatMoneyCell(r.total_amount, r.currency)}</td>
                   <td className="border-b border-slate-100 p-2 md:p-3">{r.type || "-"}</td>
                   <td className="border-b border-slate-100 p-2 md:p-3">{r.client_name || "-"}</td>
                   <td className="border-b border-slate-100 p-2 md:p-3">

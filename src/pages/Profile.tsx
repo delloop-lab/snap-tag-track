@@ -9,6 +9,11 @@ import { useNavigate } from "react-router-dom";
 import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
 import { COUNTRY_DISPLAY_NAMES_EN } from "@/lib/countryDisplayNames";
 import { notifyUserShoppingPrefsChanged } from "@/lib/userShoppingPreferences";
+import {
+  DISPLAY_CURRENCY_OPTIONS,
+  FALLBACK_DISPLAY_CURRENCY,
+  sanitizeDisplayCurrency,
+} from "@/lib/displayCurrency";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
@@ -69,6 +74,7 @@ const Profile = () => {
   const [warrantyDurationUnit, setWarrantyDurationUnit] = useState<WarrantyDurationUnit>("years");
   const [warrantyDurationAmount, setWarrantyDurationAmount] = useState("3");
   const [returnWindowDaysInput, setReturnWindowDaysInput] = useState("30");
+  const [preferredCurrencyIso, setPreferredCurrencyIso] = useState(FALLBACK_DISPLAY_CURRENCY);
   const [regionalShoppingSaving, setRegionalShoppingSaving] = useState(false);
 
   useEffect(() => {
@@ -90,6 +96,7 @@ const Profile = () => {
             receipt_location_disabled?: boolean | null;
             warranty_default_months?: number | null;
             return_window_days?: number | null;
+            preferred_display_currency?: string | null;
           }
         | null = null;
       let selErr: { message: string } | null = null;
@@ -97,14 +104,14 @@ const Profile = () => {
       let res = await supabase
         .from("users")
         .select(
-          "first_name, last_name, avatar_url, country, receipt_location_disabled, warranty_default_months, return_window_days",
+          "first_name, last_name, avatar_url, country, receipt_location_disabled, warranty_default_months, return_window_days, preferred_display_currency",
         )
         .eq("id", user.id)
         .maybeSingle();
 
       if (res.error) {
         const prefMsg = res.error.message ?? "";
-        if (/warranty_default_months|return_window_days/i.test(prefMsg)) {
+        if (/warranty_default_months|return_window_days|preferred_display_currency/i.test(prefMsg)) {
           setLoadWarning(
             (w) =>
               w ||
@@ -197,6 +204,12 @@ const Profile = () => {
       } else {
         setReturnWindowDaysInput("30");
       }
+
+      const pCur =
+        data && "preferred_display_currency" in data
+          ? sanitizeDisplayCurrency((data as { preferred_display_currency?: string | null }).preferred_display_currency)
+          : null;
+      setPreferredCurrencyIso(pCur ?? FALLBACK_DISPLAY_CURRENCY);
 
       const stored = data?.avatar_url?.trim() || "";
       if (stored && looksLikeAbsoluteUrl(stored)) {
@@ -442,15 +455,25 @@ const Profile = () => {
     }
 
     try {
+      const chosen = sanitizeDisplayCurrency(preferredCurrencyIso);
+      const currencyIso =
+        chosen !== null && DISPLAY_CURRENCY_OPTIONS.some((o) => o.code === chosen)
+          ? chosen
+          : FALLBACK_DISPLAY_CURRENCY;
       const { error } = await supabase
         .from("users")
-        .update({ warranty_default_months: warrantyMonths, return_window_days: ret })
+        .update({
+          warranty_default_months: warrantyMonths,
+          return_window_days: ret,
+          preferred_display_currency: currencyIso,
+        })
         .eq("id", user.id);
       if (error) throw error;
       notifyUserShoppingPrefsChanged();
       toast({
-        title: "Regional defaults saved",
-        description: "Warranty length and return window will apply across Summary, Intelligence, and receipt detail.",
+        title: "Settings saved",
+        description:
+          "Warranty length, return window, and display currency apply across Receipts, Summary, and Intelligence.",
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not update preferences.";
@@ -465,264 +488,302 @@ const Profile = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
-      <header className="mx-auto mb-8 max-w-2xl text-center">
-        <p className="mb-3 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E]">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 xl:max-w-7xl sm:px-6 lg:px-8 lg:py-10">
+      <header className="mb-8 text-center lg:mb-10 lg:text-left">
+        <p className="mb-3 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E] lg:mx-0">
           Account settings
         </p>
         <h1 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
           Profile
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
-          Update your details and manage profile tools in one place.
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+          Update your details and manage receipt defaults in one place.
         </p>
       </header>
 
-      <div className="space-y-8 rounded-2xl border border-slate-600 bg-slate-900/70 p-6 text-slate-100 shadow-xl shadow-black/20 backdrop-blur-sm sm:p-8">
       {loadWarning && (
         <p
-          className="text-sm rounded-md border border-amber-600/60 bg-amber-950/40 px-3 py-2 text-amber-100"
+          className="mb-6 text-sm rounded-xl border border-amber-600/60 bg-amber-950/40 px-4 py-3 text-amber-100 lg:mb-8"
           role="status"
         >
           {loadWarning}
         </p>
       )}
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative flex h-24 w-24 flex-col items-center justify-center overflow-hidden rounded-full border border-slate-500 bg-slate-800/80">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Your profile photo"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-2xl font-medium text-slate-300" aria-hidden>
-                {(firstName?.[0] ?? lastName?.[0] ?? user?.email?.[0] ?? "?").toUpperCase()}
-              </span>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-2 border-slate-500 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700 hover:text-white"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
-          >
-            {avatarUrl ? "Change" : "Add"} Photo
-          </Button>
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleAvatarChange}
-            disabled={loading}
-          />
-        </div>
-        <div>
-          <label className="block mb-1 font-medium" htmlFor="profile-first-name">
-            First name <span className="text-sm font-normal text-red-400">required</span>
-          </label>
-          <Input
-            id="profile-first-name"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder="First name"
-            disabled={loading}
-            required
-            aria-required="true"
-            autoComplete="given-name"
-            className="border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900 placeholder:text-slate-300"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 font-medium" htmlFor="profile-last-name">
-            Last name <span className="text-sm font-normal text-red-400">required</span>
-          </label>
-          <Input
-            id="profile-last-name"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Last name"
-            disabled={loading}
-            required
-            aria-required="true"
-            autoComplete="family-name"
-            className="border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900 placeholder:text-slate-300"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 font-medium" htmlFor="profile-country">
-            Country <span className="text-sm font-normal text-red-400">required</span>
-          </label>
-          <select
-            id="profile-country"
-            className={cn(
-              "flex h-10 w-full rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2",
-              "disabled:cursor-not-allowed disabled:opacity-50"
-            )}
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            disabled={loading}
-            required
-            aria-required="true"
-            autoComplete="country-name"
-          >
-            <option value="">Select country…</option>
-            {COUNTRY_DISPLAY_NAMES_EN.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {success && <div className="text-center text-green-400">{success}</div>}
-        {error && <div className="text-center text-red-400">{error}</div>}
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Saving..." : "Save Changes"}
-        </Button>
-      </form>
 
-      <div className="border-t border-slate-600 pt-6">
-        <h3 className="mb-4 text-lg font-semibold text-white">Settings</h3>
-        <div className="space-y-6">
-          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
-            <p className="font-medium text-slate-100">Receipt location</p>
-            <p className="text-sm text-slate-300">
-              When you capture a receipt photo, we can use GPS from the image or from this device. Turn the switch on
-              to never attach location and skip that step for new captures. If you leave it off, we will ask each time
-              you add a receipt photo.
-            </p>
-            <div className="flex items-center justify-between gap-3 rounded-md border border-slate-600/80 bg-slate-900/40 px-3 py-3">
-              <label htmlFor="receipt-loc-opt-out" className="cursor-pointer text-sm text-slate-200">
-                Never attach location to new receipts
-              </label>
-              <Switch
-                id="receipt-loc-opt-out"
-                checked={receiptLocationDisabled}
-                disabled={loading || receiptLocationPrefSaving || !user}
-                onCheckedChange={(c) => void applyReceiptLocationOptOut(c)}
-              />
-            </div>
-          </div>
-          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
-            <p className="font-medium text-slate-100">Warranty and returns</p>
-            <p className="text-sm text-slate-300">
-              Typical warranty coverage where you shop, and how long you plan to return unwanted items without hassle.
-              We use warranty length whenever a receipt has a purchase date but no saved warranty end date; the return
-              window appears as a reminder on receipt detail. For your planning only — not legal advice.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <label htmlFor="warranty-duration-amt" className="block text-sm font-medium text-slate-200">
-                  Default warranty duration
-                </label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    id="warranty-duration-amt"
-                    type="number"
-                    min={1}
-                    step={1}
-                    inputMode="numeric"
-                    value={warrantyDurationAmount}
-                    onChange={(e) => setWarrantyDurationAmount(e.target.value)}
-                    disabled={loading || regionalShoppingSaving || !user}
-                    aria-label="Warranty duration amount"
-                    className="max-w-[120px] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
-                  />
+      <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-10">
+        <section className="rounded-2xl border border-slate-600 bg-slate-900/70 p-6 text-slate-100 shadow-xl shadow-black/20 backdrop-blur-sm sm:p-8">
+          <h2 className="mb-6 text-lg font-semibold text-white">Your account</h2>
+          <form onSubmit={handleSave} className="space-y-6">
+            <div className="flex flex-col gap-8 sm:flex-row sm:items-start">
+              <div className="flex shrink-0 flex-col items-center gap-3 sm:items-start">
+                <div className="relative flex h-28 w-28 flex-col items-center justify-center overflow-hidden rounded-full border border-slate-500 bg-slate-800/80 sm:h-32 sm:w-32">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Your profile photo" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-3xl font-medium text-slate-300" aria-hidden>
+                      {(firstName?.[0] ?? lastName?.[0] ?? user?.email?.[0] ?? "?").toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-slate-500 bg-slate-800 px-3 py-2 text-xs text-slate-100 hover:bg-slate-700 hover:text-white"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                >
+                  {avatarUrl ? "Change" : "Add"} photo
+                </Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                  disabled={loading}
+                />
+              </div>
+              <div className="min-w-0 flex-1 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block font-medium" htmlFor="profile-first-name">
+                      First name <span className="text-sm font-normal text-red-400">required</span>
+                    </label>
+                    <Input
+                      id="profile-first-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="First name"
+                      disabled={loading}
+                      required
+                      aria-required="true"
+                      autoComplete="given-name"
+                      className="border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900 placeholder:text-slate-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block font-medium" htmlFor="profile-last-name">
+                      Last name <span className="text-sm font-normal text-red-400">required</span>
+                    </label>
+                    <Input
+                      id="profile-last-name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Last name"
+                      disabled={loading}
+                      required
+                      aria-required="true"
+                      autoComplete="family-name"
+                      className="border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900 placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block font-medium" htmlFor="profile-country">
+                    Country <span className="text-sm font-normal text-red-400">required</span>
+                  </label>
                   <select
-                    id="warranty-duration-unit"
-                    value={warrantyDurationUnit}
-                    onChange={(e) =>
-                      setWarrantyDurationUnit(e.target.value === "months" ? "months" : "years")
-                    }
-                    disabled={loading || regionalShoppingSaving || !user}
-                    aria-label="Warranty duration unit"
+                    id="profile-country"
                     className={cn(
-                      "flex h-10 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
+                      "flex h-10 w-full rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2",
                       "disabled:cursor-not-allowed disabled:opacity-50",
                     )}
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    disabled={loading}
+                    required
+                    aria-required="true"
+                    autoComplete="country-name"
                   >
-                    <option value="years">Years</option>
-                    <option value="months">Months</option>
+                    <option value="">Select country…</option>
+                    {COUNTRY_DISPLAY_NAMES_EN.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
-              <div className="space-y-2 sm:col-span-2">
-                <label htmlFor="return-window-days" className="block text-sm font-medium text-slate-200">
-                  Return window (days after purchase)
+            </div>
+            {success && <div className="text-sm text-green-400">{success}</div>}
+            {error && <div className="text-sm text-red-400">{error}</div>}
+            <Button type="submit" className="w-full sm:w-auto sm:min-w-[200px]" disabled={loading}>
+              {loading ? "Saving..." : "Save account"}
+            </Button>
+          </form>
+        </section>
+        <section className="rounded-2xl border border-slate-600 bg-slate-900/70 p-6 text-slate-100 shadow-xl shadow-black/20 backdrop-blur-sm sm:p-8">
+          <h2 className="mb-6 text-lg font-semibold text-white">Receipts &amp; defaults</h2>
+          <div className="space-y-6">
+            <div className="space-y-3 rounded-xl border border-slate-600 bg-slate-950/25 p-4 sm:p-5">
+              <p className="font-medium text-slate-100">Receipt location</p>
+              <p className="text-sm text-slate-300">
+                When you capture a receipt photo, we can use GPS from the image or from this device. Turn the switch on
+                to never attach location and skip that step for new captures. If you leave it off, we will ask each time
+                you add a receipt photo.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-600/80 bg-slate-900/40 px-3 py-3 sm:px-4">
+                <label htmlFor="receipt-loc-opt-out" className="min-w-0 flex-1 cursor-pointer text-sm text-slate-200">
+                  Never attach location to new receipts
                 </label>
-                <Input
-                  id="return-window-days"
-                  type="number"
-                  min={0}
-                  max={365}
-                  step={1}
-                  inputMode="numeric"
-                  value={returnWindowDaysInput}
-                  onChange={(e) => setReturnWindowDaysInput(e.target.value)}
-                  disabled={loading || regionalShoppingSaving || !user}
-                  aria-label="Days allowed for hassle-free returns"
-                  className="max-w-[120px] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
+                <Switch
+                  id="receipt-loc-opt-out"
+                  checked={receiptLocationDisabled}
+                  disabled={loading || receiptLocationPrefSaving || !user}
+                  onCheckedChange={(c) => void applyReceiptLocationOptOut(c)}
                 />
-                <p className="text-xs text-slate-400">Use 0 to hide the return reminder on receipts.</p>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
-              onClick={() => void applyRegionalShoppingDefaults()}
-              disabled={loading || regionalShoppingSaving || !user}
-            >
-              {regionalShoppingSaving ? "Saving…" : "Save warranty & return settings"}
-            </Button>
+
+            <div className="space-y-4 rounded-xl border border-slate-600 bg-slate-950/25 p-4 sm:p-5">
+              <div>
+                <p className="font-medium text-slate-100">Warranty, returns &amp; currency</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  Defaults when a receipt has no warranty end or no currency from AI. Return reminders are for your
+                  planning only — not legal advice.
+                </p>
+              </div>
+              <div className="grid gap-5 xl:grid-cols-3 xl:gap-4">
+                <div className="space-y-2 xl:min-w-0">
+                  <label htmlFor="warranty-duration-amt" className="block text-sm font-medium text-slate-200">
+                    Default warranty duration
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      id="warranty-duration-amt"
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={warrantyDurationAmount}
+                      onChange={(e) => setWarrantyDurationAmount(e.target.value)}
+                      disabled={loading || regionalShoppingSaving || !user}
+                      aria-label="Warranty duration amount"
+                      className="w-[7rem] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
+                    />
+                    <select
+                      id="warranty-duration-unit"
+                      value={warrantyDurationUnit}
+                      onChange={(e) =>
+                        setWarrantyDurationUnit(e.target.value === "months" ? "months" : "years")
+                      }
+                      disabled={loading || regionalShoppingSaving || !user}
+                      aria-label="Warranty duration unit"
+                      className={cn(
+                        "h-10 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                      )}
+                    >
+                      <option value="years">Years</option>
+                      <option value="months">Months</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2 xl:min-w-0">
+                  <label htmlFor="return-window-days" className="block text-sm font-medium text-slate-200">
+                    Return window (days)
+                  </label>
+                  <Input
+                    id="return-window-days"
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={1}
+                    inputMode="numeric"
+                    value={returnWindowDaysInput}
+                    onChange={(e) => setReturnWindowDaysInput(e.target.value)}
+                    disabled={loading || regionalShoppingSaving || !user}
+                    aria-label="Days allowed for hassle-free returns"
+                    className="max-w-[8rem] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
+                  />
+                  <p className="text-xs text-slate-400">0 hides the reminder on receipts.</p>
+                </div>
+                <div className="space-y-2 xl:min-w-0">
+                  <label htmlFor="profile-preferred-currency" className="block text-sm font-medium text-slate-200">
+                    Display currency fallback
+                  </label>
+                  <select
+                    id="profile-preferred-currency"
+                    value={
+                      DISPLAY_CURRENCY_OPTIONS.some((o) => o.code === preferredCurrencyIso)
+                        ? preferredCurrencyIso
+                        : FALLBACK_DISPLAY_CURRENCY
+                    }
+                    onChange={(e) => setPreferredCurrencyIso(e.target.value)}
+                    disabled={loading || regionalShoppingSaving || !user}
+                    className={cn(
+                      "flex h-10 w-full min-w-0 rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-50 ring-offset-slate-900",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                    )}
+                    aria-label="Preferred currency when receipt lacks ISO code"
+                  >
+                    {DISPLAY_CURRENCY_OPTIONS.map((o) => (
+                      <option key={o.code} value={o.code}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400">When a receipt has no currency from AI.</p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white sm:w-auto"
+                onClick={() => void applyRegionalShoppingDefaults()}
+                disabled={loading || regionalShoppingSaving || !user}
+              >
+                {regionalShoppingSaving ? "Saving…" : "Save warranty, returns & currency"}
+              </Button>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="space-y-3 rounded-xl border border-slate-600 bg-slate-950/25 p-4 sm:p-5">
+                <p className="font-medium text-slate-100">AI rescan</p>
+                <p className="text-sm text-slate-300">
+                  Bulk rescan from Receipts Summary, including “Rescan All with AI”.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                  onClick={() => navigate("/summary")}
+                >
+                  Open Summary
+                </Button>
+              </div>
+              <div className="space-y-3 rounded-xl border border-slate-600 bg-slate-950/25 p-4 sm:p-5">
+                <p className="font-medium text-slate-100">Thumbnail scans</p>
+                <p className="text-sm text-slate-300">
+                  Preview images for older uploads. Safe to repeat; existing thumbnails stay.
+                </p>
+                {thumbBackfill.total > 0 && (
+                  <p className="text-sm text-slate-200">
+                    Progress: {thumbBackfill.done} / {thumbBackfill.total}
+                  </p>
+                )}
+                {thumbBackfill.last && !thumbBackfill.running && (
+                  <p className="text-xs text-slate-400">
+                    Last run: created {thumbBackfill.last.created}, skipped {thumbBackfill.last.skipped}, failed{" "}
+                    {thumbBackfill.last.failed}.
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                  onClick={runThumbBackfill}
+                  disabled={loading || thumbBackfill.running || !user}
+                >
+                  {thumbBackfill.running ? "Scanning…" : "Run thumbnail scan"}
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
-            <p className="font-medium text-slate-100">AI Rescan</p>
-            <p className="text-sm text-slate-300">
-              Bulk rescan receipts with AI from the Receipts Summary page (including &ldquo;Rescan All with AI&rdquo;).
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
-              onClick={() => navigate("/summary")}
-            >
-              AI Rescan
-            </Button>
-          </div>
-          <div className="space-y-3 rounded-md border border-slate-600 bg-slate-950/25 p-4">
-            <p className="font-medium text-slate-100">Thumbnail Scans</p>
-            <p className="text-sm text-slate-300">
-              Generate small preview images for receipts uploaded before thumbnail support. Safe to run more than once; existing thumbnails are skipped.
-            </p>
-            {thumbBackfill.total > 0 && (
-              <p className="text-sm text-slate-200">
-                Progress: {thumbBackfill.done} / {thumbBackfill.total}
-              </p>
-            )}
-            {thumbBackfill.last && !thumbBackfill.running && (
-              <p className="text-xs text-slate-400">
-                Last run: created {thumbBackfill.last.created}, skipped {thumbBackfill.last.skipped}, failed{" "}
-                {thumbBackfill.last.failed}.
-              </p>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
-              onClick={runThumbBackfill}
-              disabled={loading || thumbBackfill.running || !user}
-            >
-              {thumbBackfill.running ? "Scanning thumbnails…" : "Run thumbnail scan"}
-            </Button>
-          </div>
-        </div>
-      </div>
+        </section>
       </div>
     </div>
   );

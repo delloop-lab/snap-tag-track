@@ -9,6 +9,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Tag, X, Filter, ChevronDown, ChevronUp, Loader2, FolderOpen } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useUserShoppingPreferences } from "@/hooks/useUserShoppingPreferences";
+import { formatReceiptCurrency } from "@/lib/displayCurrency";
 import {
   Popover,
   PopoverContent,
@@ -45,6 +47,7 @@ type Receipt = {
   vendor_name: string | null;
   total_amount: number | null;
   purchase_date: string | null;
+  currency?: string | null;
   created_at: string;
   updated_at: string;
   tags?: { id: string; name: string }[];
@@ -62,6 +65,7 @@ const ReceiptList = () => {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { preferredDisplayCurrency } = useUserShoppingPreferences();
 
   // Filter states
   const [vendorFilter, setVendorFilter] = useState("");
@@ -175,6 +179,7 @@ const ReceiptList = () => {
         vendor_name: item.vendor_name || null,
         total_amount: item.total_amount || null,
         purchase_date: item.purchase_date || null,
+        currency: (item as { currency?: string | null }).currency ?? null,
         created_at: item.created_at,
         updated_at: item.updated_at,
         tags: item.tags || [],
@@ -262,15 +267,8 @@ const ReceiptList = () => {
     });
   };
 
-  const formatCurrency = (amount: number | null, currency?: string | null) => {
-    if (amount === null) return "N/A";
-    if (!currency) return amount.toFixed(2);
-    try {
-      return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
-    } catch {
-      return `${currency} ${amount.toFixed(2)}`;
-    }
-  };
+  const formatCurrency = (amount: number | null, currency?: string | null) =>
+    formatReceiptCurrency(amount, currency ?? null, preferredDisplayCurrency, { nullLabel: "N/A" });
 
   const addTagFilter = (tag: Tag) => {
     if (!selectedTags.some(t => t.id === tag.id)) {
@@ -630,7 +628,7 @@ const ReceiptList = () => {
                   </p>
                   {receipt.total_amount != null && (
                     <p className="mt-1 text-sm font-bold text-slate-100">
-                      {formatCurrency(receipt.total_amount, (receipt as any).currency)}
+                      {formatCurrency(receipt.total_amount, receipt.currency)}
                     </p>
                   )}
                   {receipt.tags && receipt.tags.length > 0 && (

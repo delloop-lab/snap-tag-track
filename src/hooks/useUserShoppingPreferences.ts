@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
+import { FALLBACK_DISPLAY_CURRENCY, sanitizeDisplayCurrency } from "@/lib/displayCurrency";
 import {
   FALLBACK_RETURN_WINDOW_DAYS,
   FALLBACK_WARRANTY_MONTHS,
@@ -10,6 +11,8 @@ import {
 export type UserShoppingPreferences = {
   warrantyDefaultMonths: number;
   returnWindowDays: number;
+  /** ISO 4217; used when a receipt row has no currency code. */
+  preferredDisplayCurrency: string;
   /** False until first fetch for the current user finishes. */
   ready: boolean;
 };
@@ -18,19 +21,22 @@ export function useUserShoppingPreferences(): UserShoppingPreferences {
   const { user } = useAuth();
   const [warrantyDefaultMonths, setWarrantyDefaultMonths] = useState(FALLBACK_WARRANTY_MONTHS);
   const [returnWindowDays, setReturnWindowDays] = useState(FALLBACK_RETURN_WINDOW_DAYS);
+  const [preferredDisplayCurrency, setPreferredDisplayCurrency] =
+    useState<string>(FALLBACK_DISPLAY_CURRENCY);
   const [ready, setReady] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.id) {
       setWarrantyDefaultMonths(FALLBACK_WARRANTY_MONTHS);
       setReturnWindowDays(FALLBACK_RETURN_WINDOW_DAYS);
+      setPreferredDisplayCurrency(FALLBACK_DISPLAY_CURRENCY);
       setReady(true);
       return;
     }
     setReady(false);
     const res = await supabase
       .from("users")
-      .select("warranty_default_months, return_window_days")
+      .select("warranty_default_months, return_window_days, preferred_display_currency")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -41,6 +47,9 @@ export function useUserShoppingPreferences(): UserShoppingPreferences {
       else setWarrantyDefaultMonths(FALLBACK_WARRANTY_MONTHS);
       if (typeof rd === "number" && rd >= 0) setReturnWindowDays(rd);
       else setReturnWindowDays(FALLBACK_RETURN_WINDOW_DAYS);
+
+      const cur = sanitizeDisplayCurrency(res.data.preferred_display_currency);
+      setPreferredDisplayCurrency(cur ?? FALLBACK_DISPLAY_CURRENCY);
     }
     setReady(true);
   }, [user?.id]);
@@ -55,5 +64,10 @@ export function useUserShoppingPreferences(): UserShoppingPreferences {
     return () => window.removeEventListener(SNAP_USER_SHOPPING_PREFS_EVENT, onChange);
   }, [load]);
 
-  return { warrantyDefaultMonths, returnWindowDays, ready };
+  return {
+    warrantyDefaultMonths,
+    returnWindowDays,
+    preferredDisplayCurrency,
+    ready,
+  };
 }
