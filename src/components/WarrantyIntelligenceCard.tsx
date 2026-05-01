@@ -16,6 +16,9 @@ type ReceiptWarrantyRow = {
   warranty_expires_at: string | null;
 };
 
+/** Default coverage window from purchase when no explicit end date — matches Summary & receipt print view. */
+const DEFAULT_WARRANTY_YEARS = 3;
+
 type WarrantyItem = {
   id: string;
   productLabel: string;
@@ -23,6 +26,8 @@ type WarrantyItem = {
   daysRemaining: number;
   tier: "safe" | "amber" | "urgent" | "expired";
   progressPct: number;
+  warrantyTracked: boolean;
+  usedExplicitEndDate: boolean;
 };
 
 /** Parse YYYY-MM-DD as local calendar date (no UTC drift). */
@@ -32,7 +37,6 @@ function parseLocalDate(ymd: string): Date {
 }
 
 function resolveWarrantyEnd(r: ReceiptWarrantyRow): Date | null {
-  if (!r.warranty) return null;
   if (r.warranty_expires_at) {
     try {
       return parseLocalDate(r.warranty_expires_at);
@@ -43,7 +47,7 @@ function resolveWarrantyEnd(r: ReceiptWarrantyRow): Date | null {
   if (!r.purchase_date) return null;
   try {
     const purchase = parseISO(r.purchase_date);
-    return startOfDay(addYears(purchase, 1));
+    return startOfDay(addYears(purchase, DEFAULT_WARRANTY_YEARS));
   } catch {
     return null;
   }
@@ -61,9 +65,13 @@ function toWarrantyItem(r: ReceiptWarrantyRow, today: Date): WarrantyItem | null
 
   let windowStart: Date;
   try {
-    windowStart = r.purchase_date ? startOfDay(parseISO(r.purchase_date)) : addYears(end, -1);
+    if (r.purchase_date) {
+      windowStart = startOfDay(parseISO(r.purchase_date));
+    } else {
+      windowStart = startOfDay(addYears(end, -DEFAULT_WARRANTY_YEARS));
+    }
   } catch {
-    windowStart = addYears(end, -1);
+    windowStart = startOfDay(addYears(end, -DEFAULT_WARRANTY_YEARS));
   }
   const windowDays = Math.max(1, differenceInCalendarDays(end, windowStart));
   const elapsed = differenceInCalendarDays(today, windowStart);
@@ -73,6 +81,8 @@ function toWarrantyItem(r: ReceiptWarrantyRow, today: Date): WarrantyItem | null
     r.vendor_name?.trim() ||
     `Receipt ${format(end, "MMM yyyy")}`;
 
+  const usedExplicitEndDate = Boolean(r.warranty_expires_at);
+
   return {
     id: r.id,
     productLabel,
@@ -80,12 +90,24 @@ function toWarrantyItem(r: ReceiptWarrantyRow, today: Date): WarrantyItem | null
     daysRemaining,
     tier,
     progressPct,
+    warrantyTracked: r.warranty,
+    usedExplicitEndDate,
   };
 }
 
 function sortWarrantyItems(items: WarrantyItem[]): WarrantyItem[] {
-  const active = items.filter((i) => i.daysRemaining >= 0).sort((a, b) => a.endDate.getTime() - b.endDate.getTime());
-  const expired = items.filter((i) => i.daysRemaining < 0).sort((a, b) => b.endDate.getTime() - a.endDate.getTime());
+  const activeCmp = (a: WarrantyItem, b: WarrantyItem) => {
+    const t = a.endDate.getTime() - b.endDate.getTime();
+    if (t !== 0) return t;
+    return (b.warrantyTracked ? 1 : 0) - (a.warrantyTracked ? 1 : 0);
+  };
+  const expiredCmp = (a: WarrantyItem, b: WarrantyItem) => {
+    const t = b.endDate.getTime() - a.endDate.getTime();
+    if (t !== 0) return t;
+    return (b.warrantyTracked ? 1 : 0) - (a.warrantyTracked ? 1 : 0);
+  };
+  const active = items.filter((i) => i.daysRemaining >= 0).sort(activeCmp);
+  const expired = items.filter((i) => i.daysRemaining < 0).sort(expiredCmp);
   return [...active, ...expired];
 }
 
@@ -127,7 +149,8 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
       .from("receipts")
       .select("id, vendor_name, purchase_date, warranty, warranty_expires_at")
       .eq("user_id", user.id)
-      .eq("warranty", true);
+      .order("created_at", { ascending: false })
+      .limit(300);
     if (error) {
       console.warn("[WarrantyIntelligence]", error.message);
       setRows([]);
@@ -197,6 +220,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
   }
 
   const empty = items.length === 0;
+  const noReceiptsYet = rows.length === 0;
 
   return (
     <section
@@ -221,12 +245,14 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
       </div>
 
       {empty ? (
+        noReceiptsYet ? (
         <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-950/50 px-6 py-14 text-center ring-1 ring-white/[0.04]">
           <p className="max-w-sm text-base font-medium leading-relaxed text-slate-200">
-            Start tracking warranties by scanning your first receipt.
+            Start warranty timelines from your receipts.
           </p>
           <p className="mt-2 max-w-sm text-sm text-slate-500">
-            Enable warranty when you save a receipt — we&apos;ll estimate coverage and surface what needs attention.
+            Each receipt with a purchase date gets the same coverage window as Summary and receipt detail (purchase +{" "}
+            {DEFAULT_WARRANTY_YEARS} years), or your saved warranty end date when you set one.
           </p>
           <Button
             type="button"
@@ -236,6 +262,34 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
             Scan a receipt
           </Button>
         </div>
+        ) : (
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-950/50 px-6 py-14 text-center ring-1 ring-white/[0.04]">
+          <p className="max-w-sm text-base font-medium leading-relaxed text-slate-200">
+            Add purchase or warranty end dates to see coverage here.
+          </p>
+          <p className="mt-2 max-w-sm text-sm text-slate-500">
+            Your receipts are in the app — open one to set dates. Warranty Intelligence uses the same rules as the rest of
+            SnapTagTrack.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-xl border border-slate-600 bg-slate-800 px-6 py-5 text-sm font-semibold text-white hover:bg-slate-700"
+              onClick={() => navigate("/receipts")}
+            >
+              View receipts
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-orange-500 px-6 py-5 text-sm font-bold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-600"
+              onClick={() => navigate("/upload")}
+            >
+              Scan a receipt
+            </Button>
+          </div>
+        </div>
+        )
       ) : (
         <>
           {/* Summary strip */}
@@ -265,9 +319,16 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
               whileTap={{ scale: 0.995 }}
             >
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Next at risk</p>
-              <p className="mt-2 line-clamp-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                {hero.productLabel}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="line-clamp-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                  {hero.productLabel}
+                </p>
+                {hero.warrantyTracked && (
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-[#7CB87E]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#7CB87E] ring-1 ring-[#7CB87E]/30">
+                    Warranty on file
+                  </span>
+                )}
+              </div>
               <div className="mt-4 flex flex-wrap items-end gap-3">
                 <div>
                   {hero.daysRemaining < 0 ? (
@@ -330,7 +391,9 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                 />
               </div>
               <p className="mt-2 text-[11px] text-slate-500">
-                Estimated from purchase unless you set a warranty end date on the receipt.
+                {hero.usedExplicitEndDate
+                  ? "Warranty end date saved on this receipt."
+                  : `Same rule as Summary & receipt detail: purchase date + ${DEFAULT_WARRANTY_YEARS} years (unless you set an end date).`}
               </p>
             </motion.button>
           )}
@@ -364,7 +427,14 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <p className="truncate font-medium text-slate-100">{item.productLabel}</p>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <p className="truncate font-medium text-slate-100">{item.productLabel}</p>
+                            {item.warrantyTracked && (
+                              <span className="shrink-0 rounded bg-[#7CB87E]/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[#7CB87E]">
+                                Warranty
+                              </span>
+                            )}
+                          </span>
                           <span className="shrink-0 text-sm font-bold tabular-nums text-white">
                             {item.daysRemaining < 0 ? (
                               <span className="text-slate-500">{Math.abs(item.daysRemaining)}d ago</span>
