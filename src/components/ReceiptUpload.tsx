@@ -879,13 +879,13 @@ const ReceiptUpload = () => {
             checked={warranty}
             onChange={(e) => setWarranty(e.target.checked)}
             className="h-4 w-4"
-            disabled={isProcessing || isSaving || !reviewState.date?.trim()}
+            disabled={isProcessing || isSaving || !reviewState?.date?.trim()}
           />
           <label htmlFor="warranty" className="font-medium select-none cursor-pointer">
             Warranty?
           </label>
         </div>
-        {!reviewState.date?.trim() && (
+        {!reviewState?.date?.trim() && (
           <p className="pl-6 text-xs text-slate-400">Set a purchase date in the review step to track warranty.</p>
         )}
       </div>
