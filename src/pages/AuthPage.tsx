@@ -6,10 +6,87 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { TERMS_PUBLISHED_VERSION_ID } from "@/lib/termsVersion";
+import { SIGNUP_TERMS_METADATA_KEY } from "@/lib/termsRegistrationAcceptance";
 import { createClient } from "@supabase/supabase-js";
 import { Eye, EyeOff } from "lucide-react";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+type AuthErrorDialogState = {
+  title: string;
+  message: string;
+};
+
+/** Translate raw Supabase auth error messages into actionable copy. */
+function describeAuthError(rawMessage: string, mode: "signIn" | "signUp"): AuthErrorDialogState {
+  const normalized = rawMessage.trim().toLowerCase();
+
+  if (mode === "signIn") {
+    if (
+      normalized.includes("invalid login credentials") ||
+      normalized.includes("invalid_credentials") ||
+      normalized.includes("invalid email or password")
+    ) {
+      return {
+        title: "Couldn’t sign you in",
+        message:
+          "The email or password is incorrect. Check for typos and the Caps Lock key, then try again.",
+      };
+    }
+    if (normalized.includes("email not confirmed")) {
+      return {
+        title: "Confirm your email first",
+        message:
+          "Open the confirmation link we sent to your inbox before signing in. You can request another from the sign-up screen if you can’t find it.",
+      };
+    }
+  }
+
+  if (
+    normalized.includes("user already registered") ||
+    normalized.includes("already registered")
+  ) {
+    return {
+      title: "Account already exists",
+      message:
+        "This email is already registered. Try signing in instead, or use ‘Forgot password’ if you can’t remember it.",
+    };
+  }
+
+  if (
+    normalized.includes("password should be at least") ||
+    normalized.includes("password is too short")
+  ) {
+    return {
+      title: "Password too short",
+      message: "Use at least 6 characters for your password.",
+    };
+  }
+
+  if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
+    return {
+      title: "Too many attempts",
+      message: "Please wait a minute before trying again.",
+    };
+  }
+
+  return {
+    title: mode === "signIn" ? "Couldn’t sign you in" : "Couldn’t complete sign-up",
+    message: rawMessage || "Please try again.",
+  };
+}
+
+function emailConfirmationRedirectUrl() {
+  return `${window.location.origin}/auth/callback`;
+}
 
 const AuthPage = () => {
   const [email, setEmail] = useState("");
@@ -19,10 +96,16 @@ const AuthPage = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTermsRegistration, setAcceptedTermsRegistration] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [authErrorDialog, setAuthErrorDialog] = useState<AuthErrorDialogState | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isSignUp) setAcceptedTermsRegistration(false);
+    if (!isSignUp) {
+      setAcceptedTermsRegistration(false);
+      setPendingVerificationEmail(null);
+    }
   }, [isSignUp]);
 
   useEffect(() => {
@@ -35,6 +118,32 @@ const AuthPage = () => {
     };
     checkUser();
   }, [navigate]);
+
+  const handleResendConfirmation = async () => {
+    const addr = pendingVerificationEmail ?? email;
+    if (!addr.trim()) return;
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: addr,
+        options: { emailRedirectTo: emailConfirmationRedirectUrl() },
+      });
+      if (error) throw error;
+      toast({
+        title: "Email sent",
+        description: "Check your inbox for the confirmation link.",
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Something went wrong.";
+      setAuthErrorDialog({
+        title: "Couldn’t resend email",
+        message,
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,51 +176,34 @@ const AuthPage = () => {
       }
 
       if (isSignUp) {
-        // For sign up, first register the user
-        const { error } = await authClient.auth.signUp({
+        const redirectTo = emailConfirmationRedirectUrl();
+        const { data, error: signUpError } = await authClient.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              [SIGNUP_TERMS_METADATA_KEY]: TERMS_PUBLISHED_VERSION_ID,
+            },
+          },
         });
-        
-        if (error) throw error;
-        
-        // Immediately sign in the user after signup
-        const { error: signInError } = await authClient.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (signInError) throw signInError;
 
-        const { data: userData } = await authClient.auth.getUser();
-        const uid = userData.user?.id;
-        if (uid) {
-          const { error: logErr } = await authClient.from("terms_registration_acceptances").insert({
-            user_id: uid,
-            terms_version: TERMS_PUBLISHED_VERSION_ID,
-            signup_context: "registration",
+        if (signUpError) throw signUpError;
+
+        if (!data.session) {
+          setPendingVerificationEmail(email);
+          toast({
+            title: "Check your email",
+            description:
+              "We sent a confirmation link. Open it to activate your account, then sign in here.",
           });
-          if (logErr) {
-            console.error("terms_registration_acceptances insert:", logErr);
-            toast({
-              title: "Account created",
-              description:
-                "We could not store your Terms acceptance on the server. Your account works; please contact support if this keeps happening.",
-            });
-          } else {
-            toast({
-              title: "Account created successfully",
-              description: "Welcome to SnapTagTrack!",
-            });
-          }
         } else {
           toast({
             title: "Account created successfully",
             description: "Welcome to SnapTagTrack!",
           });
+          navigate("/profile?postSignup=1");
         }
-
-        navigate("/");
       } else {
         // Regular sign in flow
         const { error } = await authClient.auth.signInWithPassword({
@@ -124,12 +216,9 @@ const AuthPage = () => {
         // Redirect to home page after successful sign in
         navigate("/");
       }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Something went wrong.";
+      setAuthErrorDialog(describeAuthError(message, isSignUp ? "signUp" : "signIn"));
     } finally {
       setLoading(false);
     }
@@ -137,6 +226,30 @@ const AuthPage = () => {
 
   return (
     <>
+    <Dialog
+      open={authErrorDialog !== null}
+      onOpenChange={(open) => {
+        if (!open) setAuthErrorDialog(null);
+      }}
+    >
+      <DialogContent className="max-w-sm border-slate-600 sm:rounded-xl">
+        <DialogHeader>
+          <DialogTitle>{authErrorDialog?.title ?? "Error"}</DialogTitle>
+          <DialogDescription className="pt-1 text-sm leading-relaxed text-slate-300">
+            {authErrorDialog?.message}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            className="bg-orange-500 hover:bg-orange-600"
+            onClick={() => setAuthErrorDialog(null)}
+          >
+            OK
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <div className="flex min-h-screen w-full flex-col bg-slate-800 text-slate-100">
       <div className={`${marketingPageGutterClass} pb-2`}>
         <MarketingTopNav active="auth" className="mb-6 sm:mb-8" />
@@ -154,10 +267,42 @@ const AuthPage = () => {
             className="w-48 h-auto mx-auto mb-4"
           />
           <p className="mt-2 text-sm font-medium text-slate-300">
-            {isSignUp ? "Create your account" : "Sign in to your account"}
+            {pendingVerificationEmail
+              ? "Confirm your email"
+              : isSignUp
+                ? "Create your account"
+                : "Sign in to your account"}
           </p>
         </div>
 
+        {pendingVerificationEmail ? (
+          <div className="relative mt-8 space-y-6 text-center">
+            <p className="text-sm leading-relaxed text-slate-300">
+              We sent a link to{" "}
+              <span className="font-medium text-white">{pendingVerificationEmail}</span>. Click it to
+              confirm your address, then return here to sign in.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full border-slate-500 bg-slate-950/70 text-slate-100 hover:bg-slate-800 hover:text-white"
+              disabled={resendLoading}
+              onClick={() => void handleResendConfirmation()}
+            >
+              {resendLoading ? "Sending…" : "Resend confirmation email"}
+            </Button>
+            <button
+              type="button"
+              className="text-sm font-medium text-sky-300 transition-colors hover:text-sky-200"
+              onClick={() => {
+                setPendingVerificationEmail(null);
+                setIsSignUp(false);
+              }}
+            >
+              Back to sign in
+            </button>
+          </div>
+        ) : (
         <form className="mt-8 space-y-6 relative" onSubmit={handleAuth}>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -273,6 +418,7 @@ const AuthPage = () => {
             </p>
           )}
         </form>
+        )}
       </div>
       </div>
     </div>

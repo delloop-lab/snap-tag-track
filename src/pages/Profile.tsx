@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
 import { COUNTRY_DISPLAY_NAMES_EN } from "@/lib/countryDisplayNames";
 import { notifyUserShoppingPrefsChanged } from "@/lib/userShoppingPreferences";
@@ -16,6 +16,14 @@ import {
 } from "@/lib/displayCurrency";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const AVATAR_BUCKET = "avatars";
 
@@ -50,6 +58,8 @@ type WarrantyDurationUnit = "years" | "months";
 const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [postSignupWelcomeOpen, setPostSignupWelcomeOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [country, setCountry] = useState("");
@@ -76,6 +86,24 @@ const Profile = () => {
   const [returnWindowDaysInput, setReturnWindowDaysInput] = useState("30");
   const [preferredCurrencyIso, setPreferredCurrencyIso] = useState(FALLBACK_DISPLAY_CURRENCY);
   const [regionalShoppingSaving, setRegionalShoppingSaving] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("postSignup") === "1") {
+      setPostSignupWelcomeOpen(true);
+    }
+  }, [searchParams]);
+
+  const closePostSignupWelcome = () => {
+    setPostSignupWelcomeOpen(false);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("postSignup");
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -489,6 +517,45 @@ const Profile = () => {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 xl:max-w-7xl sm:px-6 lg:px-8 lg:py-10">
+      <Dialog
+        open={postSignupWelcomeOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setPostSignupWelcomeOpen(true);
+          } else {
+            closePostSignupWelcome();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg border-slate-600 shadow-xl sm:rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Welcome — finish setup</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 pt-1 text-left text-base font-normal leading-relaxed text-slate-300">
+                <p>
+                  Complete the <strong className="text-slate-100">required fields</strong> — first name, last name, and
+                  country — in <strong className="text-slate-100">Your account</strong> below, then choose{" "}
+                  <strong className="text-slate-100">Save account</strong>.
+                </p>
+                <p>
+                  For the best experience, review{" "}
+                  <strong className="text-slate-100">Receipts &amp; defaults</strong> too: receipt location, warranty and
+                  return defaults, display currency fallback, AI rescan, and thumbnail scans.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={() => closePostSignupWelcome()}
+            >
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <header className="mb-8 text-center lg:mb-10 lg:text-left">
         <p className="mb-3 inline-flex items-center rounded-full border border-[#7CB87E]/40 bg-[#7CB87E]/10 px-3 py-1 text-xs font-medium text-[#7CB87E] lg:mx-0">
           Account settings

@@ -9,6 +9,31 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        try {
+          var h = window.location.hash.slice(1);
+          if (h) {
+            var hp = new URLSearchParams(h);
+            var type = hp.get("type");
+            if (type) sessionStorage.setItem("snap_auth_flow_type", type);
+            if (
+              h.indexOf("access_token=") !== -1 ||
+              h.indexOf("refresh_token=") !== -1 ||
+              hp.has("refresh_token")
+            )
+              sessionStorage.setItem("snap_auth_implicit_hash", "1");
+          }
+          var q = window.location.search.slice(1);
+          if (q) {
+            var qp = new URLSearchParams(q);
+            var t2 = qp.get("type");
+            if (t2) sessionStorage.setItem("snap_auth_flow_type", t2);
+            if (qp.get("code")) sessionStorage.setItem("snap_auth_code_present", "1");
+          }
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

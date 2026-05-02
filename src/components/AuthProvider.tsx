@@ -2,6 +2,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureTermsSignupAcceptanceRecorded } from "@/lib/termsRegistrationAcceptance";
+import { resetPostAuthLandingGuard } from "@/lib/postAuthLanding";
 
 /** Remove persisted Supabase auth keys so a full reload cannot resurrect the session. */
 function wipeSupabaseAuthStorage() {
@@ -37,9 +39,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        if (event === "SIGNED_OUT") {
+          resetPostAuthLandingGuard();
+        }
+
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
+        if (
+          (event === "SIGNED_IN" || event === "INITIAL_SESSION") &&
+          currentSession?.user
+        ) {
+          // Defer: avoid calling Supabase from inside this callback (deadlock risk).
+          setTimeout(() => {
+            void ensureTermsSignupAcceptanceRecorded(supabase, currentSession.user);
+          }, 0);
+        }
       }
     );
 
@@ -56,6 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    resetPostAuthLandingGuard();
     // Drop local session immediately so chrome (sidebar) disappears.
     setSession(null);
     setUser(null);

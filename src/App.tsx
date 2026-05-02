@@ -7,7 +7,9 @@ import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-route
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
+import AuthCallback from "./pages/AuthCallback";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
+import PostSignupAuthLanding from "./components/PostSignupAuthLanding";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import AppSidebar from "./components/AppSidebar";
@@ -130,6 +132,7 @@ const AppContent = () => {
 
   return (
     <div className={cn("min-h-screen flex", shellBgClass)}>
+      <PostSignupAuthLanding />
       {/* Desktop sidebar */}
       {user && !hideAppChrome && <AppSidebar />}
 
@@ -147,6 +150,7 @@ const AppContent = () => {
             <Route path={AD_SUMMARY_MOCK_PATH} element={<AdSummaryMock />} />
             <Route path="/" element={user ? <Index /> : <LandingPage2 />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/upload" element={
               <ProtectedRoute>
                 <ReceiptUpload />
