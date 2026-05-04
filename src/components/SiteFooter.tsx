@@ -31,7 +31,40 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
-      <div className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1">
+      <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-y-1.5 py-1 sm:py-0">
+        <nav
+          aria-label="Product guides"
+          className="flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-300 sm:text-xs"
+        >
+          <Link to="/receipt-scanner-app" className="hover:text-[#7CB87E] hover:underline">
+            Receipt scanner
+          </Link>
+          <span className="text-slate-600" aria-hidden>
+            ·
+          </span>
+          <Link to="/warranty-tracker" className="hover:text-[#7CB87E] hover:underline">
+            Warranty tracker
+          </Link>
+          <span className="text-slate-600" aria-hidden>
+            ·
+          </span>
+          <Link to="/expense-tracking-without-bank" className="hover:text-[#7CB87E] hover:underline">
+            Expense tracking
+          </Link>
+          <span className="text-slate-600" aria-hidden>
+            ·
+          </span>
+          <Link to="/blog" className="hover:text-[#7CB87E] hover:underline">
+            Blog
+          </Link>
+          <span className="text-slate-600" aria-hidden>
+            ·
+          </span>
+          <Link to="/use-cases" className="hover:text-[#7CB87E] hover:underline">
+            All guides
+          </Link>
+        </nav>
+        <div className="relative flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-1">
         <p className="text-[11px] text-slate-400 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.967</p>
         <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
         <div className="flex flex-wrap items-center justify-center gap-x-3 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2">
@@ -47,6 +80,7 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
           >
             Privacy
           </Link>
+        </div>
         </div>
       </div>
     </footer>

@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
 import AuthCallback from "./pages/AuthCallback";
+import AnalyticsListener from "./components/AnalyticsListener";
+import { RouteSeo } from "./components/RouteSeo";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import PostSignupAuthLanding from "./components/PostSignupAuthLanding";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -27,6 +29,10 @@ import Contact from "./pages/Contact";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import AdSummaryMock from "./pages/AdSummaryMock";
+import SeoMarketingPage from "./pages/SeoMarketingPage";
+import { isSeoLandingPath } from "./marketing/seoPublicPaths";
+import BlogIndexPage from "./pages/BlogIndexPage";
+import BlogPostPage from "./pages/BlogPostPage";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -120,7 +126,9 @@ const AppContent = () => {
     pathname === "/contact" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
-    pathname === AD_SUMMARY_MOCK_PATH;
+    pathname === AD_SUMMARY_MOCK_PATH ||
+    isSeoLandingPath(pathname) ||
+    pathname.startsWith("/blog");
   const isSummaryPage = pathname === "/summary";
 
   const shellBgClass = user
@@ -185,6 +193,17 @@ const AppContent = () => {
             <Route path="/contact" element={<Contact />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/receipt-scanner-app" element={<SeoMarketingPage />} />
+            <Route path="/warranty-tracker" element={<SeoMarketingPage />} />
+            <Route path="/expense-tracking-without-bank" element={<SeoMarketingPage />} />
+            <Route path="/contractor-expense-tracker" element={<SeoMarketingPage />} />
+            <Route path="/household-spending-tracker" element={<SeoMarketingPage />} />
+            <Route path="/fuel-food-spending-tracker" element={<SeoMarketingPage />} />
+            <Route path="/how-it-works" element={<SeoMarketingPage />} />
+            <Route path="/pricing" element={<SeoMarketingPage />} />
+            <Route path="/use-cases" element={<SeoMarketingPage />} />
+            <Route path="/blog" element={<BlogIndexPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/landing" element={<PublicLandingRoute />} />
             <Route path="/landing2" element={<PublicLandingRoute />} />
             <Route path="/admin" element={
@@ -228,6 +247,8 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <RouteSeo />
+            <AnalyticsListener />
             <AppContent />
           </BrowserRouter>
         </TooltipProvider>

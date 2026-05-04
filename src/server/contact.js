@@ -16,10 +16,10 @@ app.post('/api/contact', async (req, res) => {
       html: `<p><strong>From:</strong> ${name} (${email})</p><p>${message}</p>`,
     });
     res.json({ success: true });
-   catch (error) {
-     console.error('Resend error:', error); // <-- Add this line!
-     res.status(500).json({ error: 'Failed to send email.' });
-   }
+  } catch (error) {
+    console.error('Resend error:', error);
+    res.status(500).json({ error: 'Failed to send email.' });
+  }
 });
 
 app.listen(3001, () => console.log('Server running on port 3001'));

@@ -281,6 +281,70 @@ export default function LandingPage2() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-20">
+        <h2 className="text-2xl md:text-3xl font-bold mb-3">Guides and tools</h2>
+        <p className="mb-6 max-w-3xl text-sm leading-relaxed text-slate-400 md:text-base">
+          Read how receipt scanning, warranty reminders, and expense tracking fit together—then{" "}
+          <Link to="/auth" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
+            try Snap Tag Track free
+          </Link>{" "}
+          or visit{" "}
+          <Link to="/help" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
+            Help
+          </Link>{" "}
+          for product FAQs.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["/receipt-scanner-app", "Receipt scanner app for photos, tags, and records"],
+            ["/warranty-tracker", "Warranty tracker for expiry reminders and proof"],
+            ["/expense-tracking-without-bank", "Expense tracking without linking your bank"],
+            ["/contractor-expense-tracker", "Contractor expense tracker for job receipts"],
+            ["/household-spending-tracker", "Household spending tracker from real receipts"],
+            ["/fuel-food-spending-tracker", "Fuel and food spending tracker"],
+            ["/how-it-works", "How Snap Tag Track works (snap, tag, track)"],
+            ["/pricing", "Pricing and free tier limits"],
+            ["/use-cases", "Use cases for families and contractors"],
+            ["/blog", "Blog index for longer guides"],
+          ].map(([href, label]) => (
+            <Link
+              key={href}
+              to={href}
+              className="rounded-2xl border border-slate-600 bg-slate-700/50 p-4 text-sm font-semibold text-slate-100 transition-colors hover:border-[#7CB87E]/50 hover:bg-slate-700"
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-14 md:pb-16">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-2xl md:text-3xl font-bold">Latest Guides</h2>
+          <Link to="/blog" className="text-sm font-semibold text-[#7CB87E] hover:underline">
+            View all blog posts
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[
+            ["/blog/how-to-track-receipts-for-taxes", "How to Track Receipts for Taxes (Without Losing Anything)"],
+            ["/blog/how-to-track-expenses-without-bank", "How to Track Expenses Without Connecting Your Bank"],
+            ["/blog/why-expense-tracking-fails", "Why Expense Tracking Fails for Most People"],
+          ].map(([href, label]) => (
+            <article key={href} className="rounded-2xl border border-slate-600 bg-slate-700/50 p-5">
+              <h3 className="text-base font-bold text-white">
+                <Link to={href} className="hover:text-[#7CB87E] hover:underline">
+                  {label}
+                </Link>
+              </h3>
+              <p className="mt-2 text-sm text-slate-300">
+                Practical walkthroughs focused on receipts, spending categories, and warranty-proof habits.
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-24">
         <h2 className="text-2xl md:text-3xl font-bold mb-5">Snap Tag Track vs Traditional Bank-Linked Apps</h2>
         <div className="rounded-2xl border border-slate-600 overflow-hidden">

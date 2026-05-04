@@ -76,6 +76,9 @@ export default function MarketingTopNav({
               Contact
             </Link>
           )}
+          <Link to="/use-cases" className={marketingNavBtnClass}>
+            Guides
+          </Link>
           {active === "auth" ? (
             <span className={marketingActivePillClass} aria-current="page">
               Login
@@ -108,6 +111,13 @@ export default function MarketingTopNav({
               Contact
             </Link>
           )}
+          <Link
+            to="/use-cases"
+            className={`${marketingNavBtnClass} col-span-2`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Guides (use cases)
+          </Link>
         </div>
       )}
     </div>
