@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { TERMS_PUBLISHED_VERSION_ID } from "@/lib/termsVersion";
 import { SIGNUP_TERMS_METADATA_KEY } from "@/lib/termsRegistrationAcceptance";
-import { createClient } from "@supabase/supabase-js";
 import { Eye, EyeOff } from "lucide-react";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
@@ -102,6 +101,12 @@ const AuthPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const savedRemember = localStorage.getItem("snap_auth_remember_me");
+    if (savedRemember === "0") setRememberMe(false);
+    if (savedRemember === "1") setRememberMe(true);
+  }, []);
+
+  useEffect(() => {
     if (!isSignUp) {
       setAcceptedTermsRegistration(false);
       setPendingVerificationEmail(null);
@@ -148,21 +153,7 @@ const AuthPage = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    // Use sessionStorage if Remember Me is unchecked
-    let authClient = supabase;
-    if (!rememberMe) {
-      // Create a new Supabase client with session storage
-      authClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL || '',
-        import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-        {
-          auth: {
-            storage: window.sessionStorage,
-          },
-        }
-      );
-    }
+    localStorage.setItem("snap_auth_remember_me", rememberMe ? "1" : "0");
 
     try {
       if (isSignUp && !acceptedTermsRegistration) {
@@ -177,7 +168,7 @@ const AuthPage = () => {
 
       if (isSignUp) {
         const redirectTo = emailConfirmationRedirectUrl();
-        const { data, error: signUpError } = await authClient.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -206,7 +197,7 @@ const AuthPage = () => {
         }
       } else {
         // Regular sign in flow
-        const { error } = await authClient.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });

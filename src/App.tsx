@@ -97,16 +97,13 @@ const AD_SUMMARY_MOCK_PATH = "/ad-summary-mock";
 
 /** Marketing-only landing URLs: never show app sidebar + marketing login chrome together */
 const PublicLandingRoute = () => {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-slate-100">
         <p className="text-sm text-slate-400">Loading…</p>
       </div>
     );
-  }
-  if (user) {
-    return <Navigate to="/" replace />;
   }
   return <LandingPage2 />;
 };

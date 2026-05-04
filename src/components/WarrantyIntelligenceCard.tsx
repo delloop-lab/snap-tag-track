@@ -219,7 +219,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
         ? Math.min(100, (eligibleCount / withPurchaseTracked) * 100)
         : 0;
     const next = eligibleList[0] ?? null;
-    return { withPurchaseTracked, eligibleCount, urgentSoon, fillPct, next };
+    return { withPurchaseTracked, eligibleCount, urgentSoon, fillPct, next, eligibleList };
   }, [rows, returnWindowDays]);
 
   const bucketListItems = useMemo(
@@ -347,6 +347,31 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                     </>
                   )}
                 </p>
+              )}
+              {easyReturnPulse.eligibleCount > 0 && (
+                <div className="mt-3 rounded-xl border border-sky-500/20 bg-slate-900/40 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-200/85">
+                    Returnable now
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {easyReturnPulse.eligibleList.slice(0, 4).map((item) => (
+                        <li key={item.id} className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/receipt/${item.id}`)}
+                            className="min-w-0 text-left text-[12px] font-medium text-slate-200 hover:text-white hover:underline"
+                          >
+                            <span className="block truncate">{item.productLabel}</span>
+                          </button>
+                          <span className="shrink-0 text-[11px] text-slate-400">
+                            {item.calendarDaysRemaining === 0
+                              ? `today (${format(item.deadline, "MMM d")})`
+                              : `${item.calendarDaysRemaining}d left (${format(item.deadline, "MMM d")})`}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
               )}
               {easyReturnPulse.eligibleCount > 0 && easyReturnPulse.urgentSoon > 0 && (
                 <p className="mt-1 text-[11px] font-medium text-amber-300/95">
