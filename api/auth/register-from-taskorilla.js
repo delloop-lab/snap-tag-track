@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 const isProduction = process.env.NODE_ENV === "production";
 
 function fail(res, statusCode, reason) {
@@ -45,11 +47,64 @@ export default async function handler(req, res) {
     return fail(res, 400, "Invalid password");
   }
 
-  // NOTE:
-  // This endpoint now correctly accepts JSON POST requests and is ready for
-  // full registration + session wiring. Keep identity source as verified user
-  // data from the prior token verification step (not URL params).
-  return res.status(200).json({
-    valid: true,
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    return fail(res, 500, "Missing Supabase configuration");
+  }
+
+  const admin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  try {
+    const normalizedEmail = email.trim().toLowerCase();
+    const metadata = { name: name.trim(), source: "taskorilla" };
+
+    // listUsers is used to avoid duplicate accounts when the invite email already exists.
+    const { data: listData, error: listError } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    if (listError) {
+      return fail(res, 500, "Could not verify existing account");
+    }
+
+    const existingUser = listData.users.find(
+      (candidate) => candidate.email?.toLowerCase() === normalizedEmail,
+    );
+
+    if (existingUser) {
+      const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, {
+        password,
+        email_confirm: true,
+        user_metadata: {
+          ...(existingUser.user_metadata ?? {}),
+          ...metadata,
+        },
+      });
+      if (updateError) {
+        return fail(res, 500, "Could not update account");
+      }
+    } else {
+      const { error: createError } = await admin.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: metadata,
+      });
+      if (createError) {
+        return fail(res, 500, "Could not create account");
+      }
+    }
+
+    return res.status(200).json({
+      valid: true,
+    });
+  } catch (error) {
+    if (!isProduction) {
+      console.error("REGISTER_TASKORILLA_ERROR:", error);
+    }
+    return fail(res, 500, "Unexpected registration failure");
+  }
 }

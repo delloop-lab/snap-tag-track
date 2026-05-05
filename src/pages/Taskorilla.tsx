@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 const TASKORILLA_PLACEHOLDER_URL = "#";
 const INVALID_LINK_MESSAGE = "This link is invalid or has expired. Please return to Taskorilla.";
@@ -154,6 +155,14 @@ const Taskorilla = () => {
 
       if (!response.ok) {
         throw new Error("Registration failed");
+      }
+
+      const signInResult = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: trimmedPassword,
+      });
+      if (signInResult.error) {
+        throw new Error("Auto sign-in failed");
       }
 
       setPassword("");
