@@ -122,6 +122,14 @@ const Taskorilla = () => {
     setFormError("");
 
     try {
+      if (import.meta.env.DEV) {
+        console.log("TASKORILLA_REGISTER_FETCH_TRIGGERED", {
+          endpoint: "/api/auth/register-from-taskorilla",
+          method: "POST",
+          bodyKeys: ["name", "email", "password", "source"],
+        });
+      }
+
       const response = await fetch("/api/auth/register-from-taskorilla", {
         method: "POST",
         headers: {
@@ -134,6 +142,15 @@ const Taskorilla = () => {
           source: "taskorilla",
         }),
       });
+
+      if (import.meta.env.DEV) {
+        const raw = await response.clone().text();
+        console.log("TASKORILLA_REGISTER_RESPONSE", {
+          status: response.status,
+          ok: response.ok,
+          body: raw,
+        });
+      }
 
       if (!response.ok) {
         throw new Error("Registration failed");
