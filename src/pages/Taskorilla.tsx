@@ -46,8 +46,8 @@ const Taskorilla = () => {
           throw new Error("Token verification failed");
         }
 
-        const data = (await response.json()) as Partial<VerifiedTaskorillaUser>;
-        if (!data.name || !data.email) {
+        const data = (await response.json()) as Partial<VerifiedTaskorillaUser> & { valid?: boolean };
+        if (!data.valid || !data.name || !data.email) {
           throw new Error("Missing verified identity payload");
         }
 
