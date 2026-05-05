@@ -69,8 +69,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-          <h2 className="text-xl font-semibold">Complete your profile</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-xl font-semibold text-slate-900">Complete your profile</h2>
+          <p className="mt-2 text-sm text-slate-700">
             Please add your first name, last name, and country before continuing.
           </p>
           <Button

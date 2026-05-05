@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const isProduction = process.env.NODE_ENV === "production";
 
 function fail(res, statusCode, reason) {
+  console.error("REGISTER_TASKORILLA_FAIL:", { statusCode, reason });
   res.setHeader("Allow", "POST, OPTIONS");
   return res.status(statusCode).json({
     valid: false,
@@ -47,9 +48,16 @@ export default async function handler(req, res) {
     return fail(res, 400, "Invalid password");
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl =
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error("REGISTER_TASKORILLA_CONFIG_MISSING:", {
+      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
+    });
     return fail(res, 500, "Missing Supabase configuration");
   }
 
@@ -67,6 +75,7 @@ export default async function handler(req, res) {
       perPage: 1000,
     });
     if (listError) {
+      console.error("REGISTER_TASKORILLA_LIST_USERS_ERROR:", listError);
       return fail(res, 500, "Could not verify existing account");
     }
 
@@ -84,6 +93,7 @@ export default async function handler(req, res) {
         },
       });
       if (updateError) {
+        console.error("REGISTER_TASKORILLA_UPDATE_ERROR:", updateError);
         return fail(res, 500, "Could not update account");
       }
     } else {
@@ -94,6 +104,7 @@ export default async function handler(req, res) {
         user_metadata: metadata,
       });
       if (createError) {
+        console.error("REGISTER_TASKORILLA_CREATE_ERROR:", createError);
         return fail(res, 500, "Could not create account");
       }
     }

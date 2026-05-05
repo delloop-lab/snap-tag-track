@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
-const TASKORILLA_PLACEHOLDER_URL = "#";
+const TASKORILLA_PLACEHOLDER_URL = "https://taskorilla.com";
 const INVALID_LINK_MESSAGE = "This link is invalid or has expired. Please return to Taskorilla.";
 const CREATE_ACCOUNT_ERROR_MESSAGE = "We couldn’t create your account. Please try again.";
 
