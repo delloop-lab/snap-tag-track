@@ -33,6 +33,7 @@ import SeoMarketingPage from "./pages/SeoMarketingPage";
 import { isSeoLandingPath } from "./marketing/seoPublicPaths";
 import BlogIndexPage from "./pages/BlogIndexPage";
 import BlogPostPage from "./pages/BlogPostPage";
+import Taskorilla from "./pages/Taskorilla";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -176,6 +177,11 @@ const AppContent = () => {
                 <ReceiptSummaryList />
               </ProtectedRoute>
             } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />
@@ -203,6 +209,7 @@ const AppContent = () => {
             <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/landing" element={<PublicLandingRoute />} />
             <Route path="/landing2" element={<PublicLandingRoute />} />
+            <Route path="/taskorilla" element={<Taskorilla />} />
             <Route path="/admin" element={
               <AdminRoute>
                 <Admin />
