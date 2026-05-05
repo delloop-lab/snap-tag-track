@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
 const TASKORILLA_PLACEHOLDER_URL = "https://taskorilla.com";
+const TASKORILLA_LOGO_URL = "/taskorilla-logo.png";
 const INVALID_LINK_MESSAGE = "This link is invalid or has expired. Please return to Taskorilla.";
 const CREATE_ACCOUNT_ERROR_MESSAGE = "We couldn’t create your account. Please try again.";
 
@@ -71,8 +72,10 @@ const Taskorilla = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 text-slate-100">
-        <div className="w-full max-w-md rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-center shadow-2xl">
-          <h1 className="text-2xl font-semibold">Welcome to SnapTagTrack</h1>
+        <div className="w-full max-w-lg rounded-2xl border border-slate-600 bg-slate-900/75 p-8 text-center shadow-2xl">
+          <img src={TASKORILLA_LOGO_URL} alt="Taskorilla" className="mx-auto h-10 w-auto" />
+          <p className="mt-3 text-xs uppercase tracking-widest text-slate-400">Partner onboarding</p>
+          <h1 className="mt-4 text-2xl font-semibold">Welcome to SnapTagTrack</h1>
           <p className="mt-6 text-sm text-slate-200">Checking your Taskorilla invite…</p>
           <div className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-300">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-transparent" />
@@ -86,8 +89,10 @@ const Taskorilla = () => {
   if (error || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 text-slate-100">
-        <div className="w-full max-w-md rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-center shadow-2xl">
-          <h1 className="text-2xl font-semibold">Welcome to SnapTagTrack</h1>
+        <div className="w-full max-w-lg rounded-2xl border border-slate-600 bg-slate-900/75 p-8 text-center shadow-2xl">
+          <img src={TASKORILLA_LOGO_URL} alt="Taskorilla" className="mx-auto h-10 w-auto" />
+          <p className="mt-3 text-xs uppercase tracking-widest text-slate-400">Partner onboarding</p>
+          <h1 className="mt-4 text-2xl font-semibold">Welcome to SnapTagTrack</h1>
           <p className="mt-4 text-sm text-slate-300">{error || INVALID_LINK_MESSAGE}</p>
           <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
             <a href={TASKORILLA_PLACEHOLDER_URL}>Back to Taskorilla</a>
@@ -184,10 +189,12 @@ const Taskorilla = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 text-slate-100">
-      <div className="w-full max-w-md rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-center shadow-2xl">
-        <h1 className="text-2xl font-semibold">Welcome to SnapTagTrack, {user.name}</h1>
+      <div className="w-full max-w-lg rounded-2xl border border-slate-600 bg-slate-900/75 p-8 text-center shadow-2xl">
+        <img src={TASKORILLA_LOGO_URL} alt="Taskorilla" className="mx-auto h-10 w-auto" />
+        <p className="mt-3 text-xs uppercase tracking-widest text-slate-400">Partner onboarding</p>
+        <h1 className="mt-4 text-2xl font-semibold">Welcome from Taskorilla, {user.name}</h1>
         <p className="mt-3 text-sm text-slate-300">
-          You&apos;ve been invited via Taskorilla. To activate your access, create a password below.
+          You&apos;re one step away from activating your SnapTagTrack account.
         </p>
         <form className="mt-6 space-y-4 text-left" onSubmit={handleCreateAccount}>
           <h2 className="text-center text-lg font-semibold text-slate-100">Create your password</h2>
@@ -225,6 +232,9 @@ const Taskorilla = () => {
           >
             {submitting ? "Creating your account..." : "Create My Account"}
           </Button>
+          <p className="text-center text-xs text-slate-400">
+            Your details are securely transferred from Taskorilla.
+          </p>
         </form>
       </div>
     </div>
