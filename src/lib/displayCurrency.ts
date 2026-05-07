@@ -1,28 +1,33 @@
 /** When receipts.currency is null, UI falls back to the user Profile preference (default GBP). */
 export const FALLBACK_DISPLAY_CURRENCY = "GBP";
 
-/** Common ISO 4217 options for Profile; must be valid for Intl. */
-export const DISPLAY_CURRENCY_OPTIONS: { code: string; label: string }[] = [
-  { code: "GBP", label: "GBP · British pound" },
-  { code: "USD", label: "USD · US dollar" },
-  { code: "EUR", label: "EUR · Euro" },
-  { code: "AUD", label: "AUD · Australian dollar" },
-  { code: "CAD", label: "CAD · Canadian dollar" },
-  { code: "NZD", label: "NZD · New Zealand dollar" },
-  { code: "CHF", label: "CHF · Swiss franc" },
-  { code: "JPY", label: "JPY · Japanese yen" },
-  { code: "INR", label: "INR · Indian rupee" },
-  { code: "CNY", label: "CNY · Chinese yuan" },
-  { code: "SEK", label: "SEK · Swedish krona" },
-  { code: "NOK", label: "NOK · Norwegian krone" },
-  { code: "DKK", label: "DKK · Danish krone" },
-  { code: "PLN", label: "PLN · Polish złoty" },
-  { code: "CZK", label: "CZK · Czech koruna" },
-  { code: "SGD", label: "SGD · Singapore dollar" },
-  { code: "HKD", label: "HKD · Hong Kong dollar" },
-  { code: "MXN", label: "MXN · Mexican peso" },
-  { code: "BRL", label: "BRL · Brazilian real" },
-];
+type SupportedValuesIntl = Intl & {
+  supportedValuesOf?: (key: "currency") => string[];
+};
+
+function buildDisplayCurrencyOptions(): { code: string; label: string }[] {
+  const intlWithSupported = Intl as SupportedValuesIntl;
+  const supported = intlWithSupported.supportedValuesOf?.("currency") ?? [];
+  const codes = new Set(supported.map((c) => c.toUpperCase()));
+  codes.add(FALLBACK_DISPLAY_CURRENCY);
+
+  const currencyNames = new Intl.DisplayNames("en", { type: "currency" });
+  const options = [...codes]
+    .sort((a, b) => a.localeCompare(b))
+    .map((code) => ({ code, label: code }));
+
+  const fallbackIdx = options.findIndex((o) => o.code === FALLBACK_DISPLAY_CURRENCY);
+  if (fallbackIdx > 0) {
+    const [fallback] = options.splice(fallbackIdx, 1);
+    options.unshift(fallback);
+  }
+
+  return options;
+}
+
+/** Exhaustive ISO 4217 options from Intl support (fallback currency pinned first). */
+export const DISPLAY_CURRENCY_OPTIONS: { code: string; label: string }[] =
+  buildDisplayCurrencyOptions();
 
 export function sanitizeDisplayCurrency(code: unknown): string | null {
   if (typeof code !== "string") return null;

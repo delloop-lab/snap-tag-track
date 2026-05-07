@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.9.970",
+  "version": "0.9.971",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -49,6 +49,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "country-to-currency": "^2.0.3",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "exif-js": "^2.3.0",

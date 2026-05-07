@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
-import { COUNTRY_DISPLAY_NAMES_EN } from "@/lib/countryDisplayNames";
+import { COUNTRY_CODE_BY_DISPLAY_NAME_EN, COUNTRY_DISPLAY_NAMES_EN } from "@/lib/countryDisplayNames";
 import { notifyUserShoppingPrefsChanged } from "@/lib/userShoppingPreferences";
 import {
   DISPLAY_CURRENCY_OPTIONS,
   FALLBACK_DISPLAY_CURRENCY,
   sanitizeDisplayCurrency,
 } from "@/lib/displayCurrency";
+import countryToCurrency from "country-to-currency";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -55,6 +56,16 @@ function looksLikeAbsoluteUrl(str: string): boolean {
 
 type WarrantyDurationUnit = "years" | "months";
 
+const SUPPORTED_DISPLAY_CURRENCIES = new Set(DISPLAY_CURRENCY_OPTIONS.map((o) => o.code));
+
+function suggestedCurrencyFromCountryName(countryName: string): string | null {
+  const code = COUNTRY_CODE_BY_DISPLAY_NAME_EN[countryName.trim()];
+  if (!code) return null;
+  const mapped = countryToCurrency[code as keyof typeof countryToCurrency];
+  if (!mapped) return null;
+  return SUPPORTED_DISPLAY_CURRENCIES.has(mapped) ? mapped : null;
+}
+
 const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -86,6 +97,15 @@ const Profile = () => {
   const [returnWindowDaysInput, setReturnWindowDaysInput] = useState("30");
   const [preferredCurrencyIso, setPreferredCurrencyIso] = useState(FALLBACK_DISPLAY_CURRENCY);
   const [regionalShoppingSaving, setRegionalShoppingSaving] = useState(false);
+
+  useEffect(() => {
+    const suggested = suggestedCurrencyFromCountryName(country);
+    if (!suggested) return;
+    // Auto-fill once for users still on the default fallback currency.
+    if (preferredCurrencyIso === FALLBACK_DISPLAY_CURRENCY && suggested !== preferredCurrencyIso) {
+      setPreferredCurrencyIso(suggested);
+    }
+  }, [country, preferredCurrencyIso]);
 
   useEffect(() => {
     if (searchParams.get("postSignup") === "1") {
@@ -611,10 +631,13 @@ const Profile = () => {
                 />
               </div>
               <div className="min-w-0 flex-1 space-y-4">
+                <p className="text-xs text-slate-400">
+                  <span className="text-red-400">*</span> Field required
+                </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block font-medium" htmlFor="profile-first-name">
-                      First name <span className="text-sm font-normal text-red-400">required</span>
+                      First name <span className="text-sm font-normal text-red-400">*</span>
                     </label>
                     <Input
                       id="profile-first-name"
@@ -630,7 +653,7 @@ const Profile = () => {
                   </div>
                   <div>
                     <label className="mb-1 block font-medium" htmlFor="profile-last-name">
-                      Last name <span className="text-sm font-normal text-red-400">required</span>
+                      Last name <span className="text-sm font-normal text-red-400">*</span>
                     </label>
                     <Input
                       id="profile-last-name"
@@ -647,7 +670,7 @@ const Profile = () => {
                 </div>
                 <div>
                   <label className="mb-1 block font-medium" htmlFor="profile-country">
-                    Country <span className="text-sm font-normal text-red-400">required</span>
+                    Country <span className="text-sm font-normal text-red-400">*</span>
                   </label>
                   <select
                     id="profile-country"
@@ -657,7 +680,14 @@ const Profile = () => {
                       "disabled:cursor-not-allowed disabled:opacity-50",
                     )}
                     value={country}
-                    onChange={(e) => setCountry(e.target.value)}
+                    onChange={(e) => {
+                      const nextCountry = e.target.value;
+                      setCountry(nextCountry);
+                      const suggestedCurrency = suggestedCurrencyFromCountryName(nextCountry);
+                      if (suggestedCurrency) {
+                        setPreferredCurrencyIso(suggestedCurrency);
+                      }
+                    }}
                     disabled={loading}
                     required
                     aria-required="true"

@@ -39,6 +39,7 @@ type WarrantyItem = {
   daysRemaining: number;
   tier: "safe" | "amber" | "urgent" | "expired";
   progressPct: number;
+  totalWindowDays: number;
   warrantyTracked: boolean;
   usedExplicitEndDate: boolean;
   purchaseDateIso: string | null;
@@ -57,8 +58,8 @@ function toWarrantyItem(r: ReceiptWarrantyRow, today: Date, defaultWarrantyMonth
 
   const windowStart = warrantyWindowStartForProgress(r.purchase_date, end, defaultWarrantyMonths);
   const windowDays = Math.max(1, differenceInCalendarDays(end, windowStart));
-  const elapsed = differenceInCalendarDays(today, windowStart);
-  const progressPct = Math.min(100, Math.max(0, (elapsed / windowDays) * 100));
+  const remaining = Math.max(0, daysRemaining);
+  const progressPct = Math.min(100, Math.max(0, (remaining / windowDays) * 100));
 
   const productLabel =
     r.vendor_name?.trim() ||
@@ -73,6 +74,7 @@ function toWarrantyItem(r: ReceiptWarrantyRow, today: Date, defaultWarrantyMonth
     daysRemaining,
     tier,
     progressPct,
+    totalWindowDays: windowDays,
     warrantyTracked: r.warranty,
     usedExplicitEndDate,
     purchaseDateIso: r.purchase_date,
@@ -101,6 +103,42 @@ function statusLabel(days: number): string {
   if (days <= 13) return "Urgent";
   if (days <= 30) return "Expiring soon";
   return "Active";
+}
+
+function formatWindowScaleLabel(days: number): string {
+  if (days > 366) {
+    const years = Math.floor(days / 365);
+    const remAfterYears = days % 365;
+    const months = Math.floor(remAfterYears / 30);
+    const remDays = remAfterYears % 30;
+    const chunks = [
+      years > 0 ? `${years}y` : null,
+      months > 0 ? `${months}m` : null,
+      remDays > 0 ? `${remDays}d` : null,
+    ].filter(Boolean);
+    return chunks.join(" ");
+  }
+  return `${days}d`;
+}
+
+function formatHeroDaysLabel(daysRemaining: number): string {
+  if (daysRemaining <= 366) {
+    return `${daysRemaining}`;
+  }
+  const years = Math.floor(daysRemaining / 365);
+  const remAfterYears = daysRemaining % 365;
+  const months = Math.floor(remAfterYears / 30);
+  const days = remAfterYears % 30;
+  const chunks = [
+    years > 0 ? `${years}y` : null,
+    months > 0 ? `${months}m` : null,
+    days > 0 ? `${days}d` : null,
+  ].filter(Boolean);
+  return chunks.join(" ");
+}
+
+function formatRemainingLabel(daysRemaining: number): string {
+  return daysRemaining > 366 ? formatHeroDaysLabel(daysRemaining) : `${daysRemaining}d`;
 }
 
 function formatIsoDateLabel(iso: string | null): string {
@@ -219,7 +257,12 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
         ? Math.min(100, (eligibleCount / withPurchaseTracked) * 100)
         : 0;
     const next = eligibleList[0] ?? null;
-    return { withPurchaseTracked, eligibleCount, urgentSoon, fillPct, next, eligibleList };
+    const nextDaysRemaining = next ? Math.max(0, next.calendarDaysRemaining) : 0;
+    const daysFillPct =
+      returnWindowDays > 0 && next
+        ? Math.min(100, (nextDaysRemaining / returnWindowDays) * 100)
+        : 0;
+    return { withPurchaseTracked, eligibleCount, urgentSoon, fillPct, next, eligibleList, nextDaysRemaining, daysFillPct };
   }, [rows, returnWindowDays]);
 
   const bucketListItems = useMemo(
@@ -300,13 +343,6 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                 </p>
               </div>
             </div>
-            {returnWindowDays > 0 && easyReturnPulse.withPurchaseTracked > 0 && (
-              <span className="shrink-0 rounded-full bg-sky-500/15 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-sky-100 ring-1 ring-sky-400/25">
-                {easyReturnPulse.eligibleCount > 0
-                  ? `${Math.round(easyReturnPulse.fillPct)}% of receipts with dates`
-                  : "0% in window"}
-              </span>
-            )}
           </div>
           {returnWindowDays > 0 && easyReturnPulse.withPurchaseTracked > 0 && (
             <>
@@ -321,14 +357,18 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                       : "from-slate-600 to-slate-500",
                   )}
                   initial={{ width: 0 }}
-                  animate={{ width: `${easyReturnPulse.fillPct}%` }}
+                  animate={{ width: `${easyReturnPulse.daysFillPct}%` }}
                   transition={{ type: "spring", stiffness: 120, damping: 18 }}
-                  aria-valuenow={Math.round(easyReturnPulse.fillPct)}
+                  aria-valuenow={Math.round(easyReturnPulse.daysFillPct)}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   role="progressbar"
-                  aria-label="Share of receipts with purchase dates that are still inside the return window"
+                  aria-label="Days remaining until nearest return deadline"
                 />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                <span>0d</span>
+                <span>{returnWindowDays}d</span>
               </div>
               {easyReturnPulse.next && (
                 <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
@@ -507,11 +547,15 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                     </>
                   ) : (
                     <>
-                      <p className="text-4xl font-black tabular-nums tracking-tight text-white sm:text-5xl">
-                        {hero.daysRemaining}
+                      <p className="text-3xl font-black tabular-nums tracking-tight text-white sm:text-4xl">
+                        {formatHeroDaysLabel(hero.daysRemaining)}
                       </p>
                       <p className="text-xs font-medium text-slate-400">
-                        {hero.daysRemaining === 1 ? "day left" : "days left"}
+                        {hero.daysRemaining > 366
+                          ? "remaining"
+                          : hero.daysRemaining === 1
+                            ? "day left"
+                            : "days left"}
                       </p>
                     </>
                   )}
@@ -549,6 +593,10 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                   }
                   aria-hidden
                 />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                <span>0d</span>
+                <span>{formatWindowScaleLabel(hero.totalWindowDays)}</span>
               </div>
               <p className="mt-2 text-[11px] text-slate-500">
                 {hero.usedExplicitEndDate
@@ -598,7 +646,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                             ) : item.daysRemaining === 0 ? (
                               <span className="text-rose-300">Today</span>
                             ) : (
-                              <>{item.daysRemaining}d left</>
+                              <>{formatRemainingLabel(item.daysRemaining)} left</>
                             )}
                           </span>
                         </div>
@@ -613,7 +661,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                           item.daysRemaining >= 0 && item.daysRemaining < 14 && "motion-safe:animate-pulse",
                         )}
                         style={{
-                          width: `${item.daysRemaining < 0 ? 100 : item.progressPct}%`,
+                          width: `${item.progressPct}%`,
                         }}
                       />
                     </div>

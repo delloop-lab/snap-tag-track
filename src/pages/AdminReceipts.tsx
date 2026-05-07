@@ -75,6 +75,7 @@ const AdminReceipts = () => {
   const [selectedType, setSelectedType] = useState("");
   const [selectedClient, setSelectedClient] = useState("");
   const [receiptIdSearch, setReceiptIdSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [foundReceipt, setFoundReceipt] = useState<Receipt | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("/placeholder.svg");
@@ -112,6 +113,10 @@ const AdminReceipts = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const receiptId = params.get("receiptId");
+    const userId = params.get("userId");
+    if (userId) {
+      setSelectedUserId(userId);
+    }
     if (!receiptId) return;
     setReceiptIdSearch(receiptId);
     void searchReceiptById(receiptId);
@@ -217,6 +222,7 @@ const AdminReceipts = () => {
       if (search && r.vendor_name && !r.vendor_name.toLowerCase().includes(search.toLowerCase())) return false;
       if (selectedType && r.type !== selectedType) return false;
       if (selectedClient && r.client_name !== selectedClient) return false;
+      if (selectedUserId && r.user_id !== selectedUserId) return false;
       if (dateFrom && (!r.purchase_date || r.purchase_date < dateFrom)) return false;
       if (dateTo && (!r.purchase_date || r.purchase_date > dateTo)) return false;
       if (minTotal && (!r.total_amount || r.total_amount < parseFloat(minTotal))) return false;
@@ -232,6 +238,13 @@ const AdminReceipts = () => {
   // Get unique clients and types for filters
   const clients = Array.from(new Set(receipts.map(r => r.client_name).filter(Boolean)));
   const types = Array.from(new Set(receipts.map(r => r.type).filter(Boolean)));
+  const users = Array.from(
+    new Map(
+      receipts
+        .filter((r) => !!r.user_id)
+        .map((r) => [r.user_id, { id: r.user_id, email: r.user_email || "Unknown user" }]),
+    ).values(),
+  );
 
   if (loading) {
     return (
@@ -306,7 +319,7 @@ const AdminReceipts = () => {
               <div>
                 <p className="text-sm text-slate-400">Date</p>
                 <p className="font-medium">
-                  {foundReceipt.purchase_date ? format(new Date(foundReceipt.purchase_date), "PPP") : "-"}
+                  {format(new Date(foundReceipt.purchase_date || foundReceipt.created_at), "PPP")}
                 </p>
               </div>
               <div>
@@ -380,6 +393,18 @@ const AdminReceipts = () => {
           ))}
         </select>
         <select
+          value={selectedUserId}
+          onChange={(e) => setSelectedUserId(e.target.value)}
+          className={adminShellSelectClass}
+        >
+          <option value="">All Users</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.email}
+            </option>
+          ))}
+        </select>
+        <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
           className={adminShellSelectClass}
@@ -445,7 +470,7 @@ const AdminReceipts = () => {
                 </TableCell>
                 <TableCell>{receipt.vendor_name || "-"}</TableCell>
                 <TableCell>
-                  {receipt.purchase_date ? format(new Date(receipt.purchase_date), "PPP") : "-"}
+                  {format(new Date(receipt.purchase_date || receipt.created_at), "PPP")}
                 </TableCell>
                 <TableCell>
                   {receipt.total_amount ? `$${receipt.total_amount.toFixed(2)}` : "-"}

@@ -154,7 +154,18 @@ const AppContent = () => {
         <main className={hideAppChrome ? "flex-1" : "flex-1 pt-2 md:pt-4"}>
           <Routes>
             <Route path={AD_SUMMARY_MOCK_PATH} element={<AdSummaryMock />} />
-            <Route path="/" element={user ? <Index /> : <LandingPage2 />} />
+            <Route
+              path="/"
+              element={
+                user ? (
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                ) : (
+                  <LandingPage2 />
+                )
+              }
+            />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/upload" element={

@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
-import { buildRescanPatch } from "@/lib/rescanPreferences";
+import { buildRescanPatch, patchDiffLines } from "@/lib/rescanPreferences";
 import { backfillMissingReceiptThumbnails } from "@/lib/backfillReceiptThumbnails";
 import {
   Dialog,
@@ -22,6 +22,7 @@ interface User {
   id: string;
   email: string;
   created_at: string;
+  last_sign_in_at?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   avatar_url?: string | null;
@@ -47,6 +48,12 @@ interface IssuerReceipt {
   created_at: string;
 }
 
+interface DryRunPreviewItem {
+  receiptId: string;
+  userId: string;
+  diffs: string[];
+}
+
 const Admin = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -58,10 +65,26 @@ const Admin = () => {
   });
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
   const [isRunningGlobalRescan, setIsRunningGlobalRescan] = useState(false);
   const [globalRescanProgress, setGlobalRescanProgress] = useState<{ done: number; total: number } | null>(null);
+  const [selectedAiRunUserIds, setSelectedAiRunUserIds] = useState<string[]>([]);
+  const [isRunningGlobalRescanPreview, setIsRunningGlobalRescanPreview] = useState(false);
+  const [globalRescanPreviewProgress, setGlobalRescanPreviewProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [dryRunCurrentReceiptId, setDryRunCurrentReceiptId] = useState<string | null>(null);
+  const [dryRunLastUpdateAt, setDryRunLastUpdateAt] = useState<Date | null>(null);
+  const [dryRunDialogOpen, setDryRunDialogOpen] = useState(false);
+  const [dryRunSummary, setDryRunSummary] = useState<{
+    processed: number;
+    wouldUpdate: number;
+    noChange: number;
+    failed: number;
+    samples: DryRunPreviewItem[];
+  } | null>(null);
   const [isRunningGlobalThumbs, setIsRunningGlobalThumbs] = useState(false);
   const [globalThumbsProgress, setGlobalThumbsProgress] = useState<{ done: number; total: number } | null>(null);
   const [isRefreshingIssuers, setIsRefreshingIssuers] = useState(false);
@@ -212,12 +235,19 @@ const Admin = () => {
 
     const fetchUsers = async () => {
       try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
+        const { data: fnData, error: fnErr } = await supabase.functions.invoke("admin-list-users");
+        let baseUsers: User[] = [];
+        if (!fnErr && fnData?.success && Array.isArray(fnData?.users)) {
+          baseUsers = fnData.users as User[];
+        } else {
+          // Fallback: still show users even if auth metadata (last sign-in) is unavailable.
+          const { data: directUsers, error: directUsersErr } = await supabase
+            .from("users")
+            .select("*")
+            .order("created_at", { ascending: false });
+          if (directUsersErr) throw directUsersErr;
+          baseUsers = (directUsers || []) as User[];
+        }
         const { data: userReceipts } = await supabase
           .from("receipts")
           .select("user_id, warranty");
@@ -232,7 +262,7 @@ const Admin = () => {
           }
         });
 
-        const usersWithCounts = await Promise.all((data || []).map(async (u) => {
+        const usersWithCounts = await Promise.all(baseUsers.map(async (u: User) => {
           let avatarDisplayUrl = u.avatar_url || null;
           if (u.avatar_url && !isAbsoluteUrl(u.avatar_url)) {
             const { data: signedData, error: signedError } = await supabase.storage
@@ -355,8 +385,11 @@ const Admin = () => {
 
   const runGlobalAiRescan = async () => {
     if (isRunningGlobalRescan) return;
+    const selectedCount = selectedAiRunUserIds.length;
     const confirmed = window.confirm(
-      "Run AI reprocessing for all users' unprocessed receipts now? This may take a while."
+      selectedCount > 0
+        ? `Run AI reprocessing for ${selectedCount} selected user${selectedCount === 1 ? "" : "s"}? This may take a while.`
+        : "Run AI reprocessing for all users' unprocessed receipts now? This may take a while.",
     );
     if (!confirmed) return;
 
@@ -391,7 +424,12 @@ const Admin = () => {
         ai_processed_at?: string | null;
       }>;
       const alreadyProcessed = all.filter((r) => !!r.ai_processed_at).length;
-      const receipts = all.filter((r) => !r.ai_processed_at);
+      const receipts = all.filter((r) => {
+        const unprocessed = !r.ai_processed_at;
+        const matchesUser =
+          selectedAiRunUserIds.length === 0 || selectedAiRunUserIds.includes(r.user_id);
+        return unprocessed && matchesUser;
+      });
       setGlobalRescanProgress({ done: 0, total: receipts.length });
       let updated = 0;
       let processedNoChange = 0;
@@ -464,6 +502,133 @@ const Admin = () => {
     }
   };
 
+  const runGlobalAiRescanPreview = async () => {
+    if (isRunningGlobalRescanPreview) return;
+    const confirmed = window.confirm(
+      "Preview AI reprocessing for all users' unprocessed receipts? This will NOT write any data.",
+    );
+    if (!confirmed) return;
+
+    setIsRunningGlobalRescanPreview(true);
+    setDryRunSummary(null);
+    setDryRunDialogOpen(true);
+    setDryRunCurrentReceiptId(null);
+    setDryRunLastUpdateAt(new Date());
+    try {
+      let { data: allReceipts, error: receiptsError } = await supabase
+        .from("receipts")
+        .select("id, user_id, image_path, vendor_name, total_amount, purchase_date, text_content, line_items, currency, ai_processed_at")
+        .order("created_at", { ascending: false });
+      if (receiptsError && /ai_processed_at|column|schema cache|does not exist/i.test(receiptsError.message || "")) {
+        const fallback = await supabase
+          .from("receipts")
+          .select("id, user_id, image_path, vendor_name, total_amount, purchase_date, text_content, line_items, currency")
+          .order("created_at", { ascending: false });
+        allReceipts = fallback.data as any;
+        receiptsError = fallback.error;
+      }
+      if (receiptsError) throw receiptsError;
+
+      const all = (allReceipts || []) as Array<{
+        id: string;
+        user_id: string;
+        image_path: string | null;
+        vendor_name: string | null;
+        total_amount: number | null;
+        purchase_date: string | null;
+        text_content: string | null;
+        line_items: unknown[] | null;
+        currency: string | null;
+        ai_processed_at?: string | null;
+      }>;
+      const receipts = all.filter((r) => !r.ai_processed_at);
+      setGlobalRescanPreviewProgress({ done: 0, total: receipts.length });
+      setDryRunLastUpdateAt(new Date());
+
+      let wouldUpdate = 0;
+      let noChange = 0;
+      let failed = 0;
+      const samples: DryRunPreviewItem[] = [];
+
+      for (let i = 0; i < receipts.length; i += 1) {
+        const receipt = receipts[i];
+        setDryRunCurrentReceiptId(receipt.id);
+        setDryRunLastUpdateAt(new Date());
+        try {
+          if (!receipt.image_path) throw new Error("Missing image path");
+          const { data: fnData, error: fnError } = await supabase.functions.invoke("process-receipt", {
+            body: { filePath: receipt.image_path },
+          });
+          if (fnError) throw fnError;
+          if (!fnData?.success) throw new Error(fnData?.error ?? "AI function failed");
+
+          const patch = buildRescanPatch(
+            {
+              vendor_name: receipt.vendor_name,
+              total_amount: receipt.total_amount,
+              purchase_date: receipt.purchase_date,
+              text_content: receipt.text_content,
+              line_items: (receipt.line_items as unknown[] | null) ?? null,
+              currency: receipt.currency ?? null,
+            },
+            fnData.data ?? {},
+            false,
+          );
+          const diffLines = patchDiffLines(
+            {
+              vendor_name: receipt.vendor_name,
+              total_amount: receipt.total_amount,
+              purchase_date: receipt.purchase_date,
+              text_content: receipt.text_content,
+              line_items: (receipt.line_items as unknown[] | null) ?? null,
+              currency: receipt.currency ?? null,
+            },
+            patch,
+          );
+          if (diffLines.length > 0) {
+            wouldUpdate += 1;
+            if (samples.length < 25) {
+              samples.push({
+                receiptId: receipt.id,
+                userId: receipt.user_id,
+                diffs: diffLines.slice(0, 6),
+              });
+            }
+          } else {
+            noChange += 1;
+          }
+        } catch {
+          failed += 1;
+        } finally {
+          setGlobalRescanPreviewProgress({ done: i + 1, total: receipts.length });
+          setDryRunLastUpdateAt(new Date());
+        }
+      }
+
+      setDryRunSummary({
+        processed: receipts.length,
+        wouldUpdate,
+        noChange,
+        failed,
+        samples,
+      });
+      toast({
+        title: "Dry run complete",
+        description: `Processed ${receipts.length}. Would update ${wouldUpdate}. No-change ${noChange}.${failed ? ` Failed ${failed}.` : ""}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Dry run failed",
+        description: error instanceof Error ? error.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningGlobalRescanPreview(false);
+      setGlobalRescanPreviewProgress(null);
+      setDryRunCurrentReceiptId(null);
+    }
+  };
+
   const runGlobalThumbnailBackfill = async () => {
     if (isRunningGlobalThumbs) return;
     const confirmed = window.confirm(
@@ -518,6 +683,43 @@ const Admin = () => {
     }
   };
 
+  const deleteUserAsAdmin = async (target: User) => {
+    if (!target?.id) return;
+    if (deletingUserId) return;
+    const label = target.email || `${target.first_name || ""} ${target.last_name || ""}`.trim() || target.id;
+    const confirmed = window.confirm(
+      `Delete user "${label}"?\n\nThis permanently removes the account and cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingUserId(target.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+        body: { userId: target.id },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Could not delete user.");
+
+      setUsers((prev) => prev.filter((u) => u.id !== target.id));
+      setStats((prev) => ({
+        ...prev,
+        totalUsers: Math.max(0, prev.totalUsers - 1),
+      }));
+      toast({
+        title: "User deleted",
+        description: `${label} was removed.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen text-slate-100">
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:py-10">
@@ -551,8 +753,51 @@ const Admin = () => {
                       Progress: {globalRescanProgress.done} / {globalRescanProgress.total}
                     </p>
                   )}
+                  {globalRescanPreviewProgress && (
+                    <p className="text-sm text-slate-200 mb-3">
+                      Dry run progress: {globalRescanPreviewProgress.done} / {globalRescanPreviewProgress.total}
+                    </p>
+                  )}
+                  <div className="mb-3 max-w-md">
+                    <label htmlFor="ai-run-user-filter" className="mb-1 block text-sm text-slate-300">
+                      AI run target users (multi-select)
+                    </label>
+                    <select
+                      id="ai-run-user-filter"
+                      multiple
+                      value={selectedAiRunUserIds}
+                      onChange={(e) =>
+                        setSelectedAiRunUserIds(Array.from(e.target.selectedOptions, (opt) => opt.value))
+                      }
+                      className="min-h-[9rem] w-full rounded-md border border-slate-500 bg-slate-800 px-3 py-2 text-sm text-slate-100 ring-offset-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+                      disabled={isRunningGlobalRescan || isRunningGlobalRescanPreview}
+                    >
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.email}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Leave empty for all users. Hold Ctrl/Cmd to select multiple users.
+                    </p>
+                  </div>
                   <Button onClick={runGlobalAiRescan} disabled={isRunningGlobalRescan}>
-                    {isRunningGlobalRescan ? "Running AI reprocess..." : "Run AI for unprocessed receipts"}
+                    {isRunningGlobalRescan
+                      ? "Running AI reprocess..."
+                      : selectedAiRunUserIds.length > 0
+                        ? `Run AI for ${selectedAiRunUserIds.length} selected user${
+                            selectedAiRunUserIds.length === 1 ? "" : "s"
+                          }`
+                        : "Run AI for unprocessed receipts"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="ml-2 border-slate-400 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                    onClick={runGlobalAiRescanPreview}
+                    disabled={isRunningGlobalRescanPreview}
+                  >
+                    {isRunningGlobalRescanPreview ? "Running dry run..." : "Preview dry run"}
                   </Button>
                   <div className="mt-5 border-t border-slate-600 pt-4">
                     <p className="text-sm text-slate-300 mb-3">
@@ -656,7 +901,9 @@ const Admin = () => {
                           <TableHead>Email</TableHead>
                           <TableHead className="text-right">Receipts</TableHead>
                           <TableHead className="text-right">Warranties</TableHead>
+                          <TableHead>Last Logged In</TableHead>
                           <TableHead>Joined</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -685,7 +932,32 @@ const Admin = () => {
                             <TableCell>{user.email}</TableCell>
                             <TableCell className="text-right font-medium">{user.receipt_count || 0}</TableCell>
                             <TableCell className="text-right font-medium">{user.warranty_count || 0}</TableCell>
+                            <TableCell>
+                              {user.last_sign_in_at ? format(new Date(user.last_sign_in_at), "MMM d, yyyy") : "Never"}
+                            </TableCell>
                             <TableCell>{format(new Date(user.created_at), "MMM d, yyyy")}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                                  onClick={() => navigate(`/admin/receipts?userId=${encodeURIComponent(user.id)}`)}
+                                >
+                                  View receipts
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => void deleteUserAsAdmin(user)}
+                                  disabled={deletingUserId === user.id}
+                                >
+                                  {deletingUserId === user.id ? "Deleting..." : "Delete"}
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -883,6 +1155,63 @@ const Admin = () => {
                           </Button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={dryRunDialogOpen} onOpenChange={setDryRunDialogOpen}>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>AI dry run preview</DialogTitle>
+                    <DialogDescription>
+                      This preview runs AI on unprocessed receipts but does not write to the database.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {!dryRunSummary ? (
+                    <div className="space-y-2 text-sm">
+                      <p className="text-slate-300">
+                        {isRunningGlobalRescanPreview ? "Running preview..." : "No preview results yet."}
+                      </p>
+                      {globalRescanPreviewProgress && (
+                        <p className="text-slate-200">
+                          Processed: {globalRescanPreviewProgress.done} / {globalRescanPreviewProgress.total}
+                        </p>
+                      )}
+                      {dryRunCurrentReceiptId && (
+                        <p className="text-slate-300">Current receipt: {dryRunCurrentReceiptId}</p>
+                      )}
+                      {dryRunLastUpdateAt && (
+                        <p className="text-slate-400">Last update: {format(dryRunLastUpdateAt, "HH:mm:ss")}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-slate-300">
+                        Processed {dryRunSummary.processed}. Would update {dryRunSummary.wouldUpdate}. No-change{" "}
+                        {dryRunSummary.noChange}. Failed {dryRunSummary.failed}.
+                      </p>
+                      {dryRunSummary.samples.length === 0 ? (
+                        <p className="text-sm text-slate-400">No field changes detected in sampled receipts.</p>
+                      ) : (
+                        <div className="max-h-[60vh] overflow-auto space-y-3">
+                          {dryRunSummary.samples.map((sample) => (
+                            <div
+                              key={sample.receiptId}
+                              className="rounded-md border border-slate-600 bg-slate-900/70 p-3 text-sm"
+                            >
+                              <p className="font-medium text-slate-100">
+                                Receipt {sample.receiptId.slice(0, 8)}... (user {sample.userId.slice(0, 8)}...)
+                              </p>
+                              <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
+                                {sample.diffs.map((line, idx) => (
+                                  <li key={`${sample.receiptId}-${idx}`}>{line}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </DialogContent>
