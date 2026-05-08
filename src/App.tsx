@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
 import AuthCallback from "./pages/AuthCallback";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AnalyticsListener from "./components/AnalyticsListener";
 import { RouteSeo } from "./components/RouteSeo";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
@@ -178,6 +179,7 @@ const AppContent = () => {
             />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
             <Route path="/upload" element={
               <ProtectedRoute>
                 <ReceiptUpload />

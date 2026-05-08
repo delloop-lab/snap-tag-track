@@ -163,6 +163,10 @@ function emailConfirmationRedirectUrl() {
   return `${window.location.origin}/auth/callback`;
 }
 
+function passwordResetRedirectUrl() {
+  return `${window.location.origin}/auth/reset-password`;
+}
+
 const AuthPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -173,6 +177,7 @@ const AuthPage = () => {
   const [acceptedTermsRegistration, setAcceptedTermsRegistration] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [authErrorDialog, setAuthErrorDialog] = useState<AuthErrorDialogState | null>(null);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [waitlistFirstName, setWaitlistFirstName] = useState("");
@@ -238,6 +243,39 @@ const AuthPage = () => {
       });
     } finally {
       setResendLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const emailTrimmed = email.trim();
+    if (!emailTrimmed) {
+      setAuthErrorDialog({
+        title: "Enter your email",
+        message: "Type your account email first, then choose Forgot password.",
+      });
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(emailTrimmed, {
+          redirectTo: passwordResetRedirectUrl(),
+        }),
+      );
+      if (error) throw error;
+      toast({
+        title: "Password reset sent",
+        description: "Check your inbox for the reset link.",
+      });
+    } catch (error: unknown) {
+      const message = extractAuthErrorMessage(error);
+      setAuthErrorDialog({
+        title: "Couldn’t send reset email",
+        message,
+      });
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -575,15 +613,27 @@ const AuthPage = () => {
               </div>
             )}
 
-            <div className="flex items-center">
-              <input
-                id="rememberMe"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={() => setRememberMe(!rememberMe)}
-                className="mr-2 h-4 w-4 rounded border-slate-500 bg-slate-900 text-orange-500 focus:ring-orange-400"
-              />
-              <Label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</Label>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center">
+                <input
+                  id="rememberMe"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe(!rememberMe)}
+                  className="mr-2 h-4 w-4 rounded border-slate-500 bg-slate-900 text-orange-500 focus:ring-orange-400"
+                />
+                <Label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</Label>
+              </div>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  className="text-sm font-medium text-sky-300 transition-colors hover:text-sky-200"
+                  onClick={() => void handleForgotPassword()}
+                  disabled={forgotLoading || loading}
+                >
+                  {forgotLoading ? "Sending reset link..." : "Forgot password?"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -613,13 +663,13 @@ const AuthPage = () => {
           </div>
           {!isSignUp && (
             <p className="text-center text-xs text-slate-500">
-              By signing in you agree to our{" "}
+              By signing in, you agree to{" "}
               <Link to="/terms" className="text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]">
-                Terms &amp; Conditions
+                Terms
               </Link>
               {" "}and{" "}
               <Link to="/privacy" className="text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]">
-                Privacy Policy
+                Privacy
               </Link>
               .
             </p>
