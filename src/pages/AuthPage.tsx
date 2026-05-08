@@ -22,6 +22,7 @@ import {
 type AuthErrorDialogState = {
   title: string;
   message: string;
+  allowWaitlist?: boolean;
 };
 
 const AUTH_REQUEST_TIMEOUT_MS = 20_000;
@@ -173,7 +174,22 @@ const AuthPage = () => {
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
   const [authErrorDialog, setAuthErrorDialog] = useState<AuthErrorDialogState | null>(null);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistFirstName, setWaitlistFirstName] = useState("");
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
   const navigate = useNavigate();
+
+  const resetWaitlistState = () => {
+    setWaitlistOpen(false);
+    setWaitlistSubmitting(false);
+    setWaitlistError("");
+    setWaitlistSuccess(false);
+    setWaitlistFirstName("");
+    setWaitlistEmail("");
+  };
 
   useEffect(() => {
     const savedRemember = localStorage.getItem("snap_auth_remember_me");
@@ -295,7 +311,9 @@ const AuthPage = () => {
           title: "Couldn’t complete sign-up",
           message:
             "We're experiencing a high level of registrations at the moment. Please try in 15 minutes.",
+          allowWaitlist: true,
         });
+        setWaitlistEmail(emailTrimmed);
         return;
       }
       setAuthErrorDialog(describeAuthError(message, isSignUp ? "signUp" : "signIn"));
@@ -304,12 +322,56 @@ const AuthPage = () => {
     }
   };
 
+  const handleWaitlistSubmit = async () => {
+    const first = waitlistFirstName.trim();
+    const addr = waitlistEmail.trim();
+    setWaitlistError("");
+    setWaitlistSuccess(false);
+    if (!first || !addr) {
+      setWaitlistError("Please enter your first name and email.");
+      return;
+    }
+    setWaitlistSubmitting(true);
+    try {
+      const response = await fetch("/api/waitlist/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: first,
+          email: addr,
+          source: "auth-timeout-modal",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok !== true) {
+        throw new Error(
+          typeof payload?.error === "string" && payload.error
+            ? payload.error
+            : "Could not add you to the waitlist right now.",
+        );
+      }
+      setWaitlistSuccess(true);
+      setWaitlistError("");
+      toast({
+        title: "Added to waitlist",
+        description: "Thanks — we’ll contact you as soon as capacity opens up.",
+      });
+    } catch (error) {
+      setWaitlistError(error instanceof Error ? error.message : "Could not add you to the waitlist right now.");
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  };
+
   return (
     <>
     <Dialog
       open={authErrorDialog !== null}
       onOpenChange={(open) => {
-        if (!open) setAuthErrorDialog(null);
+        if (!open) {
+          setAuthErrorDialog(null);
+          resetWaitlistState();
+        }
       }}
     >
       <DialogContent className="max-w-sm border-slate-600 sm:rounded-xl">
@@ -319,11 +381,68 @@ const AuthPage = () => {
             {authErrorDialog?.message}
           </DialogDescription>
         </DialogHeader>
+        {authErrorDialog?.allowWaitlist && (
+          <div className="space-y-3 rounded-lg border border-slate-600 bg-slate-950/40 p-3">
+            {!waitlistOpen ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-slate-500 bg-slate-900 text-slate-100 hover:bg-slate-800"
+                onClick={() => setWaitlistOpen(true)}
+              >
+                Add yourself to the waiting list
+              </Button>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="waitlist-first-name" className="text-slate-300">
+                    First name
+                  </Label>
+                  <Input
+                    id="waitlist-first-name"
+                    value={waitlistFirstName}
+                    onChange={(e) => setWaitlistFirstName(e.target.value)}
+                    autoComplete="given-name"
+                    className="h-10 border-slate-500 bg-slate-900 text-slate-100 placeholder:text-slate-400"
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="waitlist-email" className="text-slate-300">
+                    Email
+                  </Label>
+                  <Input
+                    id="waitlist-email"
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    autoComplete="email"
+                    className="h-10 border-slate-500 bg-slate-900 text-slate-100 placeholder:text-slate-400"
+                    placeholder="Email"
+                  />
+                </div>
+                {!!waitlistError && <p className="text-xs text-red-300">{waitlistError}</p>}
+                {waitlistSuccess && <p className="text-xs text-green-300">You’re on the waitlist.</p>}
+                <Button
+                  type="button"
+                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  onClick={() => void handleWaitlistSubmit()}
+                  disabled={waitlistSubmitting}
+                >
+                  {waitlistSubmitting ? "Adding..." : "Join waiting list"}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
         <DialogFooter>
           <Button
             type="button"
             className="bg-orange-500 hover:bg-orange-600"
-            onClick={() => setAuthErrorDialog(null)}
+            onClick={() => {
+              setAuthErrorDialog(null);
+              resetWaitlistState();
+            }}
           >
             OK
           </Button>

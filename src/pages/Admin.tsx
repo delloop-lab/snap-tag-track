@@ -54,6 +54,16 @@ interface DryRunPreviewItem {
   diffs: string[];
 }
 
+interface WaitlistEntry {
+  id: string;
+  first_name: string;
+  email: string;
+  source: string;
+  request_count: number;
+  created_at: string;
+  last_requested_at: string;
+}
+
 const Admin = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -65,6 +75,8 @@ const Admin = () => {
   });
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(true);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
@@ -285,8 +297,24 @@ const Admin = () => {
       }
     };
 
+    const fetchWaitlist = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("waitlist_entries")
+          .select("id, first_name, email, source, request_count, created_at, last_requested_at")
+          .order("last_requested_at", { ascending: false });
+        if (error) throw error;
+        setWaitlistEntries((data || []) as WaitlistEntry[]);
+      } catch (error) {
+        console.error("Error fetching waitlist entries:", error);
+      } finally {
+        setWaitlistLoading(false);
+      }
+    };
+
     fetchStats();
     fetchUsers();
+    fetchWaitlist();
   }, []);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -962,6 +990,50 @@ const Admin = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Waiting List */}
+              <Card className="rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100 shadow-lg backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-amber-400" />
+                    Waiting List
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {waitlistLoading ? (
+                    <div className="text-center text-slate-400">Loading waiting list...</div>
+                  ) : waitlistEntries.length === 0 ? (
+                    <div className="text-center text-slate-400">No waiting list entries yet</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>First Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Source</TableHead>
+                            <TableHead className="text-right">Requests</TableHead>
+                            <TableHead>First Requested</TableHead>
+                            <TableHead>Last Requested</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {waitlistEntries.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell>{entry.first_name || "Unknown"}</TableCell>
+                              <TableCell>{entry.email}</TableCell>
+                              <TableCell className="capitalize">{entry.source || "unknown"}</TableCell>
+                              <TableCell className="text-right font-medium">{entry.request_count || 0}</TableCell>
+                              <TableCell>{format(new Date(entry.created_at), "MMM d, yyyy")}</TableCell>
+                              <TableCell>{format(new Date(entry.last_requested_at), "MMM d, yyyy")}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   )}
                 </CardContent>

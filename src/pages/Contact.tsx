@@ -93,6 +93,7 @@ export default function Contact() {
       setSubmitSuccess(true);
       setSubject("");
       setMessage("");
+      setAttemptedSubmit(false);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Could not send message right now.");
     } finally {
