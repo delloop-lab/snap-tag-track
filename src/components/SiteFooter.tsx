@@ -83,24 +83,6 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
           aria-label="Product guides"
           className="flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-300 sm:text-xs"
         >
-          <Link to="/receipt-scanner-app" className="hover:text-[#7CB87E] hover:underline">
-            Receipt scanner
-          </Link>
-          <span className="text-slate-600" aria-hidden>
-            ·
-          </span>
-          <Link to="/warranty-tracker" className="hover:text-[#7CB87E] hover:underline">
-            Warranty tracker
-          </Link>
-          <span className="text-slate-600" aria-hidden>
-            ·
-          </span>
-          <Link to="/expense-tracking-without-bank" className="hover:text-[#7CB87E] hover:underline">
-            Expense tracking
-          </Link>
-          <span className="text-slate-600" aria-hidden>
-            ·
-          </span>
           <Link to="/blog" className="hover:text-[#7CB87E] hover:underline">
             Blog
           </Link>

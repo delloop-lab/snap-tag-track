@@ -4,8 +4,38 @@ import type { Database } from './types';
 
 const SUPABASE_URL = "https://htcqyakbkyhoxvdxlfax.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0Y3F5YWtia3lob3h2ZHhsZmF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwODcwODAsImV4cCI6MjA2MTY2MzA4MH0.umudRmhAm3B6JWpXFFIdeYVXO7M5eRfJmiUyqusZnxU";
+const REMEMBER_ME_STORAGE_KEY = "snap_auth_remember_me";
+
+const authStorage = {
+  getItem: (key: string) => {
+    if (typeof window === "undefined") return null;
+    const fromSession = window.sessionStorage.getItem(key);
+    if (fromSession !== null) return fromSession;
+    return window.localStorage.getItem(key);
+  },
+  setItem: (key: string, value: string) => {
+    if (typeof window === "undefined") return;
+    const rememberMe = window.localStorage.getItem(REMEMBER_ME_STORAGE_KEY) !== "0";
+    if (rememberMe) {
+      window.localStorage.setItem(key, value);
+      window.sessionStorage.removeItem(key);
+    } else {
+      window.sessionStorage.setItem(key, value);
+      window.localStorage.removeItem(key);
+    }
+  },
+  removeItem: (key: string) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+  },
+};
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: authStorage,
+  },
+});

@@ -260,6 +260,8 @@ const AuthPage = () => {
       }
 
       if (isSignUp) {
+        // Reset stale confirmation state before each new sign-up attempt.
+        setPendingVerificationEmail(null);
         const redirectTo = emailConfirmationRedirectUrl();
         const { data, error: signUpError } = await withTimeout(
           supabase.auth.signUp({
@@ -305,6 +307,10 @@ const AuthPage = () => {
         navigate("/");
       }
     } catch (error: unknown) {
+      if (isSignUp) {
+        // Avoid showing an old address if this attempt fails.
+        setPendingVerificationEmail(null);
+      }
       const message = extractAuthErrorMessage(error);
       if (isSignUp && isLikelySignupTimeout(message)) {
         setAuthErrorDialog({
