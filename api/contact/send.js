@@ -22,11 +22,12 @@ export default async function handler(req, res) {
 
   const firstName = sanitize(req.body?.firstName, 100);
   const lastName = sanitize(req.body?.lastName, 100);
+  const email = sanitize(req.body?.email, 320);
   const subject = sanitize(req.body?.subject, 180);
   const message = sanitize(req.body?.message, 10000);
-  const userEmail = sanitize(req.body?.userEmail, 320);
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  if (!firstName || !lastName || !subject || !message) {
+  if (!firstName || !email || !subject || !message || !emailLooksValid) {
     return fail(res, 400, "Missing required fields", "BAD_REQUEST");
   }
 
@@ -56,8 +57,8 @@ export default async function handler(req, res) {
 
     const textBody = [
       `First name: ${firstName}`,
-      `Last name: ${lastName}`,
-      `User email: ${userEmail || "Not provided (guest or unavailable)"}`,
+      `Last name: ${lastName || "Not provided"}`,
+      `Email: ${email}`,
       "",
       "Message:",
       message,
@@ -66,7 +67,7 @@ export default async function handler(req, res) {
     await transporter.sendMail({
       from: `${SMTP_FROM_NAME} <${SMTP_FROM_EMAIL}>`,
       to: CONTACT_TO_EMAIL,
-      replyTo: userEmail || SMTP_FROM_EMAIL,
+      replyTo: email,
       subject: `[Contact] ${subject}`,
       text: textBody,
     });

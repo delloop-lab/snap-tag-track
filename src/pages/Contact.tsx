@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -20,6 +21,7 @@ export default function Contact() {
   const { user } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
@@ -28,31 +30,67 @@ export default function Contact() {
   const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
+    const meta = user?.user_metadata ?? {};
     const fn =
-      typeof user?.user_metadata?.first_name === "string"
-        ? user.user_metadata.first_name.trim()
-        : "";
+      typeof meta.first_name === "string"
+        ? meta.first_name.trim()
+        : typeof meta.firstName === "string"
+          ? meta.firstName.trim()
+          : "";
     const ln =
-      typeof user?.user_metadata?.last_name === "string"
-        ? user.user_metadata.last_name.trim()
-        : "";
+      typeof meta.last_name === "string"
+        ? meta.last_name.trim()
+        : typeof meta.lastName === "string"
+          ? meta.lastName.trim()
+          : "";
+    const em = typeof user?.email === "string" ? user.email.trim() : "";
     if (fn) setFirstName((prev) => prev || fn);
     if (ln) setLastName((prev) => prev || ln);
+    if (em) setEmail((prev) => prev || em);
   }, [user]);
+
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    let active = true;
+    const loadProfileNames = async () => {
+      // Fallback to profile table values when auth metadata names are missing.
+      const { data, error } = await supabase
+        .from("users")
+        .select("first_name, last_name")
+        .eq("id", userId)
+        .maybeSingle();
+      if (!active || error || !data) return;
+
+      const dbFirst = typeof data.first_name === "string" ? data.first_name.trim() : "";
+      const dbLast = typeof data.last_name === "string" ? data.last_name.trim() : "";
+      if (dbFirst) setFirstName((prev) => prev || dbFirst);
+      if (dbLast) setLastName((prev) => prev || dbLast);
+    };
+
+    void loadProfileNames();
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const trimmed = useMemo(
     () => ({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      email: email.trim(),
       subject: subject.trim(),
       message: message.trim(),
     }),
-    [firstName, lastName, subject, message],
+    [firstName, lastName, email, subject, message],
   );
+
+  const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.email);
 
   const valid =
     trimmed.firstName.length > 0 &&
-    trimmed.lastName.length > 0 &&
+    hasValidEmail &&
     trimmed.subject.length > 0 &&
     trimmed.message.length > 0;
 
@@ -73,9 +111,9 @@ export default function Contact() {
         body: JSON.stringify({
           firstName: trimmed.firstName,
           lastName: trimmed.lastName,
+          email: trimmed.email,
           subject: trimmed.subject,
           message: trimmed.message,
-          userEmail: user?.email ?? "",
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -151,12 +189,13 @@ export default function Contact() {
               <Mail className="h-5 w-5 text-orange-400" aria-hidden />
               <h2 className="text-lg font-semibold tracking-tight text-white">Send a message</h2>
             </div>
+            <p className="mb-4 text-xs text-slate-400">* Required field</p>
 
             <form className="space-y-5" onSubmit={onSubmit} noValidate>
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="contact-first-name" className="text-slate-300">
-                    First name
+                    First name *
                   </Label>
                   <Input
                     id="contact-first-name"
@@ -185,22 +224,40 @@ export default function Contact() {
                     autoComplete="family-name"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className={cn(
-                      fieldBase,
-                      attemptedSubmit && !trimmed.lastName && "border-red-400 focus-visible:ring-red-400/40",
-                    )}
-                    aria-invalid={attemptedSubmit && !trimmed.lastName}
-                    required
+                    className={fieldBase}
                   />
-                  {attemptedSubmit && !trimmed.lastName && (
-                    <p className="text-xs text-red-400">Enter your last name.</p>
-                  )}
                 </div>
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="contact-email" className="text-slate-300">
+                  Email *
+                </Label>
+                <Input
+                  id="contact-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={cn(
+                    fieldBase,
+                    attemptedSubmit && !hasValidEmail && "border-red-400 focus-visible:ring-red-400/40",
+                  )}
+                  aria-invalid={attemptedSubmit && !hasValidEmail}
+                  required
+                />
+                {attemptedSubmit && !trimmed.email && (
+                  <p className="text-xs text-red-400">Enter your email address.</p>
+                )}
+                {attemptedSubmit && !!trimmed.email && !hasValidEmail && (
+                  <p className="text-xs text-red-400">Enter a valid email address.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="contact-subject" className="text-slate-300">
-                  Subject
+                  Subject *
                 </Label>
                 <Input
                   id="contact-subject"
@@ -222,7 +279,7 @@ export default function Contact() {
 
               <div className="space-y-2">
                 <Label htmlFor="contact-message" className="text-slate-300">
-                  Message
+                  Message *
                 </Label>
                 <Textarea
                   id="contact-message"
