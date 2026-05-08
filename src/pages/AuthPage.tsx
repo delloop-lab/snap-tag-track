@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/components/ui/use-toast";
 import { TERMS_PUBLISHED_VERSION_ID } from "@/lib/termsVersion";
 import { SIGNUP_TERMS_METADATA_KEY } from "@/lib/termsRegistrationAcceptance";
 import { Eye, EyeOff } from "lucide-react";
@@ -265,8 +264,8 @@ const AuthPage = () => {
       );
       if (error) throw error;
       setAuthErrorDialog({
-        title: "Password reset sent",
-        message: "Check your inbox for the reset link.",
+        title: "Reset link sent",
+        message: "Check your inbox for the password reset link.",
       });
     } catch (error: unknown) {
       const message = extractAuthErrorMessage(error);
@@ -323,9 +322,9 @@ const AuthPage = () => {
               "We sent a confirmation link. Open it to activate your account, then sign in here.",
           });
         } else {
-          toast({
+          setAuthErrorDialog({
             title: "Account created successfully",
-            description: "Welcome to SnapTagTrack!",
+            message: "Welcome to SnapTagTrack!",
           });
           navigate("/profile?postSignup=1");
         }
@@ -395,9 +394,9 @@ const AuthPage = () => {
       }
       setWaitlistSuccess(true);
       setWaitlistError("");
-      toast({
+      setAuthErrorDialog({
         title: "Added to waitlist",
-        description: "Thanks — we’ll contact you as soon as capacity opens up.",
+        message: "Thanks — we’ll contact you as soon as capacity opens up.",
       });
     } catch (error) {
       setWaitlistError(error instanceof Error ? error.message : "Could not add you to the waitlist right now.");

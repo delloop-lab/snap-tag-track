@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { runPostAuthLandingOnce } from "@/lib/postAuthLanding";
 
+function isRecoveryRedirect() {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return query.get("type") === "recovery" || hash.get("type") === "recovery";
+}
+
 /** Handles Supabase email-confirmation (and OAuth) redirects; tokens are parsed from the URL by the client. */
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -14,6 +20,11 @@ const AuthCallback = () => {
 
     void (async () => {
       await new Promise((r) => setTimeout(r, 0));
+      if (isRecoveryRedirect()) {
+        const suffix = `${window.location.search}${window.location.hash}`;
+        navigate(`/auth/reset-password${suffix}`, { replace: true });
+        return;
+      }
       const {
         data: { session },
         error,
