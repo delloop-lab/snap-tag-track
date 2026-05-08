@@ -231,9 +231,9 @@ const AuthPage = () => {
         options: { emailRedirectTo: emailConfirmationRedirectUrl() },
       });
       if (error) throw error;
-      toast({
+      setAuthErrorDialog({
         title: "Email sent",
-        description: "Check your inbox for the confirmation link.",
+        message: "Check your inbox for the confirmation link.",
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Something went wrong.";
@@ -264,9 +264,9 @@ const AuthPage = () => {
         }),
       );
       if (error) throw error;
-      toast({
+      setAuthErrorDialog({
         title: "Password reset sent",
-        description: "Check your inbox for the reset link.",
+        message: "Check your inbox for the reset link.",
       });
     } catch (error: unknown) {
       const message = extractAuthErrorMessage(error);
@@ -288,10 +288,9 @@ const AuthPage = () => {
 
     try {
       if (isSignUp && !acceptedTermsRegistration) {
-        toast({
+        setAuthErrorDialog({
           title: "Accept terms to register",
-          description: "Tick the box to confirm you agree to the Terms & Conditions and Privacy Policy.",
-          variant: "destructive",
+          message: "Tick the box to confirm you agree to the Terms & Conditions and Privacy Policy.",
         });
         setLoading(false);
         return;
@@ -318,9 +317,9 @@ const AuthPage = () => {
 
         if (!data.session) {
           setPendingVerificationEmail(emailTrimmed);
-          toast({
+          setAuthErrorDialog({
             title: "Check your email",
-            description:
+            message:
               "We sent a confirmation link. Open it to activate your account, then sign in here.",
           });
         } else {

@@ -8,6 +8,19 @@ import { toast } from "@/components/ui/use-toast";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 
+function hasRecoveryParams() {
+  if (typeof window === "undefined") return false;
+  const url = new URL(window.location.href);
+  const query = url.searchParams;
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return (
+    query.get("type") === "recovery" ||
+    hash.get("type") === "recovery" ||
+    hash.has("access_token") ||
+    query.has("code")
+  );
+}
+
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
@@ -18,6 +31,22 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let active = true;
+    if (!hasRecoveryParams()) {
+      setValidLink(false);
+      setLoadingSession(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (!active) return;
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setValidLink(Boolean(currentSession));
+        setLoadingSession(false);
+      }
+    });
+
     void (async () => {
       const {
         data: { session },
@@ -26,8 +55,10 @@ export default function ResetPasswordPage() {
       setValidLink(Boolean(session));
       setLoadingSession(false);
     })();
+
     return () => {
       active = false;
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -49,8 +80,9 @@ export default function ResetPasswordPage() {
       if (error) throw error;
       toast({
         title: "Password updated",
-        description: "You can now sign in with your new password.",
+        description: "Your password has been reset. Please sign in again.",
       });
+      await supabase.auth.signOut({ scope: "local" });
       navigate("/auth", { replace: true });
     } catch (error) {
       toast({
