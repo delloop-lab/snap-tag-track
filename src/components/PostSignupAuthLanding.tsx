@@ -14,7 +14,14 @@ const PostSignupAuthLanding = () => {
   const pathname = useLocation().pathname;
 
   useEffect(() => {
-    if (loading || !user || pathname === "/auth/callback") return;
+    if (
+      loading ||
+      !user ||
+      pathname === "/auth/callback" ||
+      pathname === "/auth/reset-password"
+    ) {
+      return;
+    }
     void runPostAuthLandingOnce(supabase, navigate, user.id);
   }, [loading, user, pathname, navigate]);
 

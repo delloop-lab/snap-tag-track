@@ -8,6 +8,8 @@ import { toast } from "@/components/ui/use-toast";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 
+const EXPECTED_RECOVERY_FLOW_KEY = "snap_expected_recovery_flow";
+
 function hasRecoveryParams() {
   if (typeof window === "undefined") return false;
   const url = new URL(window.location.href);
@@ -30,6 +32,7 @@ export default function ResetPasswordPage() {
   const [validLink, setValidLink] = useState(false);
 
   useEffect(() => {
+    sessionStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
     let active = true;
     if (!hasRecoveryParams()) {
       setValidLink(false);

@@ -4,10 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { runPostAuthLandingOnce } from "@/lib/postAuthLanding";
 
+const EXPECTED_RECOVERY_FLOW_KEY = "snap_expected_recovery_flow";
+
 function isRecoveryRedirect() {
   const query = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  return query.get("type") === "recovery" || hash.get("type") === "recovery";
+  if (query.get("type") === "recovery" || hash.get("type") === "recovery") return true;
+
+  const expectedRecovery = sessionStorage.getItem(EXPECTED_RECOVERY_FLOW_KEY) === "1";
+  const hasAuthParams =
+    query.has("code") || hash.has("access_token") || hash.has("refresh_token");
+  return expectedRecovery && hasAuthParams;
 }
 
 /** Handles Supabase email-confirmation (and OAuth) redirects; tokens are parsed from the URL by the client. */
@@ -21,10 +28,12 @@ const AuthCallback = () => {
     void (async () => {
       await new Promise((r) => setTimeout(r, 0));
       if (isRecoveryRedirect()) {
+        sessionStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
         const suffix = `${window.location.search}${window.location.hash}`;
         navigate(`/auth/reset-password${suffix}`, { replace: true });
         return;
       }
+      sessionStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
       const {
         data: { session },
         error,

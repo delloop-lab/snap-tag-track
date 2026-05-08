@@ -166,6 +166,8 @@ function passwordResetRedirectUrl() {
   return `${window.location.origin}/auth/reset-password`;
 }
 
+const EXPECTED_RECOVERY_FLOW_KEY = "snap_expected_recovery_flow";
+
 const AuthPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -257,6 +259,8 @@ const AuthPage = () => {
 
     setForgotLoading(true);
     try {
+      // Helps callback routing in cases where provider links omit explicit type=recovery.
+      sessionStorage.setItem(EXPECTED_RECOVERY_FLOW_KEY, "1");
       const { error } = await withTimeout(
         supabase.auth.resetPasswordForEmail(emailTrimmed, {
           redirectTo: passwordResetRedirectUrl(),
