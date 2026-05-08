@@ -80,9 +80,13 @@ export default function Contact() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload?.ok !== true) {
+        const maybeCode =
+          typeof payload?.errorCode === "string" && payload.errorCode
+            ? ` (${payload.errorCode})`
+            : "";
         throw new Error(
           typeof payload?.error === "string" && payload.error
-            ? payload.error
+            ? `${payload.error}${maybeCode}`
             : "Could not send message right now.",
         );
       }

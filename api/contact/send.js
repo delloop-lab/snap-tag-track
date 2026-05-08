@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 
-function fail(res, statusCode, error) {
-  return res.status(statusCode).json({ ok: false, error });
+function fail(res, statusCode, error, errorCode) {
+  return res.status(statusCode).json({ ok: false, error, errorCode: errorCode || "UNKNOWN" });
 }
 
 function sanitize(value, maxLen = 2000) {
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   const userEmail = sanitize(req.body?.userEmail, 320);
 
   if (!firstName || !lastName || !subject || !message) {
-    return fail(res, 400, "Missing required fields");
+    return fail(res, 400, "Missing required fields", "BAD_REQUEST");
   }
 
   const SMTP_HOST = process.env.SMTP_HOST;
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
   const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || "snappy@snaptagtrack.com";
 
   if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM_EMAIL || !CONTACT_TO_EMAIL) {
-    return fail(res, 500, "Email service is not configured");
+    return fail(res, 500, "Email service is not configured", "CONFIG_MISSING");
   }
 
   try {
@@ -74,6 +74,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error("CONTACT_SEND_FAIL:", error);
-    return fail(res, 502, "Could not send message right now");
+    const safeCode =
+      error && typeof error === "object" && typeof error.code === "string"
+        ? error.code
+        : error && typeof error === "object" && typeof error.responseCode === "number"
+          ? `SMTP_${error.responseCode}`
+          : "SEND_FAILED";
+    return fail(res, 502, "Could not send message right now", safeCode);
   }
 }
