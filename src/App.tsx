@@ -40,6 +40,16 @@ import { cn } from "@/lib/utils";
 
 const queryClient = new QueryClient();
 
+const ScrollToTopOnRouteChange = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
+
+  return null;
+};
+
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -241,7 +251,13 @@ const AppContent = () => {
 
 const App = () => {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    const host = window.location.hostname;
+    const isLocalHost =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1";
+    const isProdLike = import.meta.env.PROD && !isLocalHost;
+    if ("serviceWorker" in navigator && isProdLike) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js", { updateViaCache: "none" })
@@ -262,6 +278,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <ScrollToTopOnRouteChange />
             <RouteSeo />
             <AnalyticsListener />
             <AppContent />

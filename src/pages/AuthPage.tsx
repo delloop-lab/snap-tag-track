@@ -24,9 +24,61 @@ type AuthErrorDialogState = {
   message: string;
 };
 
+const AUTH_REQUEST_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_REQUEST_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error("Request timed out. Please try again."));
+    }, timeoutMs);
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        window.clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+function extractAuthErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) {
+    const msg = error.message?.trim();
+    if (msg && msg !== "{}" && msg !== "[object Object]") return msg;
+  }
+  if (error && typeof error === "object") {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === "string") {
+      const msg = maybeMessage.trim();
+      if (msg && msg !== "{}" && msg !== "[object Object]") return msg;
+    }
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      // ignore serialization errors
+    }
+  }
+  return "Something went wrong. Please try again.";
+}
+
+function isLikelySignupTimeout(rawMessage: string): boolean {
+  const normalized = rawMessage.trim().toLowerCase();
+  return (
+    normalized.includes("gateway timeout") ||
+    normalized.includes("timeout") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("request timed out")
+  );
+}
+
 /** Translate raw Supabase auth error messages into actionable copy. */
 function describeAuthError(rawMessage: string, mode: "signIn" | "signUp"): AuthErrorDialogState {
-  const normalized = rawMessage.trim().toLowerCase();
+  const cleanedRaw = rawMessage.trim();
+  const normalized = cleanedRaw.toLowerCase();
 
   if (mode === "signIn") {
     if (
@@ -45,6 +97,12 @@ function describeAuthError(rawMessage: string, mode: "signIn" | "signUp"): AuthE
         title: "Confirm your email first",
         message:
           "Open the confirmation link we sent to your inbox before signing in. You can request another from the sign-up screen if you can’t find it.",
+      };
+    }
+    if (normalized.includes("gateway timeout") || normalized.includes("timeout")) {
+      return {
+        title: "Sign-in timed out",
+        message: "The server took too long to respond. Please try signing in again in a moment.",
       };
     }
   }
@@ -77,9 +135,26 @@ function describeAuthError(rawMessage: string, mode: "signIn" | "signUp"): AuthE
     };
   }
 
+  if (
+    normalized.includes("gateway timeout") ||
+    normalized.includes("timeout") ||
+    normalized.includes("fetch failed")
+  ) {
+    return {
+      title: mode === "signIn" ? "Couldn’t sign you in" : "Sign-up is taking longer than expected",
+      message:
+        mode === "signUp"
+          ? "We could not confirm sign-up completion yet. Check your inbox for a confirmation email, then try signing in. If no email arrives, try sign-up again in a minute."
+          : "The server took too long to respond. Please try again.",
+    };
+  }
+
   return {
     title: mode === "signIn" ? "Couldn’t sign you in" : "Couldn’t complete sign-up",
-    message: rawMessage || "Please try again.",
+    message:
+      cleanedRaw && cleanedRaw !== "{}" && cleanedRaw !== "[object Object]"
+        ? cleanedRaw
+        : "Please try again.",
   };
 }
 
@@ -154,6 +229,8 @@ const AuthPage = () => {
     e.preventDefault();
     setLoading(true);
     localStorage.setItem("snap_auth_remember_me", rememberMe ? "1" : "0");
+    const emailTrimmed = email.trim();
+    const passwordTrimmed = password.trim();
 
     try {
       if (isSignUp && !acceptedTermsRegistration) {
@@ -168,21 +245,23 @@ const AuthPage = () => {
 
       if (isSignUp) {
         const redirectTo = emailConfirmationRedirectUrl();
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectTo,
-            data: {
-              [SIGNUP_TERMS_METADATA_KEY]: TERMS_PUBLISHED_VERSION_ID,
+        const { data, error: signUpError } = await withTimeout(
+          supabase.auth.signUp({
+            email: emailTrimmed,
+            password: passwordTrimmed,
+            options: {
+              emailRedirectTo: redirectTo,
+              data: {
+                [SIGNUP_TERMS_METADATA_KEY]: TERMS_PUBLISHED_VERSION_ID,
+              },
             },
-          },
-        });
+          }),
+        );
 
         if (signUpError) throw signUpError;
 
         if (!data.session) {
-          setPendingVerificationEmail(email);
+          setPendingVerificationEmail(emailTrimmed);
           toast({
             title: "Check your email",
             description:
@@ -197,10 +276,12 @@ const AuthPage = () => {
         }
       } else {
         // Regular sign in flow
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: emailTrimmed,
+            password: passwordTrimmed,
+          }),
+        );
         
         if (error) throw error;
         
@@ -208,7 +289,15 @@ const AuthPage = () => {
         navigate("/");
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Something went wrong.";
+      const message = extractAuthErrorMessage(error);
+      if (isSignUp && isLikelySignupTimeout(message)) {
+        setAuthErrorDialog({
+          title: "Couldn’t complete sign-up",
+          message:
+            "We're experiencing a high level of registrations at the moment. Please try in 15 minutes.",
+        });
+        return;
+      }
       setAuthErrorDialog(describeAuthError(message, isSignUp ? "signUp" : "signIn"));
     } finally {
       setLoading(false);
@@ -304,6 +393,7 @@ const AuthPage = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
+                autoComplete="email"
                 required
                 className="h-11 border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"
               />
@@ -318,6 +408,7 @@ const AuthPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                   required
                   minLength={6}
                   className="h-11 border-slate-500 bg-slate-950/70 text-slate-100 placeholder:text-slate-400"

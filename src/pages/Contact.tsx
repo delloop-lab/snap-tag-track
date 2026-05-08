@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 
-const HELP_EMAIL = "help@snaptagtrack.com";
+const HELP_EMAIL = "snappy@snaptagtrack.com";
 
 /** Match modern landing inputs (LandingPage2 slate cards). */
 const fieldBase =
@@ -23,6 +23,9 @@ export default function Contact() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     const fn =
@@ -53,19 +56,44 @@ export default function Contact() {
     trimmed.subject.length > 0 &&
     trimmed.message.length > 0;
 
-  const mailtoHref = useMemo(() => {
-    if (!valid) return "";
-    const body = `${trimmed.message}\n\n---\n${trimmed.firstName} ${trimmed.lastName}`;
-    // Percent-encode (%20); avoid URLSearchParams — it uses + for spaces and many mail clients leave + visible.
-    const q = `subject=${encodeURIComponent(trimmed.subject)}&body=${encodeURIComponent(body)}`;
-    return `mailto:${HELP_EMAIL}?${q}`;
-  }, [trimmed.firstName, trimmed.lastName, trimmed.message, trimmed.subject, valid]);
-
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setAttemptedSubmit(true);
-    if (!valid || !mailtoHref) return;
-    window.location.href = mailtoHref;
+    setSubmitError("");
+    setSubmitSuccess(false);
+    if (!valid) return;
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/contact/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName: trimmed.firstName,
+          lastName: trimmed.lastName,
+          subject: trimmed.subject,
+          message: trimmed.message,
+          userEmail: user?.email ?? "",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok !== true) {
+        throw new Error(
+          typeof payload?.error === "string" && payload.error
+            ? payload.error
+            : "Could not send message right now.",
+        );
+      }
+      setSubmitSuccess(true);
+      setSubject("");
+      setMessage("");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Could not send message right now.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -215,17 +243,20 @@ export default function Contact() {
                 type="submit"
                 size="lg"
                 className="w-full gap-2 rounded-xl bg-orange-500 font-bold text-white hover:bg-orange-600 sm:w-auto"
+                disabled={submitting}
               >
                 <Send className="h-4 w-4" aria-hidden />
-                Open in email app
+                {submitting ? "Sending..." : "Send message"}
               </Button>
             </form>
 
-            <p className="mt-5 text-xs leading-relaxed text-slate-400">
-              Sending opens your email app with this message addressed to{" "}
-              <span className="font-medium text-slate-200">{HELP_EMAIL}</span>. You can edit there before you
-              send.
-            </p>
+            {submitSuccess && (
+              <p className="mt-4 text-sm text-green-300">Thanks — your message has been sent.</p>
+            )}
+            {!!submitError && (
+              <p className="mt-4 text-sm text-red-300">{submitError}</p>
+            )}
+
           </section>
         </div>
       </section>

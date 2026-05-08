@@ -3,6 +3,7 @@ import { useAuth } from "@/components/AuthProvider";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 import { BLOG_POSTS } from "@/marketing/blogPosts";
+import GuideSearch from "@/components/GuideSearch";
 
 export default function BlogIndexPage() {
   const { user } = useAuth();
@@ -39,6 +40,10 @@ export default function BlogIndexPage() {
                 </div>
               </article>
             ))}
+          </section>
+
+          <section className="mt-10 rounded-2xl border border-slate-600 bg-slate-900/40 p-5 sm:p-6">
+            <GuideSearch />
           </section>
         </main>
       </div>

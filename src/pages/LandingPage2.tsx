@@ -97,7 +97,7 @@ export default function LandingPage2() {
     return (
       <div>
         {classicLayout}
-        <SiteFooter variant="classic" />
+        <SiteFooter variant="landing" />
       </div>
     );
   }
@@ -386,7 +386,7 @@ export default function LandingPage2() {
         </div>
       </section>
 
-      <SiteFooter variant="slate" />
+      <SiteFooter variant="landing" />
     </main>
   );
 }

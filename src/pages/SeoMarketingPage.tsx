@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
+import GuideSearch from "@/components/GuideSearch";
 import {
   Accordion,
   AccordionContent,
@@ -133,6 +134,7 @@ export default function SeoMarketingPage() {
                 </li>
               ))}
             </ul>
+            <GuideSearch className="mt-6" />
           </section>
 
           <section className="mt-10 border-t border-slate-600/80 pt-8">
