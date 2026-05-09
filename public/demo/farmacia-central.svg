@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="480" viewBox="0 0 340 480">
+<defs>
+    <filter id="paper" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" result="n"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.06 0" in="n" result="n2"/>
+      <feBlend in="SourceGraphic" in2="n2" mode="multiply"/>
+    </filter>
+  </defs>
+<g filter="url(#paper)" transform="rotate(-0.6 170 240) translate(4 2)">
+<rect x="0" y="0" width="340" height="480" fill="#f7f5f2" rx="3"/>
+<text x="170" y="36" font-family="'Courier New',Consolas,monospace" font-size="15" font-weight="700" text-anchor="middle" fill="#141414">Farmacia Central</text>
+<text x="170" y="57" font-family="'Courier New',Consolas,monospace" font-size="9" font-weight="400" text-anchor="middle" fill="#141414">Fatura simplificada</text>
+<line x1="20" y1="76" x2="320" y2="76" stroke="#b0b0b0" stroke-dasharray="5 4" stroke-width="1"/>
+<text x="20" y="90" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">FT FC/77821</text>
+<text x="20" y="106" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">Data 28/01/2026  09:37</text>
+<text x="20" y="122" font-family="'Courier New',Consolas,monospace" font-size="9" font-weight="400" text-anchor="start" fill="#141414">NIF cliente 999999990</text>
+<line x1="20" y1="141" x2="320" y2="141" stroke="#b0b0b0" stroke-dasharray="5 4" stroke-width="1"/>
+<text x="20" y="155" font-family="'Courier New',Consolas,monospace" font-size="9" font-weight="400" text-anchor="start" fill="#141414">Descricao / IVA / Linha EUR</text>
+<line x1="20" y1="174" x2="320" y2="174" stroke="#b0b0b0" stroke-dasharray="5 4" stroke-width="1"/>
+<text x="20" y="188" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">1x Paracetamol 1g</text>
+<text x="20" y="204" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">6% IVA        4.95 EUR</text>
+<text x="20" y="220" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">1x Vitamina D</text>
+<text x="20" y="236" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">6% IVA        12.40 EUR</text>
+<text x="20" y="252" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">1x Creme Hidratante</text>
+<text x="20" y="268" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">23% IVA        13.50 EUR</text>
+<line x1="20" y1="288" x2="320" y2="288" stroke="#b0b0b0" stroke-dasharray="5 4" stroke-width="1"/>
+<text x="20" y="302" font-family="'Courier New',Consolas,monospace" font-size="11" font-weight="600" text-anchor="start" fill="#141414">SUBTOTAL  30.85 EUR</text>
+<text x="20" y="319" font-family="'Courier New',Consolas,monospace" font-size="11" font-weight="400" text-anchor="start" fill="#141414">IVA       4.15 EUR</text>
+<text x="170" y="336" font-family="'Courier New',Consolas,monospace" font-size="13" font-weight="700" text-anchor="middle" fill="#141414">TOTAL     35.00 EUR</text>
+<line x1="20" y1="359" x2="320" y2="359" stroke="#b0b0b0" stroke-dasharray="5 4" stroke-width="1"/>
+<text x="20" y="373" font-family="'Courier New',Consolas,monospace" font-size="10" font-weight="400" text-anchor="start" fill="#141414">Pagamento: MULTIBANCO</text>
+<text x="170" y="389" font-family="'Courier New',Consolas,monospace" font-size="9" font-weight="400" text-anchor="middle" fill="#141414">Obrigado pela sua compra</text>
+<text x="170" y="404" font-family="'Courier New',Consolas,monospace" font-size="8" font-weight="400" text-anchor="middle" fill="#141414">(Demo SnapTagTrack)</text>
+</g>
+</svg>

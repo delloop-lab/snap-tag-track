@@ -3,8 +3,8 @@ import { CANONICAL_ORIGIN } from "./site";
 export type RouteSeo = {
   title: string;
   description: string;
-  /** Set for app/private surfaces to keep them out of the index. */
-  robots?: "noindex, nofollow";
+  /** Set for app/private surfaces or Help (support hub): keep out of search while allowing crawl. */
+  robots?: "noindex, nofollow" | "noindex, follow";
 };
 
 const PUBLIC_ROUTES: Record<string, RouteSeo> = {
@@ -14,9 +14,10 @@ const PUBLIC_ROUTES: Record<string, RouteSeo> = {
       "Receipt tracking, warranty reminders, and expense tracking from photos—no bank link. Snap receipts, tag spending, get expiry alerts.",
   },
   "/help": {
-    title: "Help | Receipt Tracking & Warranty Reminders",
+    title: "Help & support | Snap Tag Track",
     description:
-      "Guides for receipt tracking, warranty reminder setup, and expense tracking with Snap Tag Track. FAQs, scan tips, and how it works.",
+      "In-product help only: uploads, scanning steps, summaries, troubleshooting, and account FAQs. Editorial and discovery content lives on Blog and crawlable guides.",
+    robots: "noindex, follow",
   },
   "/contact": {
     title: "Contact Snap Tag Track | Support",
@@ -47,6 +48,11 @@ const PUBLIC_ROUTES: Record<string, RouteSeo> = {
     title: "Warranty Tracker & Reminders | Snap Tag Track",
     description:
       "Track warranties from receipts, store proof of purchase, and get reminders before coverage expires—built for homes and contractors.",
+  },
+  "/returns-cooling-off": {
+    title: "Returns & Cooling-Off | Receipt Proof | Snap Tag Track",
+    description:
+      "Keep dated receipt proof and reminders for return windows and cooling-off—separate from manufacturer warranty tracking. Not legal advice.",
   },
   "/expense-tracking-without-bank": {
     title: "Expense Tracking Without Bank | Snap Tag Track",
@@ -84,9 +90,9 @@ const PUBLIC_ROUTES: Record<string, RouteSeo> = {
       "Use cases for receipt scanning, warranty tracking, contractor job proof, and household expense visibility—pick a workflow to start.",
   },
   "/blog": {
-    title: "Blog | Receipt & Warranty Guides",
+    title: "Blog | Snap Tag Track",
     description:
-      "Guides and articles on receipt tracking, warranty reminders, and expense tracking without bank feeds—Snap Tag Track blog index.",
+      "Articles on receipt habits, warranties, and spending—editorial posts separate from Help Centre support and crawlable topic pages.",
   },
   "/blog/how-to-track-receipts-for-taxes": {
     title: "Track Receipts for Taxes (No Chaos)",

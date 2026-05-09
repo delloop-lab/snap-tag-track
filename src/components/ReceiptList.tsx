@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { formatDistanceToNow, format, isAfter, isBefore } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -38,6 +38,12 @@ import { getTagColor } from "./TagInput";
 import { resolveReceiptThumbUrl } from "@/lib/receiptImageUrl";
 import { LazyReceiptThumb } from "./LazyReceiptThumb";
 import { ReceiptImagePreviewDialog } from "@/components/ReceiptImagePreviewDialog";
+import { isClientDemoPreviewActive } from "@/lib/demo/demoMode";
+import {
+  buildClientDemoReceiptListForUI,
+  buildClientDemoSummaryTags,
+} from "@/lib/demo/clientDemoData";
+import { openDemoRegisterPrompt } from "@/components/DemoRegisterPromptHost";
 
 type Receipt = {
   id: string;
@@ -64,7 +70,9 @@ const ReceiptList = () => {
   const [loading, setLoading] = useState(true);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const demoPreview = isClientDemoPreviewActive(user);
   const { preferredDisplayCurrency } = useUserShoppingPreferences();
 
   // Filter states
@@ -81,28 +89,32 @@ const ReceiptList = () => {
   const [previewReceipt, setPreviewReceipt] = useState<{ image_path: string; vendor_name: string | null } | null>(null);
 
   useEffect(() => {
+    if (demoPreview) {
+      setAllTags(buildClientDemoSummaryTags());
+      return;
+    }
     if (!user) return;
-    
+
     const fetchTags = async () => {
       const { data: tags, error } = await supabase
         .from("tags")
         .select("*")
         .eq("user_id", user.id);
-      
+
       if (error) {
         console.error("Error fetching tags:", error);
         return;
       }
-      
+
       setAllTags(tags || []);
     };
-    
-    fetchTags();
-  }, [user]);
+
+    void fetchTags();
+  }, [user, location.pathname]);
 
   useEffect(() => {
-    fetchReceipts();
-  }, [user]);
+    void fetchReceipts();
+  }, [user, location.pathname]);
 
   // Refresh receipts when the page becomes visible (e.g., after upload)
   useEffect(() => {
@@ -118,11 +130,42 @@ const ReceiptList = () => {
   }, []);
 
   const fetchReceipts = async () => {
+    if (demoPreview) {
+      try {
+        setLoading(true);
+        const base = buildClientDemoReceiptListForUI();
+        const imageUrlByReceiptId = new Map<string, string>();
+        await Promise.all(
+          base.map(async (r) => {
+            if (!r.image_path) return;
+            const url = await resolveReceiptThumbUrl(r.image_path);
+            if (url) imageUrlByReceiptId.set(r.id, url);
+          }),
+        );
+        setReceipts(
+          base.map((r) => ({
+            ...r,
+            image_url: imageUrlByReceiptId.get(r.id) ?? null,
+          })),
+        );
+      } catch (error) {
+        console.error("Error loading demo receipts:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load preview receipts",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!user) return;
-    
+
     try {
       setLoading(true);
-      
+
       // First fetch all receipts
       const { data: receiptsData, error: receiptsError } = await supabase
         .from("receipts")
@@ -200,11 +243,19 @@ const ReceiptList = () => {
   };
 
   const handleDelete = (id: string, imagePath: string, tags?: { id: string; name: string }[]) => {
+    if (demoPreview) {
+      openDemoRegisterPrompt(
+        "Preview mode",
+        "Create a free account to delete receipts from your library.",
+      );
+      return;
+    }
     // Always show the confirmation dialog first
     setPendingDelete({ id, imagePath, tags });
   };
 
   const confirmDelete = async (id: string) => {
+    if (demoPreview) return;
     const deletedReceipt = receipts.find(r => r.id === id);
     if (!deletedReceipt) return;
 
@@ -407,7 +458,20 @@ const ReceiptList = () => {
           Filters
           <ChevronDown className="ml-1 h-4 w-4" />
         </Button>
-        <Button onClick={() => navigate("/upload")}>Upload New Receipt</Button>
+        <Button
+          onClick={() => {
+            if (demoPreview) {
+              openDemoRegisterPrompt(
+                "Preview mode",
+                "Create a free account to upload and store your own receipts.",
+              );
+              return;
+            }
+            navigate("/upload");
+          }}
+        >
+          Upload New Receipt
+        </Button>
       </div>
 
       {/* Filters Section */}
@@ -543,8 +607,17 @@ const ReceiptList = () => {
               : "No receipts match your filters."}
           </p>
           {receipts.length === 0 && (
-            <Button 
-              onClick={() => navigate("/upload")} 
+            <Button
+              onClick={() => {
+                if (demoPreview) {
+                  openDemoRegisterPrompt(
+                    "Preview mode",
+                    "Create a free account to upload and store your own receipts.",
+                  );
+                  return;
+                }
+                navigate("/upload");
+              }}
               className="mt-4"
             >
               Upload Your First Receipt
@@ -609,17 +682,19 @@ const ReceiptList = () => {
                         {receipt.vendor_name || "Unknown Vendor"}
                       </h3>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 p-0 flex-shrink-0 text-slate-400 hover:text-red-300 hover:bg-red-900/40"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(receipt.id, receipt.image_path, receipt.tags);
-                      }}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+                    {!demoPreview && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0 p-0 text-slate-400 hover:bg-red-900/40 hover:text-red-300"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(receipt.id, receipt.image_path, receipt.tags);
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-slate-300">
                     {receipt.purchase_date

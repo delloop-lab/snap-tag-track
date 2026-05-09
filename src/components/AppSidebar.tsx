@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Receipt,
@@ -10,10 +10,28 @@ import {
   LogOut,
   ScrollText,
   ShieldCheck,
+  MonitorPlay,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  dashboardHomePath,
+  exitClientDemoMode,
+  isClientDemoPreviewActive,
+  setPreviewModeForDashboard,
+} from "@/lib/demo/demoMode";
+import { openDemoRegisterPrompt } from "@/components/DemoRegisterPromptHost";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   { label: "Dashboard", icon: Home, path: "/" },
@@ -24,8 +42,12 @@ const navItems = [
 
 export default function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const dashboardPath = dashboardHomePath(Boolean(user));
+  const isDemoPreview = isClientDemoPreviewActive(user);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [previewDashboardDialogOpen, setPreviewDashboardDialogOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -65,12 +87,24 @@ export default function AppSidebar() {
 
       <nav className="space-y-0.5 overflow-y-auto px-3 py-2">
         {navItems.map(({ label, icon: Icon, path }) => {
+          const to = path === "/" ? dashboardPath : path;
           const isActive =
-            path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+            path === "/"
+              ? location.pathname === "/" || location.pathname === "/dashboard"
+              : location.pathname.startsWith(path);
           return (
             <Link
-              key={path}
-              to={path}
+              key={label}
+              to={to}
+              onClick={(e) => {
+                if (label === "Profile" && isDemoPreview) {
+                  e.preventDefault();
+                  openDemoRegisterPrompt(
+                    "Profile",
+                    "Create a free account to set your name, avatar, and shopping preferences.",
+                  );
+                }
+              }}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive ? activeLink : inactiveLink
               }`}
@@ -98,7 +132,7 @@ export default function AppSidebar() {
           }`}
         >
           <HelpCircle className="h-5 w-5 shrink-0" />
-          Help
+          Help Centre
         </Link>
         <Link
           to="/contact"
@@ -127,19 +161,69 @@ export default function AppSidebar() {
           <ShieldCheck className="h-5 w-5 shrink-0" />
           Privacy
         </Link>
-      </nav>
-      {user && (
-        <div className="px-3 pb-4 pt-2">
+        {user && (
           <button
             type="button"
-            onClick={signOut}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-950/40 hover:text-red-200"
+            onClick={() => setPreviewDashboardDialogOpen(true)}
+            className="mt-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-yellow-300 transition-colors hover:bg-slate-800 hover:text-yellow-200"
           >
-            <LogOut className="h-5 w-5 shrink-0" />
-            Logout
+            <MonitorPlay className="h-5 w-5 shrink-0 text-yellow-300" />
+            View Demo Dashboard
           </button>
+        )}
+      </nav>
+      {(user || isDemoPreview) && (
+        <div className="px-3 pb-4 pt-2">
+          {user ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-950/40 hover:text-red-200"
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              Logout
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                exitClientDemoMode();
+                navigate("/");
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-orange-300 transition-colors hover:bg-slate-800 hover:text-orange-200"
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              Exit preview
+            </button>
+          )}
         </div>
       )}
+
+      <AlertDialog open={previewDashboardDialogOpen} onOpenChange={setPreviewDashboardDialogOpen}>
+        <AlertDialogContent className="border-slate-600 bg-slate-900 text-slate-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">View Demo Dashboard</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              To view the demo dashboard with sample receipts, you will be signed out of your account. You can sign in
+              again anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-500 text-white hover:bg-orange-600"
+              onClick={() => {
+                setPreviewModeForDashboard();
+                void signOut({ redirectTo: "/dashboard" });
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }

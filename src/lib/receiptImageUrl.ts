@@ -7,6 +7,10 @@ function isAbsoluteUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
+function isRootRelativeUrl(value: string) {
+  return /^\/(?!\/)/.test(value);
+}
+
 function extractObjectPathFromSupabaseUrl(urlValue: string): string | null {
   try {
     const parsed = new URL(urlValue);
@@ -65,7 +69,7 @@ export function normalizeReceiptObjectPath(path: string | null | undefined): str
   if (!path) return null;
   const trimmed = path.trim();
   if (!trimmed) return null;
-  if (isAbsoluteUrl(trimmed)) return trimmed;
+  if (isAbsoluteUrl(trimmed) || isRootRelativeUrl(trimmed)) return trimmed;
 
   const canonical = canonicalReceiptBucketObjectKey(trimmed);
   return canonical || null;
@@ -74,6 +78,7 @@ export function normalizeReceiptObjectPath(path: string | null | undefined): str
 function buildPathCandidates(path: string): string[] {
   const trimmed = path.trim();
   if (!trimmed) return [];
+  if (isRootRelativeUrl(trimmed)) return [trimmed];
   if (isAbsoluteUrl(trimmed)) {
     const extracted = extractObjectPathFromSupabaseUrl(trimmed);
     if (!extracted) return [trimmed];
@@ -96,7 +101,7 @@ export async function resolveReceiptImageUrl(
   if (!path) return null;
   const candidates = buildPathCandidates(path);
   if (candidates.length === 0) return null;
-  if (isAbsoluteUrl(candidates[0])) return candidates[0];
+  if (isAbsoluteUrl(candidates[0]) || isRootRelativeUrl(candidates[0])) return candidates[0];
 
   for (const candidate of candidates) {
     const { data, error } = await supabase.storage
@@ -179,6 +184,7 @@ export async function resolveReceiptThumbUrl(
   if (!path) return null;
   const candidates = buildPathCandidates(path);
   if (candidates.length === 0) return null;
+  if (isRootRelativeUrl(candidates[0])) return candidates[0];
 
   for (const candidate of siblingThumbSigningCandidates(path)) {
     const { data, error } = await supabase.storage

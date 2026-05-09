@@ -31,7 +31,7 @@ export const receiptScannerAppBody: SeoPageBody = {
       h2: "Getting started with receipt scanning in Snap Tag Track",
       paragraphs: [
         "Create a free account, scan five real purchases from the last week, and tag them with words you already use at home or on site. Do not optimise the taxonomy on day one—optimise the habit. Once the inbox of receipts feels normal, add warranty dates where you care about risk.",
-        "If quality is shaky, improve lighting and lay the receipt flat before blaming the software. The Help centre shows good and bad examples. Better input beats clever algorithms when paper is crumpled or thermal text is fading.",
+        "If quality is shaky, improve lighting and lay the receipt flat before blaming the software. See bad vs good examples and habits on this guide page (scroll for capture tips)—better input beats clever algorithms when paper is crumpled or thermal text is fading.",
         "When you are comfortable, open summaries and sort by tag. That is the moment a receipt scanner app becomes a spending tool—not because it guessed categories, but because you told it what they meant.",
       ],
     },

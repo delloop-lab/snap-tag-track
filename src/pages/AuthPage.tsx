@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { TERMS_PUBLISHED_VERSION_ID } from "@/lib/termsVersion";
 import { SIGNUP_TERMS_METADATA_KEY } from "@/lib/termsRegistrationAcceptance";
 import { Eye, EyeOff } from "lucide-react";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
+import { clearClientDemoModeForAuthenticatedUser } from "@/lib/demo/demoMode";
 import SiteFooter from "@/components/SiteFooter";
 import {
   Dialog,
@@ -167,6 +168,8 @@ function passwordResetRedirectUrl() {
 }
 
 const EXPECTED_RECOVERY_FLOW_KEY = "snap_expected_recovery_flow";
+const EXPECTED_RECOVERY_FLOW_TS_KEY = "snap_expected_recovery_flow_ts";
+const EXPECTED_RECOVERY_FLOW_TTL_MS = 30 * 60 * 1000;
 
 const AuthPage = () => {
   const [email, setEmail] = useState("");
@@ -187,6 +190,7 @@ const AuthPage = () => {
   const [waitlistError, setWaitlistError] = useState("");
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const resetWaitlistState = () => {
     setWaitlistOpen(false);
@@ -204,6 +208,19 @@ const AuthPage = () => {
   }, []);
 
   useEffect(() => {
+    if (searchParams.get("register") !== "1") return;
+    setIsSignUp(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("register");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
     if (!isSignUp) {
       setAcceptedTermsRegistration(false);
       setPendingVerificationEmail(null);
@@ -215,6 +232,7 @@ const AuthPage = () => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
+        clearClientDemoModeForAuthenticatedUser();
         navigate("/");
       }
     };
@@ -260,7 +278,9 @@ const AuthPage = () => {
     setForgotLoading(true);
     try {
       // Helps callback routing in cases where provider links omit explicit type=recovery.
-      sessionStorage.setItem(EXPECTED_RECOVERY_FLOW_KEY, "1");
+      // Store in localStorage as users often open reset links in a new tab/window.
+      localStorage.setItem(EXPECTED_RECOVERY_FLOW_KEY, "1");
+      localStorage.setItem(EXPECTED_RECOVERY_FLOW_TS_KEY, String(Date.now() + EXPECTED_RECOVERY_FLOW_TTL_MS));
       const { error } = await withTimeout(
         supabase.auth.resetPasswordForEmail(emailTrimmed, {
           redirectTo: passwordResetRedirectUrl(),
@@ -326,6 +346,7 @@ const AuthPage = () => {
               "We sent a confirmation link. Open it to activate your account, then sign in here.",
           });
         } else {
+          clearClientDemoModeForAuthenticatedUser();
           setAuthErrorDialog({
             title: "Account created successfully",
             message: "Welcome to SnapTagTrack!",
@@ -342,7 +363,8 @@ const AuthPage = () => {
         );
         
         if (error) throw error;
-        
+
+        clearClientDemoModeForAuthenticatedUser();
         // Redirect to home page after successful sign in
         navigate("/");
       }
@@ -497,7 +519,7 @@ const AuthPage = () => {
     </Dialog>
     <div className="flex min-h-screen w-full flex-col bg-slate-800 text-slate-100">
       <div className={`${marketingPageGutterClass} pb-2`}>
-        <MarketingTopNav active="auth" className="mb-6 sm:mb-8" />
+        <MarketingTopNav className="mb-6 sm:mb-8" />
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-6 pb-28 sm:px-6">
       <div className="relative w-full max-w-md space-y-8 overflow-hidden rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-slate-100 shadow-2xl backdrop-blur-sm">

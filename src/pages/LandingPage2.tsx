@@ -1,13 +1,19 @@
-import { Link, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { enterClientDemoMode } from "@/lib/demo/demoMode";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
+import { TOPIC_PAGE_LINKS } from "@/marketing/topicPageLinks";
 
-type Persona = "personal" | "contractor";
+type Persona = "personal" | "business";
 
 const QR_IMAGE = "/home/_assets/media/8d0db40693fba92d239ee56243f720ee.png";
+
+/** Preview strip: inner height vs clip (h-36); translateY % is relative to inner box. */
+const DEMO_PREVIEW_PAN_STACK = 2.35;
+const DEMO_PREVIEW_PAN_Y_MAX = -((1 - 1 / DEMO_PREVIEW_PAN_STACK) * 100);
 
 const classicLayout = (
   <main className="flex min-h-screen justify-center items-center p-3 sm:p-4 md:p-8 relative bg-white pb-24">
@@ -27,13 +33,7 @@ const classicLayout = (
               to="/help"
               className="text-sm font-semibold text-[#666] underline underline-offset-2 hover:text-[#333] whitespace-nowrap"
             >
-              Help
-            </Link>
-            <Link
-              to="/contact"
-              className="text-sm font-semibold text-[#666] underline underline-offset-2 hover:text-[#333] whitespace-nowrap"
-            >
-              Contact
+              Help Centre
             </Link>
           </div>
         </div>
@@ -71,7 +71,9 @@ const classicLayout = (
 
 export default function LandingPage2() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const params = new URLSearchParams(location.search);
   const initialVersion = params.get("v") === "classic" ? "classic" : "new";
   const [version, setVersion] = useState<"classic" | "new">(initialVersion);
@@ -85,13 +87,18 @@ export default function LandingPage2() {
             text: "Track purchases so you don't lose money and don't get screwed on warranties.",
           }
         : {
-            title: "Contractor-ready evidence",
+            title: "Business-ready evidence",
             text: "Tag by job/client, capture product photos, and keep clean visual proof for claims and tax time.",
           },
     [persona]
   );
   const personaHeroImage =
     persona === "personal" ? "/snaptagtrack_1.jpg" : "/snaptagtrack_2.jpg";
+
+  const handleTryDemo = () => {
+    enterClientDemoMode();
+    navigate("/dashboard", { replace: true });
+  };
 
   if (version === "classic") {
     return (
@@ -135,14 +142,57 @@ export default function LandingPage2() {
                 </button>
                 <button
                   className={`px-4 py-2 rounded-lg text-sm font-semibold ${
-                    persona === "contractor" ? "bg-[#4A8AE6] text-white" : "text-slate-300"
+                    persona === "business" ? "bg-[#4A8AE6] text-white" : "text-slate-300"
                   }`}
-                  onClick={() => setPersona("contractor")}
+                  onClick={() => setPersona("business")}
                 >
-                  Contractor
+                  Business
                 </button>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={handleTryDemo}
+              className="mt-5 block w-full rounded-2xl border border-slate-600 bg-slate-700/60 p-4 text-left transition-colors hover:border-[#7CB87E]/50 hover:bg-slate-700/80"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#7CB87E]">Try a Preview</p>
+              <p className="mt-1 text-sm text-slate-300">
+                Explore the dashboard with sample receipts and charts.
+              </p>
+              <div className="relative mt-3 h-36 w-full overflow-hidden rounded-lg border border-slate-600 bg-slate-900">
+                {reduceMotion ? (
+                  <img
+                    src="/demo/demo.png"
+                    alt="Demo dashboard preview"
+                    className="h-full w-full object-cover pointer-events-none select-none"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <motion.div
+                    className="pointer-events-none absolute inset-x-0 top-0 w-full will-change-transform"
+                    style={{ height: `${DEMO_PREVIEW_PAN_STACK * 100}%` }}
+                    initial={{ y: 0 }}
+                    animate={{
+                      y: ["0%", `${DEMO_PREVIEW_PAN_Y_MAX}%`, "0%"],
+                    }}
+                    transition={{
+                      duration: 12,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <img
+                      src="/demo/demo.png"
+                      alt="Demo dashboard preview"
+                      className="h-full w-full object-cover object-top select-none"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </motion.div>
+                )}
+              </div>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-5 max-w-[460px] w-full justify-self-end">
@@ -155,7 +205,7 @@ export default function LandingPage2() {
                 <div className="mt-2 h-[250px] md:h-[300px] rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
                   <img
                     src={personaHeroImage}
-                    alt={persona === "personal" ? "SnapTagTrack family preview" : "SnapTagTrack contractor preview"}
+                    alt={persona === "personal" ? "SnapTagTrack family preview" : "SnapTagTrack business preview"}
                     className="w-full h-full object-cover"
                     loading="lazy"
                     decoding="async"
@@ -170,10 +220,10 @@ export default function LandingPage2() {
 
       <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-24">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-2xl md:text-3xl font-bold">Built for Households and Contractors</h2>
+          <h2 className="text-2xl md:text-3xl font-bold">Built for Families and Businesses</h2>
           <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
             <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-[#7CB87E] text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-[#4A8AE6] text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "business" ? "bg-[#4A8AE6] text-white" : "text-slate-300"}`} onClick={() => setPersona("business")}>Business</button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -194,7 +244,7 @@ export default function LandingPage2() {
             </p>
           </div>
           <div className="rounded-2xl border border-[#4A8AE6]/35 bg-slate-700/60 p-6">
-            <h3 className="font-bold text-[#4A8AE6]">Contractor Focus</h3>
+            <h3 className="font-bold text-[#4A8AE6]">Business focus</h3>
             <p className="text-slate-300 mt-2 text-sm leading-relaxed">
               Organise receipts by job or client and make sure every deductible cost is accounted for.
             </p>
@@ -213,7 +263,7 @@ export default function LandingPage2() {
           <h2 className="text-2xl md:text-3xl font-bold">Your Mode, Your Outcomes</h2>
           <div className="inline-flex rounded-xl bg-slate-700 border border-slate-600 p-1">
             <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "personal" ? "bg-[#7CB87E] text-white" : "text-slate-300"}`} onClick={() => setPersona("personal")}>Family</button>
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "contractor" ? "bg-[#4A8AE6] text-white" : "text-slate-300"}`} onClick={() => setPersona("contractor")}>Contractor</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold ${persona === "business" ? "bg-[#4A8AE6] text-white" : "text-slate-300"}`} onClick={() => setPersona("business")}>Business</button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -245,19 +295,19 @@ export default function LandingPage2() {
           {[
             [
               "Zero Storage",
-              persona === "contractor"
+              persona === "business"
                 ? "No 200MB download. Open and go instantly from a link or QR."
                 : "No need to download another App on your phone.",
             ],
             [
               "Works Offline",
-              persona === "contractor"
+              persona === "business"
                 ? "Capture now in weak signal areas and sync when you have connection."
                 : "Capture now even when the Internet goes down and sync when you have connection.",
             ],
             [
               "Share the information",
-              persona === "contractor"
+              persona === "business"
                 ? "Whether onsite working, or in the office, everyone can share information."
                 : "Whether you do the books or your partner does, you can both share the information.",
             ],
@@ -282,37 +332,31 @@ export default function LandingPage2() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-16 md:pb-20">
-        <h2 className="text-2xl md:text-3xl font-bold mb-3">Guides and tools</h2>
+        <h2 className="text-2xl md:text-3xl font-bold mb-3">Receipt &amp; warranty topics</h2>
         <p className="mb-6 max-w-3xl text-sm leading-relaxed text-slate-400 md:text-base">
-          Read how receipt scanning, warranty reminders, and expense tracking fit together—then{" "}
+          Short indexable articles on this site—not the blog. Prefer{" "}
           <Link to="/auth" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
-            try Snap Tag Track free
-          </Link>{" "}
-          or visit{" "}
+            trying Snap Tag Track free
+          </Link>
+          , then skim what matters. Editorial posts stay on{" "}
+          <Link to="/blog" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
+            Blog
+          </Link>
+          . In-product steps live in{" "}
           <Link to="/help" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
-            Help
+            Help Centre
           </Link>{" "}
-          for product FAQs.
+          (support only—not indexed).
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            ["/receipt-scanner-app", "Receipt scanner app for photos, tags, and records"],
-            ["/warranty-tracker", "Warranty tracker for expiry reminders and proof"],
-            ["/expense-tracking-without-bank", "Expense tracking without linking your bank"],
-            ["/contractor-expense-tracker", "Contractor expense tracker for job receipts"],
-            ["/household-spending-tracker", "Household spending tracker from real receipts"],
-            ["/fuel-food-spending-tracker", "Fuel and food spending tracker"],
-            ["/how-it-works", "How Snap Tag Track works (snap, tag, track)"],
-            ["/pricing", "Pricing and free tier limits"],
-            ["/use-cases", "Use cases for families and contractors"],
-            ["/blog", "Blog index for longer guides"],
-          ].map(([href, label]) => (
+          {TOPIC_PAGE_LINKS.map(({ path, title, hint }) => (
             <Link
-              key={href}
-              to={href}
-              className="rounded-2xl border border-slate-600 bg-slate-700/50 p-4 text-sm font-semibold text-slate-100 transition-colors hover:border-[#7CB87E]/50 hover:bg-slate-700"
+              key={path}
+              to={path}
+              className="flex flex-col gap-1 rounded-2xl border border-slate-600 bg-slate-700/50 p-4 text-left text-sm transition-colors hover:border-[#7CB87E]/50 hover:bg-slate-700"
             >
-              {label}
+              <span className="font-semibold text-slate-100">{title}</span>
+              <span className="text-xs font-normal leading-relaxed text-slate-400">{hint}</span>
             </Link>
           ))}
         </div>
@@ -320,7 +364,7 @@ export default function LandingPage2() {
 
       <section className="mx-auto max-w-6xl px-4 pb-14 md:pb-16">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-2xl md:text-3xl font-bold">Latest Guides</h2>
+          <h2 className="text-2xl md:text-3xl font-bold">Latest from the blog</h2>
           <Link to="/blog" className="text-sm font-semibold text-[#7CB87E] hover:underline">
             View all blog posts
           </Link>

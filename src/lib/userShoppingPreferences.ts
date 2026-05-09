@@ -92,12 +92,13 @@ export type ReturnWindowReceipt = {
  * Sorted soonest deadline first.
  */
 export function receiptsEligibleForEasyReturn<
-  R extends { id: string; vendor_name: string | null; purchase_date: string | null },
+  R extends { id: string; vendor_name: string | null; purchase_date: string | null; warranty?: boolean | null },
 >(rows: R[], today: Date, returnWindowDays: number): ReturnWindowReceipt[] {
   if (returnWindowDays <= 0 || rows.length === 0) return [];
   const day = startOfDay(today);
   const out: ReturnWindowReceipt[] = [];
   for (const r of rows) {
+    if (!r.warranty) continue;
     const p = r.purchase_date?.trim();
     if (!p) continue;
     const purchase = parseISO(p);
@@ -121,11 +122,12 @@ export function receiptsEligibleForEasyReturn<
 
 /** Receipts counted as eligible for denominator (purchase date exists, not future). */
 export function receiptsWithTrackedPurchaseDates<
-  R extends { purchase_date: string | null },
+  R extends { purchase_date: string | null; warranty?: boolean | null },
 >(rows: R[], today: Date): number {
   const day = startOfDay(today);
   let n = 0;
   for (const r of rows) {
+    if (!r.warranty) continue;
     const p = r.purchase_date?.trim();
     if (!p) continue;
     const purchase = parseISO(p);

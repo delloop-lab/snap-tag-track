@@ -28,6 +28,9 @@ import {
 
 const AVATAR_BUCKET = "avatars";
 
+/** Keep in sync with ReceiptUpload `SNAP_RECEIPT_LOCATION_PREF_EVENT`. */
+const RECEIPT_LOCATION_PREF_EVENT = "snap:receipt-location-pref-changed";
+
 function namesFromAuthMetadata(authUser: User): { first: string; last: string } {
   const m = authUser.user_metadata as Record<string, unknown>;
   const s = (k: string): string =>
@@ -291,25 +294,67 @@ const Profile = () => {
     };
   }, [user]);
 
-  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!user) return;
-    setLoading(true);
-    setSuccess("");
-    setError("");
+  type ParsedRegional = { warrantyMonths: number; returnDays: number; currencyIso: string };
+
+  const tryParseRegionalShopping = (): ParsedRegional | null => {
+    const rawAmt = warrantyDurationAmount.trim();
+    const amt = Number.parseInt(rawAmt, 10);
+    if (!Number.isFinite(amt) || amt < 1) {
+      toast({
+        title: "Check warranty length",
+        description: "Enter a whole number of 1 or more.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    const warrantyMonths = warrantyDurationUnit === "years" ? amt * 12 : amt;
+    if (warrantyDurationUnit === "years") {
+      if (amt > 50) {
+        toast({
+          title: "Check warranty length",
+          description: "Use at most 50 years (adjust to months if you need a longer window).",
+          variant: "destructive",
+        });
+        return null;
+      }
+    }
+    if (warrantyMonths > 600 || warrantyMonths < 1) {
+      toast({
+        title: "Check warranty length",
+        description: "The maximum supported default is 600 months.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    const retRaw = returnWindowDaysInput.trim();
+    const ret = Number.parseInt(retRaw, 10);
+    if (!Number.isFinite(ret) || ret < 0 || ret > 365) {
+      toast({
+        title: "Check return window",
+        description: "Enter whole days between 0 and 365.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    const chosen = sanitizeDisplayCurrency(preferredCurrencyIso);
+    const currencyIso =
+      chosen !== null && DISPLAY_CURRENCY_OPTIONS.some((o) => o.code === chosen)
+        ? chosen
+        : FALLBACK_DISPLAY_CURRENCY;
+
+    return { warrantyMonths, returnDays: ret, currencyIso };
+  };
+
+  const persistUserProfileRow = async (): Promise<
+    { ok: true; missingCountryColumn: boolean } | { ok: false; error: string }
+  > => {
+    if (!user) return { ok: false, error: "Not signed in." };
     const fn = firstName.trim();
     const ln = lastName.trim();
     const ctr = country.trim();
-    if (!fn || !ln || !ctr) {
-      setError("First name, last name, and country are required.");
-      setLoading(false);
-      return;
-    }
-    if (!COUNTRY_DISPLAY_NAMES_EN.includes(ctr)) {
-      setError("Please choose a valid country from the list.");
-      setLoading(false);
-      return;
-    }
     const payload = {
       first_name: fn,
       last_name: ln,
@@ -322,51 +367,119 @@ const Profile = () => {
       avatar_url: avatarPath || null,
     };
 
-    // Prefer UPDATE (existing profile row). Fallbacks handle schema/policy drift.
-    let { error } = await supabase
-      .from("users")
-      .update(payload)
-      .eq("id", user.id);
+    let { error } = await supabase.from("users").update(payload).eq("id", user.id);
 
     const missingCountryColumn =
       !!error && /country|column|schema cache|does not exist/i.test(error.message || "");
 
     if (missingCountryColumn) {
-      const fallbackUpdate = await supabase
-        .from("users")
-        .update(legacyPayload)
-        .eq("id", user.id);
+      const fallbackUpdate = await supabase.from("users").update(legacyPayload).eq("id", user.id);
       error = fallbackUpdate.error;
       if (!error) {
         setLoadWarning("Your database is missing the country column; other profile fields were saved.");
       }
     }
 
-    // If update still fails (e.g. no row), attempt an upsert.
     if (error) {
       const upsertPayload = missingCountryColumn
-        ? {
-            id: user.id,
-            email: user.email ?? "",
-            ...legacyPayload,
-          }
-        : {
-            id: user.id,
-            email: user.email ?? "",
-            ...payload,
-          };
-      const upsertResult = await supabase
-        .from("users")
-        .upsert(upsertPayload, { onConflict: "id" });
+        ? { id: user.id, email: user.email ?? "", ...legacyPayload }
+        : { id: user.id, email: user.email ?? "", ...payload };
+      const upsertResult = await supabase.from("users").upsert(upsertPayload, { onConflict: "id" });
       error = upsertResult.error;
     }
-    setLoading(false);
-    if (error) {
-      setError(`Failed to update profile: ${error.message}`);
-    } else {
-      setSuccess("Profile updated successfully!");
-      if (!missingCountryColumn) setLoadWarning("");
+
+    if (error) return { ok: false, error: `Failed to update profile: ${error.message}` };
+    return { ok: true, missingCountryColumn };
+  };
+
+  const persistRegionalRow = async (parsed: ParsedRegional): Promise<{ ok: boolean; error?: string }> => {
+    if (!user) return { ok: false, error: "Not signed in." };
+    const { error } = await supabase
+      .from("users")
+      .update({
+        warranty_default_months: parsed.warrantyMonths,
+        return_window_days: parsed.returnDays,
+        preferred_display_currency: parsed.currencyIso,
+      })
+      .eq("id", user.id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  };
+
+  const persistReceiptLocationRow = async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!user) return { ok: false, error: "Not signed in." };
+    const { error } = await supabase
+      .from("users")
+      .update({ receipt_location_disabled: receiptLocationDisabled })
+      .eq("id", user.id);
+    if (error) return { ok: false, error: error.message };
+    window.dispatchEvent(new CustomEvent(RECEIPT_LOCATION_PREF_EVENT));
+    return { ok: true };
+  };
+
+  const saveAllSettings = async () => {
+    if (!user || loading || regionalShoppingSaving) return;
+    setSuccess("");
+    setError("");
+
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const ctr = country.trim();
+    if (!fn || !ln || !ctr) {
+      setError("First name, last name, and country are required.");
+      return;
     }
+    if (!COUNTRY_DISPLAY_NAMES_EN.includes(ctr)) {
+      setError("Please choose a valid country from the list.");
+      return;
+    }
+
+    const parsedRegional = tryParseRegionalShopping();
+    if (!parsedRegional) return;
+
+    setLoading(true);
+    setRegionalShoppingSaving(true);
+    try {
+      const pr = await persistUserProfileRow();
+      if (!pr.ok) {
+        setError(pr.error);
+        return;
+      }
+      if (!pr.missingCountryColumn) setLoadWarning("");
+
+      const rr = await persistRegionalRow(parsedRegional);
+      if (!rr.ok) {
+        toast({
+          title: "Could not save warranty & currency",
+          description: rr.error ?? "Unknown error",
+          variant: "destructive",
+        });
+        setError("Your account was saved, but warranty and currency could not be saved.");
+        return;
+      }
+
+      const loc = await persistReceiptLocationRow();
+      if (!loc.ok) {
+        toast({
+          title: "Could not save receipt location",
+          description: loc.error ?? "Unknown error",
+          variant: "destructive",
+        });
+        setSuccess("Account and warranty settings saved; receipt location could not be saved.");
+      } else {
+        setSuccess("Settings updated successfully!");
+      }
+
+      notifyUserShoppingPrefsChanged();
+    } finally {
+      setLoading(false);
+      setRegionalShoppingSaving(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await saveAllSettings();
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -397,7 +510,7 @@ const Profile = () => {
     }
     setAvatarUrl(signedUrlData.signedUrl);
     setLoading(false);
-    setSuccess("Avatar uploaded! Click Save to update your profile.");
+    setSuccess("Avatar uploaded! Click Save Settings to update your profile.");
   };
 
   const runThumbBackfill = async () => {
@@ -414,10 +527,6 @@ const Profile = () => {
       description: `Created ${result.created}. Skipped ${result.skipped} (already had thumbnails). Failed ${result.failed}.`,
     });
   };
-
-  const RECEIPT_LOCATION_PREF_EVENT =
-    /* keep in sync with ReceiptUpload SNAP_RECEIPT_LOCATION_PREF_EVENT */
-    "snap:receipt-location-pref-changed";
 
   const applyReceiptLocationOptOut = async (nextDisabled: boolean) => {
     if (!user || receiptLocationPrefSaving) return;
@@ -451,88 +560,7 @@ const Profile = () => {
   };
 
   const applyRegionalShoppingDefaults = async () => {
-    if (!user || regionalShoppingSaving) return;
-    setRegionalShoppingSaving(true);
-    setSuccess("");
-    setError("");
-
-    const rawAmt = warrantyDurationAmount.trim();
-    const amt = Number.parseInt(rawAmt, 10);
-    if (!Number.isFinite(amt) || amt < 1) {
-      toast({
-        title: "Check warranty length",
-        description: "Enter a whole number of 1 or more.",
-        variant: "destructive",
-      });
-      setRegionalShoppingSaving(false);
-      return;
-    }
-
-    let warrantyMonths = warrantyDurationUnit === "years" ? amt * 12 : amt;
-    if (warrantyDurationUnit === "years") {
-      if (amt > 50) {
-        toast({
-          title: "Check warranty length",
-          description: "Use at most 50 years (adjust to months if you need a longer window).",
-          variant: "destructive",
-        });
-        setRegionalShoppingSaving(false);
-        return;
-      }
-    }
-    if (warrantyMonths > 600 || warrantyMonths < 1) {
-      toast({
-        title: "Check warranty length",
-        description: "The maximum supported default is 600 months.",
-        variant: "destructive",
-      });
-      setRegionalShoppingSaving(false);
-      return;
-    }
-
-    const retRaw = returnWindowDaysInput.trim();
-    const ret = Number.parseInt(retRaw, 10);
-    if (!Number.isFinite(ret) || ret < 0 || ret > 365) {
-      toast({
-        title: "Check return window",
-        description: "Enter whole days between 0 and 365 (0 hides the reminder on receipts).",
-        variant: "destructive",
-      });
-      setRegionalShoppingSaving(false);
-      return;
-    }
-
-    try {
-      const chosen = sanitizeDisplayCurrency(preferredCurrencyIso);
-      const currencyIso =
-        chosen !== null && DISPLAY_CURRENCY_OPTIONS.some((o) => o.code === chosen)
-          ? chosen
-          : FALLBACK_DISPLAY_CURRENCY;
-      const { error } = await supabase
-        .from("users")
-        .update({
-          warranty_default_months: warrantyMonths,
-          return_window_days: ret,
-          preferred_display_currency: currencyIso,
-        })
-        .eq("id", user.id);
-      if (error) throw error;
-      notifyUserShoppingPrefsChanged();
-      toast({
-        title: "Settings saved",
-        description:
-          "Warranty length, return window, and display currency apply across Receipts, Summary, and Intelligence.",
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not update preferences.";
-      toast({
-        title: "Could not save",
-        description: msg,
-        variant: "destructive",
-      });
-    } finally {
-      setRegionalShoppingSaving(false);
-    }
+    await saveAllSettings();
   };
 
   return (
@@ -555,7 +583,7 @@ const Profile = () => {
                 <p>
                   Complete the <strong className="text-slate-100">required fields</strong> — first name, last name, and
                   country — in <strong className="text-slate-100">Your account</strong> below, then choose{" "}
-                  <strong className="text-slate-100">Save account</strong>.
+                  <strong className="text-slate-100">Save Settings</strong>.
                 </p>
                 <p>
                   For the best experience, review{" "}
@@ -705,8 +733,12 @@ const Profile = () => {
             </div>
             {success && <div className="text-sm text-green-400">{success}</div>}
             {error && <div className="text-sm text-red-400">{error}</div>}
-            <Button type="submit" className="w-full sm:w-auto sm:min-w-[200px]" disabled={loading}>
-              {loading ? "Saving..." : "Save account"}
+            <Button
+              type="submit"
+              className="w-full sm:w-auto sm:min-w-[200px]"
+              disabled={loading || regionalShoppingSaving || !user}
+            >
+              {loading || regionalShoppingSaving ? "Saving..." : "Save Settings"}
             </Button>
           </form>
         </section>
@@ -716,12 +748,15 @@ const Profile = () => {
             <div className="space-y-3 rounded-xl border border-slate-600 bg-slate-950/25 p-4 sm:p-5">
               <p className="font-medium text-slate-100">Receipt location</p>
               <p className="text-sm text-slate-300">
-                When you capture a receipt photo, we can use GPS from the image or from this device. Turn the switch on
-                to never attach location and skip that step for new captures. If you leave it off, we will ask each time
-                you add a receipt photo.
+                When you scan a receipt, we can use location data to help identify where it was purchased. This makes it
+                easier for you to track which store the receipt came from. Turn this switch on if you don&apos;t want
+                this step in the future. If you leave it off, we&apos;ll ask each time you add a receipt.
               </p>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-600/80 bg-slate-900/40 px-3 py-3 sm:px-4">
-                <label htmlFor="receipt-loc-opt-out" className="min-w-0 flex-1 cursor-pointer text-sm text-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-slate-400/55 bg-slate-800/95 px-4 py-4 shadow-md ring-1 ring-white/10 sm:px-5">
+                <label
+                  htmlFor="receipt-loc-opt-out"
+                  className="min-w-0 flex-1 cursor-pointer text-sm font-semibold leading-snug text-white"
+                >
                   Never attach location to new receipts
                 </label>
                 <Switch
@@ -729,6 +764,7 @@ const Profile = () => {
                   checked={receiptLocationDisabled}
                   disabled={loading || receiptLocationPrefSaving || !user}
                   onCheckedChange={(c) => void applyReceiptLocationOptOut(c)}
+                  className="border-2 border-slate-300/50 shadow-md data-[state=unchecked]:bg-slate-600 data-[state=checked]:border-orange-400/90 data-[state=checked]:bg-orange-500"
                 />
               </div>
             </div>
@@ -737,8 +773,7 @@ const Profile = () => {
               <div>
                 <p className="font-medium text-slate-100">Warranty, returns &amp; currency</p>
                 <p className="mt-1 text-sm text-slate-300">
-                  Defaults when a receipt has no warranty end or no currency from AI. Return reminders are for your
-                  planning only — not legal advice.
+                  These are default settings. Please adjust them to comply with the laws in your country.
                 </p>
               </div>
               <div className="grid gap-5 xl:grid-cols-3 xl:gap-4">
@@ -777,10 +812,11 @@ const Profile = () => {
                       <option value="months">Months</option>
                     </select>
                   </div>
+                  <p className="text-xs text-slate-400">Used when we can&apos;t detect a warranty on a receipt.</p>
                 </div>
                 <div className="space-y-2 xl:min-w-0">
                   <label htmlFor="return-window-days" className="block text-sm font-medium text-slate-200">
-                    Return window (days)
+                    Cooling-off Period (days)
                   </label>
                   <Input
                     id="return-window-days"
@@ -795,11 +831,13 @@ const Profile = () => {
                     aria-label="Days allowed for hassle-free returns"
                     className="max-w-[8rem] border-slate-500 bg-slate-800/90 text-slate-50 ring-offset-slate-900"
                   />
-                  <p className="text-xs text-slate-400">0 hides the reminder on receipts.</p>
+                  <p className="text-xs text-slate-400">
+                    Used to remind you of the time limit for returning goods after purchase.
+                  </p>
                 </div>
                 <div className="space-y-2 xl:min-w-0">
                   <label htmlFor="profile-preferred-currency" className="block text-sm font-medium text-slate-200">
-                    Display currency fallback
+                    Your country&apos;s currency
                   </label>
                   <select
                     id="profile-preferred-currency"
@@ -823,7 +861,7 @@ const Profile = () => {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-slate-400">When a receipt has no currency from AI.</p>
+                  <p className="text-xs text-slate-400">Used when a receipt doesn&apos;t include a currency.</p>
                 </div>
               </div>
               <Button
@@ -833,7 +871,7 @@ const Profile = () => {
                 onClick={() => void applyRegionalShoppingDefaults()}
                 disabled={loading || regionalShoppingSaving || !user}
               >
-                {regionalShoppingSaving ? "Saving…" : "Save warranty, returns & currency"}
+                {loading || regionalShoppingSaving ? "Saving…" : "Save Settings"}
               </Button>
             </div>
 

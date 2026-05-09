@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate, useParams } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
@@ -20,6 +20,7 @@ import ReceiptUpload from "./components/ReceiptUpload";
 import ReceiptList from "./components/ReceiptList";
 import ReceiptDetail from "./components/ReceiptDetail";
 import ReceiptSummaryList from "./components/ReceiptSummaryList";
+import DemoRegisterPromptHost from "./components/DemoRegisterPromptHost";
 import Profile from "./pages/Profile";
 import TagUntagged from "./pages/TagUntagged";
 import LandingPage2 from "./pages/LandingPage2";
@@ -38,6 +39,87 @@ import Taskorilla from "./pages/Taskorilla";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { isClientDemoPreviewActive } from "@/lib/demo/demoMode";
+import { isClientDemoReceiptId, pathnameIsClientDemoReceipt } from "@/lib/demo/clientDemoData";
+
+/** Client-only preview: no auth, same dashboard component as signed-in users. */
+function DashboardRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-slate-800 text-slate-300">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </div>
+    );
+  }
+  if (isClientDemoPreviewActive(user)) {
+    return <Index />;
+  }
+  return (
+    <ProtectedRoute>
+      <Index />
+    </ProtectedRoute>
+  );
+}
+
+/** Session demo can open built-in demo receipts without signing in. */
+function ReceiptDetailRoute() {
+  const { id } = useParams<{ id: string }>();
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-slate-800 text-slate-300">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </div>
+    );
+  }
+  if (isClientDemoPreviewActive(user) && id && isClientDemoReceiptId(id)) {
+    return <ReceiptDetail />;
+  }
+  return (
+    <ProtectedRoute>
+      <ReceiptDetail />
+    </ProtectedRoute>
+  );
+}
+
+function SummaryRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-slate-800 text-slate-300">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </div>
+    );
+  }
+  if (isClientDemoPreviewActive(user)) {
+    return <ReceiptSummaryList />;
+  }
+  return (
+    <ProtectedRoute>
+      <ReceiptSummaryList />
+    </ProtectedRoute>
+  );
+}
+
+function ReceiptListRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-slate-800 text-slate-300">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </div>
+    );
+  }
+  if (isClientDemoPreviewActive(user)) {
+    return <ReceiptList />;
+  }
+  return (
+    <ProtectedRoute>
+      <ReceiptList />
+    </ProtectedRoute>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -124,10 +206,19 @@ const AppContent = () => {
   const location = useLocation();
   const { user } = useAuth();
   const hideAppChrome = location.pathname === AD_SUMMARY_MOCK_PATH;
-  // Only show app mobile navbar for authenticated in-app routes.
-  // Marketing/auth pages render their own header/navigation.
-  const showNavbar = Boolean(user);
   const { pathname } = location;
+  /** Same shell as signed-in users: sidebar, mobile navbar, slate background. */
+  const demoPreview = isClientDemoPreviewActive(user);
+  const inAppChrome =
+    Boolean(user) ||
+    (demoPreview &&
+      (pathname === "/dashboard" ||
+        pathname === "/summary" ||
+        pathname === "/receipts" ||
+        pathnameIsClientDemoReceipt(pathname)));
+  const showNavbar = inAppChrome;
+  const showDemoPreviewBanner =
+    demoPreview && inAppChrome && !hideAppChrome;
 
   /** Marketing pages that paint their own canvas when logged out */
   const isMarketingBackdrop =
@@ -140,7 +231,7 @@ const AppContent = () => {
     pathname.startsWith("/blog");
   const isSummaryPage = pathname === "/summary";
 
-  const shellBgClass = user
+  const shellBgClass = inAppChrome
     ? cn(
         "min-h-screen flex",
         isSummaryPage ? "bg-app-dotted md:bg-slate-800 text-slate-100" : "bg-slate-800 text-slate-100",
@@ -151,10 +242,21 @@ const AppContent = () => {
     <div className={cn("min-h-screen flex", shellBgClass)}>
       <PostSignupAuthLanding />
       {/* Desktop sidebar */}
-      {user && !hideAppChrome && <AppSidebar />}
+      {inAppChrome && !hideAppChrome && <AppSidebar />}
 
       {/* Main area */}
-      <div className={`flex-1 min-w-0 flex flex-col ${user && !hideAppChrome ? "md:ml-56" : ""}`}>
+      <div className={`flex-1 min-w-0 flex flex-col ${inAppChrome && !hideAppChrome ? "md:ml-56" : ""}`}>
+        {showDemoPreviewBanner && (
+          <div
+            className={cn(
+              "fixed z-[44] flex min-h-[3.75rem] items-center justify-center border-b border-orange-700/60 bg-orange-500 px-3 py-3 text-center text-sm font-semibold leading-snug text-white shadow-md sm:min-h-[4.125rem] sm:px-4 sm:py-4 sm:text-base",
+              "left-0 right-0 top-16 md:left-56 md:top-0",
+            )}
+            role="status"
+          >
+            Preview Mode • Sample receipts loaded • Read-only experience
+          </div>
+        )}
         {/* Mobile-only top navbar */}
         {showNavbar && !hideAppChrome && (
           <div className="md:hidden">
@@ -162,7 +264,16 @@ const AppContent = () => {
           </div>
         )}
 
-        <main className={hideAppChrome ? "flex-1" : "flex-1 pt-2 md:pt-4"}>
+        <main
+          className={cn(
+            "flex-1",
+            hideAppChrome
+              ? ""
+              : showDemoPreviewBanner
+                ? "pt-[calc(4rem+3.75rem)] md:pt-[4.5rem]"
+                : "pt-2 md:pt-4",
+          )}
+        >
           <Routes>
             <Route path={AD_SUMMARY_MOCK_PATH} element={<AdSummaryMock />} />
             <Route
@@ -185,26 +296,10 @@ const AppContent = () => {
                 <ReceiptUpload />
               </ProtectedRoute>
             } />
-            <Route path="/receipts" element={
-              <ProtectedRoute>
-                <ReceiptList />
-              </ProtectedRoute>
-            } />
-            <Route path="/receipt/:id" element={
-              <ProtectedRoute>
-                <ReceiptDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/summary" element={
-              <ProtectedRoute>
-                <ReceiptSummaryList />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
+            <Route path="/receipts" element={<ReceiptListRoute />} />
+            <Route path="/receipt/:id" element={<ReceiptDetailRoute />} />
+            <Route path="/summary" element={<SummaryRoute />} />
+            <Route path="/dashboard" element={<DashboardRoute />} />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />
@@ -228,6 +323,7 @@ const AppContent = () => {
             <Route path="/how-it-works" element={<SeoMarketingPage />} />
             <Route path="/pricing" element={<SeoMarketingPage />} />
             <Route path="/use-cases" element={<SeoMarketingPage />} />
+            <Route path="/returns-cooling-off" element={<SeoMarketingPage />} />
             <Route path="/blog" element={<BlogIndexPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/landing" element={<PublicLandingRoute />} />
@@ -283,6 +379,7 @@ const App = () => {
             <ScrollToTopOnRouteChange />
             <RouteSeo />
             <AnalyticsListener />
+            <DemoRegisterPromptHost />
             <AppContent />
           </BrowserRouter>
         </TooltipProvider>

@@ -9,10 +9,12 @@ import { howItWorksBody } from "./seoBodies/howItWorks";
 import { pricingBody } from "./seoBodies/pricing";
 import { useCasesBody } from "./seoBodies/useCases";
 import { blogIndexBody } from "./seoBodies/blogIndex";
+import { returnsCoolingOffBody } from "./seoBodies/returnsCoolingOff";
 
 export const SEO_LANDING_BODIES: Record<string, SeoPageBody> = {
   "/receipt-scanner-app": receiptScannerAppBody,
   "/warranty-tracker": warrantyTrackerBody,
+  "/returns-cooling-off": returnsCoolingOffBody,
   "/expense-tracking-without-bank": expenseTrackingWithoutBankBody,
   "/contractor-expense-tracker": contractorExpenseTrackerBody,
   "/household-spending-tracker": householdSpendingTrackerBody,

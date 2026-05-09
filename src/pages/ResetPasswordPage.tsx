@@ -9,6 +9,7 @@ import MarketingTopNav, { marketingPageGutterClass } from "@/components/Marketin
 import SiteFooter from "@/components/SiteFooter";
 
 const EXPECTED_RECOVERY_FLOW_KEY = "snap_expected_recovery_flow";
+const EXPECTED_RECOVERY_FLOW_TS_KEY = "snap_expected_recovery_flow_ts";
 
 function hasRecoveryParams() {
   if (typeof window === "undefined") return false;
@@ -32,7 +33,8 @@ export default function ResetPasswordPage() {
   const [validLink, setValidLink] = useState(false);
 
   useEffect(() => {
-    sessionStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
+    localStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
+    localStorage.removeItem(EXPECTED_RECOVERY_FLOW_TS_KEY);
     let active = true;
     if (!hasRecoveryParams()) {
       setValidLink(false);
@@ -101,7 +103,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-800 text-slate-100">
       <div className={`${marketingPageGutterClass} pb-2`}>
-        <MarketingTopNav active="auth" className="mb-6 sm:mb-8" />
+        <MarketingTopNav className="mb-6 sm:mb-8" />
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-6 pb-28 sm:px-6">
         <div className="relative w-full max-w-md space-y-6 overflow-hidden rounded-xl border border-slate-600 bg-slate-900/70 p-8 text-slate-100 shadow-2xl backdrop-blur-sm">

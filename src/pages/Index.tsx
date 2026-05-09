@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -29,6 +28,16 @@ import {
 import { resolveReceiptThumbUrl, canonicalReceiptBucketObjectKey, primaryReceiptObjectKey } from "@/lib/receiptImageUrl";
 import { ReceiptImagePreviewDialog } from "@/components/ReceiptImagePreviewDialog";
 import WarrantyIntelligenceCard from "@/components/WarrantyIntelligenceCard";
+import { isDemoReceiptRecord } from "@/lib/demo/seedDemoData";
+import { isClientDemoPreviewActive } from "@/lib/demo/demoMode";
+import {
+  buildClientDemoChartReceipts,
+  buildClientDemoRecentReceipts,
+  buildClientDemoStats,
+  buildClientDemoWarrantyRows,
+} from "@/lib/demo/clientDemoData";
+import { openDemoRegisterPrompt } from "@/components/DemoRegisterPromptHost";
+import { DemoSnapReceiptScanOverlay } from "@/components/DemoSnapReceiptScanOverlay";
 
 const THUMB_RESOLVE_MS = 12_000;
 const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#ef4444"];
@@ -55,6 +64,10 @@ async function resolveThumbWithTimeout(
 }
 
 async function getRecentThumbUrl(imagePath: string): Promise<string> {
+  // Demo assets are served from /public and should bypass Supabase URL resolution.
+  if (imagePath.startsWith("/")) {
+    return `${imagePath}?v=3`;
+  }
   const key = receiptThumbDedupeKey(imagePath);
   const cached = resolvedThumbUrlByDedupeKey[key];
   if (cached) return cached;
@@ -82,6 +95,11 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isDemoMode = isClientDemoPreviewActive(user);
+  const demoWarrantyRows = useMemo(
+    () => (isDemoMode ? buildClientDemoWarrantyRows() : null),
+    [isDemoMode]
+  );
   const [recentReceipts, setRecentReceipts] = useState([]);
   const [chartReceipts, setChartReceipts] = useState<Array<{
     purchase_date: string | null;
@@ -100,6 +118,8 @@ const Index = () => {
   const [firstName, setFirstName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [totalReceiptsCount, setTotalReceiptsCount] = useState(0);
+  const [totalWarrantyCount, setTotalWarrantyCount] = useState(0);
   const recentFetchGen = useRef(0);
 
   // Punchy, benefit-led, practical, friendly, and confident messages
@@ -131,11 +151,27 @@ const Index = () => {
 
   // Fetch recent receipts and stats function
   const fetchRecent = useCallback(async () => {
+    if (isDemoMode) {
+      const sortedStats = buildClientDemoStats();
+      const recent = buildClientDemoRecentReceipts(isMobile);
+      setRecentReceipts(recent);
+      setChartReceipts(buildClientDemoChartReceipts());
+      const entries = await Promise.all(
+        recent.map(async (r) => [r.id, await getRecentThumbUrl(r.image_path)] as const)
+      );
+      setRecentThumbUrls(Object.fromEntries(entries));
+      setTotalThisYear(sortedStats.totalThisYear);
+      setSpendThisMonth(sortedStats.spendThisMonth);
+      setTotalReceiptsCount(sortedStats.totalReceiptsCount);
+      setTotalWarrantyCount(sortedStats.totalWarrantyCount);
+      setUntaggedCount(sortedStats.untaggedCount);
+      return;
+    }
     if (!user) return;
     const year = new Date().getFullYear();
     const { data: receipts } = await supabase
       .from("receipts")
-      .select("id, vendor_name, total_amount, purchase_date, image_path")
+      .select("id, vendor_name, total_amount, purchase_date, image_path, type, notes")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(isMobile ? 3 : 6);
@@ -195,13 +231,22 @@ const Index = () => {
       .from("receipts")
       .select("id")
       .eq("user_id", user.id);
+    setTotalReceiptsCount((allIds || []).length);
+
+    const { count: warrantyCount } = await supabase
+      .from("receipts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("warranty", true);
+    setTotalWarrantyCount(warrantyCount || 0);
+
     const { data: taggedIds } = await supabase
       .from("receipt_tags")
       .select("receipt_id");
     const taggedSet = new Set((taggedIds || []).map((t) => t.receipt_id));
     const untagged = (allIds || []).filter((r) => !taggedSet.has(r.id)).length;
     setUntaggedCount(untagged);
-  }, [user, isMobile]);
+  }, [user, isMobile, isDemoMode]);
 
   const monthlyData = useMemo(() => {
     const map: Record<string, number> = {};
@@ -240,6 +285,10 @@ const Index = () => {
   }, [chartReceipts]);
 
   useEffect(() => {
+    if (isDemoMode) {
+      void fetchRecent();
+      return;
+    }
     if (!loading && user) {
       // Fetch first name from user profile
       const fetchFirstName = async () => {
@@ -271,40 +320,38 @@ const Index = () => {
       fetchFirstName();
       fetchRecent();
     }
-  }, [user, loading, location.pathname]); // Re-fetch when returning to home page
+  }, [user, loading, location.pathname, fetchRecent, isDemoMode]); // Re-fetch when returning to home page
 
   // Refresh receipts when the page becomes visible or when a receipt is added
   useEffect(() => {
-    if (!user) return;
-    
+    if (!user && !isDemoMode) return;
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === "visible") {
         fetchRecent();
       }
     };
-    
-    // Listen for custom event when a receipt is added
+
     const handleReceiptAdded = () => {
       fetchRecent();
     };
-    
-    // Refresh when window gains focus (user navigates back)
+
     const handleFocus = () => {
-      if (location.pathname === '/') {
+      if (location.pathname === "/" || location.pathname === "/dashboard") {
         fetchRecent();
       }
     };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('receiptAdded', handleReceiptAdded);
-    window.addEventListener('focus', handleFocus);
-    
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("receiptAdded", handleReceiptAdded);
+    window.addEventListener("focus", handleFocus);
+
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('receiptAdded', handleReceiptAdded);
-      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("receiptAdded", handleReceiptAdded);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, [user, location.pathname, fetchRecent]);
+  }, [user, location.pathname, fetchRecent, isDemoMode]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -312,12 +359,23 @@ const Index = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleRecentClick = (id) => {
-    navigate(`/summary?highlight=${id}`);
+  const handleRecentClick = (receiptId: string) => {
+    if (isDemoMode) {
+      navigate(`/receipt/${receiptId}`);
+      return;
+    }
+    navigate(`/summary?highlight=${receiptId}`);
   };
 
   // Handler for TAG button: open any untagged receipt, else show modal.
   const handleTagClick = async () => {
+    if (isDemoMode) {
+      openDemoRegisterPrompt(
+        "Preview mode",
+        "Create a free account to tag and save your own receipts.",
+      );
+      return;
+    }
     if (!user) {
       navigate("/auth");
       return;
@@ -346,6 +404,31 @@ const Index = () => {
     navigate(`/receipt/${untaggedReceipt.id}`);
   };
 
+  const [demoSnapScanOpen, setDemoSnapScanOpen] = useState(false);
+
+  const completeDemoSimulatedSnap = useCallback(
+    (receiptId: string) => {
+      navigate(`/receipt/${receiptId}`);
+    },
+    [navigate],
+  );
+
+  const goToUpload = () => {
+    if (isDemoMode) {
+      setDemoSnapScanOpen(true);
+      return;
+    }
+    navigate("/upload");
+  };
+
+  const goToSummary = () => {
+    navigate("/summary");
+  };
+
+  const goToReceipts = () => {
+    navigate("/receipts");
+  };
+
   /* ── Mobile layout ── */
   if (isMobile) {
     return (
@@ -355,13 +438,13 @@ const Index = () => {
           Dashboard
         </p>
         <p className="mb-6 text-center text-lg font-semibold text-white md:text-xl">
-          {user && firstName ? `Welcome back, ${firstName}!` : randomMessage.main}
+          {!isDemoMode && user && firstName ? `Welcome back, ${firstName}!` : randomMessage.main}
         </p>
         <div className="mb-8 flex w-full max-w-md flex-col items-stretch gap-3">
           <button
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 py-5 text-xl font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600 active:scale-[0.98]"
-            onClick={() => navigate("/upload")}
+            onClick={() => goToUpload()}
           >
             <Camera className="h-7 w-7" /> SNAP
           </button>
@@ -375,13 +458,88 @@ const Index = () => {
           <button
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7CB87E] py-5 text-xl font-bold text-white shadow-lg shadow-black/20 transition hover:bg-[#6daa70] active:scale-[0.98]"
-            onClick={() => navigate("/summary")}
+            onClick={goToSummary}
           >
             <BarChart3 className="h-7 w-7" /> TRACK
           </button>
         </div>
-        <WarrantyIntelligenceCard className="mb-8 w-full max-w-md mx-auto px-1" />
-        {user && recentReceipts.length > 0 && (
+
+        <div className="mb-8 grid w-full max-w-md grid-cols-1 gap-3">
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/70 p-4 shadow-xl shadow-black/20">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Receipts this year</div>
+            <div className="text-2xl font-bold text-orange-400">{totalThisYear}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-600 bg-slate-700/70 p-4 shadow-xl shadow-black/20">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Spent this month</div>
+            <div className="text-2xl font-bold text-sky-300">
+              {spendThisMonth != null ? spendThisMonth.toFixed(2) : "—"}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="cursor-pointer rounded-2xl border border-slate-600 bg-slate-700/70 p-4 text-left shadow-xl shadow-black/20 transition hover:border-[#7CB87E]/45 hover:bg-slate-700"
+            onClick={goToReceipts}
+          >
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Untagged receipts</div>
+            <div className="text-2xl font-bold text-[#7CB87E]">{untaggedCount}</div>
+            {untaggedCount > 0 && <div className="mt-1 text-xs text-slate-500">Tap to review</div>}
+          </button>
+        </div>
+
+        <WarrantyIntelligenceCard
+          className="mb-8 w-full max-w-md mx-auto px-1"
+          demoWarrantyRows={demoWarrantyRows}
+          onDemoSimulatedSnapReceipt={isDemoMode ? () => setDemoSnapScanOpen(true) : undefined}
+        />
+
+        {chartReceipts.length > 0 && (
+          <div className="mb-8 w-full max-w-md space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Monthly Spend</h3>
+              {monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={monthlyData} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
+                    <Bar dataKey="total" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="py-8 text-center text-sm text-slate-500">Not enough data yet</p>
+              )}
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Spend by Tag</h3>
+              {tagSpendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={tagSpendData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {tagSpendData.map((_, idx) => (
+                        <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartTooltip formatter={(v: number) => [`${v.toFixed(2)}`, "Spend"]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="py-8 text-center text-sm text-slate-500">Tag receipts to see breakdown</p>
+              )}
+            </div>
+          </div>
+        )}
+        {(isDemoMode || user) && recentReceipts.length > 0 && (
           <div className="mb-4 w-full">
             <h2 className="mb-2 text-lg font-semibold text-white">Recent Receipts</h2>
             <div className="flex gap-3 overflow-x-auto pb-1">
@@ -390,6 +548,11 @@ const Index = () => {
                   key={r.id}
                   className="flex w-36 flex-shrink-0 flex-col items-center rounded-2xl border border-slate-600 bg-slate-800/80 p-2 shadow-lg shadow-black/20 transition hover:border-orange-400/60"
                 >
+                  {isDemoReceiptRecord(r) && (
+                    <span className="mb-1 inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                      Demo
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="mb-2 aspect-[3/4] w-full cursor-zoom-in overflow-hidden rounded-lg border border-slate-600 bg-slate-900/80 p-0 focus:outline-none focus:ring-2 focus:ring-[#7CB87E]/50"
@@ -430,9 +593,18 @@ const Index = () => {
             </div>
           </div>
         )}
-        <div className="mt-2 text-center text-sm text-slate-400">
-          {totalThisYear} receipt{totalThisYear === 1 ? "" : "s"} this year
-        </div>
+        {(isDemoMode || user) && recentReceipts.length === 0 && (
+          <div className="mb-6 w-full max-w-md rounded-2xl border-2 border-dashed border-[#7CB87E]/40 bg-slate-900/40 py-12 text-center">
+            <p className="mb-3 text-sm text-slate-400">No receipts yet.</p>
+            <button
+              type="button"
+              className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-orange-600"
+              onClick={() => goToUpload()}
+            >
+              Upload your first receipt
+            </button>
+          </div>
+        )}
       </div>
       <ReceiptImagePreviewDialog
         open={!!previewReceipt}
@@ -455,6 +627,11 @@ const Index = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <DemoSnapReceiptScanOverlay
+        open={demoSnapScanOpen}
+        onOpenChange={setDemoSnapScanOpen}
+        onComplete={completeDemoSimulatedSnap}
+      />
       </>
     );
   }
@@ -477,7 +654,7 @@ const Index = () => {
             Your dashboard
           </p>
           <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">
-            {firstName ? `Welcome back, ${firstName}!` : "Welcome back!"}
+            {!isDemoMode && firstName ? `Welcome back, ${firstName}!` : "Welcome back!"}
           </h1>
           <p className="mt-2 text-sm text-slate-400">Here's what's happening with your receipts.</p>
         </div>
@@ -498,7 +675,7 @@ const Index = () => {
         <button
           type="button"
           className="cursor-pointer rounded-2xl border border-slate-600 bg-slate-700/70 p-5 text-left shadow-xl shadow-black/20 transition hover:border-[#7CB87E]/45 hover:bg-slate-700"
-          onClick={() => navigate("/receipts")}
+          onClick={goToReceipts}
         >
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Untagged receipts</div>
           <div className="text-3xl font-bold text-[#7CB87E]">{untaggedCount}</div>
@@ -510,10 +687,11 @@ const Index = () => {
       <div className="mb-8 flex flex-col gap-3 md:flex-row md:flex-nowrap md:gap-4">
         <button
           type="button"
-          className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-4 text-base font-bold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] md:text-lg"
-          onClick={() => navigate("/upload")}
+          className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-3 py-4 text-center text-sm font-bold leading-tight text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] sm:px-4 sm:text-base md:text-lg"
+          onClick={() => goToUpload()}
         >
-          <Camera className="h-5 w-5" /> Snap Receipt
+          <Camera className="h-5 w-5 shrink-0" />
+          <span className="min-w-0">Snap Receipt / Upload Receipt</span>
         </button>
         <button
           type="button"
@@ -525,14 +703,17 @@ const Index = () => {
         <button
           type="button"
           className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-[#7CB87E] px-4 py-4 text-base font-bold text-white shadow-lg shadow-black/20 transition hover:bg-[#6daa70] active:scale-[0.98] md:text-lg"
-          onClick={() => navigate("/summary")}
+          onClick={goToSummary}
         >
           <BarChart3 className="h-5 w-5" /> Track
         </button>
       </div>
 
       <div className="mb-8 w-full">
-        <WarrantyIntelligenceCard />
+        <WarrantyIntelligenceCard
+          demoWarrantyRows={demoWarrantyRows}
+          onDemoSimulatedSnapReceipt={isDemoMode ? () => setDemoSnapScanOpen(true) : undefined}
+        />
       </div>
 
       {chartReceipts.length > 0 && (
@@ -589,7 +770,7 @@ const Index = () => {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Recent Receipts</h2>
-            <button className="text-sm font-semibold text-[#7CB87E] transition hover:text-[#8fcf91]" type="button" onClick={() => navigate("/receipts")}>View all →</button>
+            <button className="text-sm font-semibold text-[#7CB87E] transition hover:text-[#8fcf91]" type="button" onClick={goToReceipts}>View all →</button>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
             {recentReceipts.slice(0, 6).map((r, idx) => (
@@ -597,6 +778,13 @@ const Index = () => {
                 key={r.id}
                 className="flex flex-col overflow-hidden rounded-2xl border border-slate-600 bg-slate-800/80 shadow-lg shadow-black/20 transition hover:border-orange-400/40"
               >
+                {isDemoReceiptRecord(r) && (
+                  <div className="px-2 pt-2">
+                    <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                      Demo
+                    </span>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="aspect-[3/4] w-full cursor-zoom-in overflow-hidden bg-slate-900/80 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#7CB87E]/50"
@@ -643,7 +831,7 @@ const Index = () => {
           <button
             type="button"
             className="rounded-xl bg-orange-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-600"
-            onClick={() => navigate("/upload")}
+            onClick={() => goToUpload()}
           >
             Upload your first receipt
           </button>
@@ -671,6 +859,11 @@ const Index = () => {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <DemoSnapReceiptScanOverlay
+      open={demoSnapScanOpen}
+      onOpenChange={setDemoSnapScanOpen}
+      onComplete={completeDemoSimulatedSnap}
+    />
     </>
   );
 };

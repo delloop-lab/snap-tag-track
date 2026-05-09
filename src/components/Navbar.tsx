@@ -1,10 +1,40 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
-import { Home, Receipt, LogOut, User, FileText, Menu, X, HelpCircle, Shield, Mail } from "lucide-react";
+import {
+  Home,
+  Receipt,
+  LogOut,
+  User,
+  FileText,
+  Menu,
+  X,
+  HelpCircle,
+  Shield,
+  Mail,
+  MonitorPlay,
+} from "lucide-react";
 import { ExpandableTabs } from "./ui/expandable-tabs";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import {
+  dashboardHomePath,
+  exitClientDemoMode,
+  isClientDemoPreviewActive,
+  setPreviewModeForDashboard,
+} from "@/lib/demo/demoMode";
+import { pathnameIsClientDemoReceipt } from "@/lib/demo/clientDemoData";
+import { openDemoRegisterPrompt } from "@/components/DemoRegisterPromptHost";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -14,6 +44,7 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [previewDashboardDialogOpen, setPreviewDashboardDialogOpen] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -50,6 +81,24 @@ export default function Navbar() {
     })();
   }, [user]);
 
+  const demoPreview = isClientDemoPreviewActive(user);
+  const showAppNavChrome =
+    Boolean(user) ||
+    (demoPreview &&
+      (location.pathname === "/dashboard" ||
+        location.pathname === "/summary" ||
+        location.pathname === "/receipts" ||
+        pathnameIsClientDemoReceipt(location.pathname)));
+
+  const endSessionOrExitDemo = () => {
+    if (user) {
+      void signOut();
+      return;
+    }
+    exitClientDemoMode();
+    navigate("/");
+  };
+
   const tabs = [
     { title: "Dashboard", icon: Home, type: "tab" as const },
     { title: "Receipts", icon: Receipt, type: "tab" as const },
@@ -57,14 +106,14 @@ export default function Navbar() {
     ...(isAdmin ? [{ title: "Admin", icon: Shield, type: "tab" as const }] : []),
     { type: "separator" as const },
     { title: "Profile", icon: User, type: "tab" as const },
-    { title: "Help", icon: HelpCircle, type: "tab" as const },
+    { title: "Help Centre", icon: HelpCircle, type: "tab" as const },
     { title: "Contact", icon: Mail, type: "tab" as const },
   ];
 
   const routeForTabTitle = (title: string): string | null => {
     switch (title) {
       case "Dashboard":
-        return "/";
+        return dashboardHomePath(Boolean(user));
       case "Receipts":
         return "/receipts";
       case "Summary":
@@ -73,7 +122,7 @@ export default function Navbar() {
         return "/admin";
       case "Profile":
         return "/profile";
-      case "Help":
+      case "Help Centre":
         return "/help";
       case "Contact":
         return "/contact";
@@ -88,6 +137,14 @@ export default function Navbar() {
     if (tab.type !== "tab" || !tab.title) return;
     const route = routeForTabTitle(tab.title);
     if (!route) return;
+    if (demoPreview && route === "/profile") {
+      openDemoRegisterPrompt(
+        "Profile",
+        "Create a free account to set your name, avatar, and shopping preferences.",
+      );
+      if (isMobile) setIsMenuOpen(false);
+      return;
+    }
     navigate(route);
     if (isMobile) setIsMenuOpen(false);
   };
@@ -99,8 +156,8 @@ export default function Navbar() {
       const route = routeForTabTitle(tab.title);
       if (!route) continue;
       const match =
-        route === "/"
-          ? location.pathname === "/"
+        tab.title === "Dashboard"
+          ? location.pathname === "/" || location.pathname === "/dashboard"
           : route === "/help" || route === "/contact"
             ? location.pathname === route
             : location.pathname.startsWith(route);
@@ -113,7 +170,9 @@ export default function Navbar() {
     <nav
       className={cn(
         "relative z-40 md:hidden border-b shadow-md",
-        user ? "border-slate-600 bg-slate-800 shadow-black/20" : "border-transparent bg-white",
+        showAppNavChrome
+          ? "border-slate-600 bg-slate-800 shadow-black/20"
+          : "border-transparent bg-white",
       )}
     >
       {showProfilePrompt && (
@@ -136,7 +195,7 @@ export default function Navbar() {
           <div className="flex min-w-0 shrink-0 items-center">
             <Link to="/landing2" className="flex shrink-0 items-center">
               <img
-                className={cn("h-8 w-auto max-h-8", user && "brightness-110")}
+                className={cn("h-8 w-auto max-h-8", showAppNavChrome && "brightness-110")}
                 src="/SnapTagTrack.png"
                 alt="SnapTagTrack"
               />
@@ -144,7 +203,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex shrink-0 items-center">
-            {user ? (
+            {showAppNavChrome ? (
               <>
                 <div className="hidden items-center space-x-4 md:flex">
                   <ExpandableTabs
@@ -154,13 +213,23 @@ export default function Navbar() {
                     onChange={handleTabChange}
                     defaultSelected={getCurrentTabIndex()}
                   />
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewDashboardDialogOpen(true)}
+                      className="inline-flex items-center rounded-md border border-yellow-500/40 bg-slate-800/90 px-3 py-2 text-sm font-medium leading-4 text-yellow-300 hover:bg-slate-700 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400/60 focus:ring-offset-2 focus:ring-offset-slate-800"
+                    >
+                      <MonitorPlay className="mr-2 h-4 w-4 text-yellow-300" />
+                      View Demo Dashboard
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={signOut}
+                    onClick={endSessionOrExitDemo}
                     className="inline-flex items-center rounded-md border border-transparent bg-orange-500 px-3 py-2 text-sm font-medium leading-4 text-white hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-slate-800"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Logout
+                    {user ? "Logout" : "Exit preview"}
                   </button>
                 </div>
 
@@ -185,26 +254,20 @@ export default function Navbar() {
                   to="/help"
                   className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 sm:px-3 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
-                  Help
-                </Link>
-                <Link
-                  to="/contact"
-                  className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 sm:px-3 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                >
-                  Contact
+                  Help Centre
                 </Link>
                 <Link
                   to="/auth"
                   className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-transparent bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 sm:px-4 sm:text-sm"
                 >
-                  Login
+                  Sign in
                 </Link>
               </div>
             )}
           </div>
         </div>
 
-        {user && isMenuOpen && (
+        {showAppNavChrome && isMenuOpen && (
           <div className="absolute inset-x-0 top-full z-50 border-b border-slate-600 bg-slate-900 shadow-xl md:hidden">
             <div className="space-y-1 px-2 pb-3 pt-2">
               {tabs.map((tab, index) => {
@@ -229,18 +292,57 @@ export default function Navbar() {
                   </button>
                 );
               })}
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setPreviewDashboardDialogOpen(true);
+                  }}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-yellow-300 hover:bg-slate-800 hover:text-yellow-200"
+                >
+                  <MonitorPlay className="mr-3 h-5 w-5 shrink-0 text-yellow-300" />
+                  View Demo Dashboard
+                </button>
+              )}
               <button
                 type="button"
-                onClick={signOut}
+                onClick={endSessionOrExitDemo}
                 className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-orange-400 hover:bg-slate-800"
               >
                 <LogOut className="mr-3 h-5 w-5 shrink-0" />
-                Logout
+                {user ? "Logout" : "Exit preview"}
               </button>
             </div>
           </div>
         )}
       </div>
+
+      <AlertDialog open={previewDashboardDialogOpen} onOpenChange={setPreviewDashboardDialogOpen}>
+        <AlertDialogContent className="border-slate-600 bg-slate-900 text-slate-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">View Demo Dashboard</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              To view the demo dashboard with sample receipts, you will be signed out of your account. You can sign in
+              again anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-500 text-white hover:bg-orange-600"
+              onClick={() => {
+                setPreviewModeForDashboard();
+                void signOut({ redirectTo: "/dashboard" });
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </nav>
   );
 }

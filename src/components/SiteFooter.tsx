@@ -2,39 +2,24 @@ import { Link } from "react-router-dom";
 
 export type SiteFooterVariant = "slate" | "classic" | "landing";
 
-/** Fixed marketing footer: beta, copyright, Terms & Privacy. Used on landing, Help, Contact, and Login only. */
+const linkClassLanding =
+  "text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]";
+
+/** Fixed marketing footer: Terms and Privacy. Blog is not linked here. */
 export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) {
   if (variant === "landing") {
     return (
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-1">
           <p className="text-center text-xs text-slate-300">Copyright (c) SnapTagTrack</p>
-          <div className="flex flex-wrap items-center justify-center gap-x-3">
-            <Link
-              to="/terms"
-              className="text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]"
-            >
+          <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-3">
+            <Link to="/terms" className={linkClassLanding}>
               Terms
             </Link>
-            <Link
-              to="/privacy"
-              className="text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]"
-            >
+            <Link to="/privacy" className={linkClassLanding}>
               Privacy
             </Link>
-            <Link
-              to="/blog"
-              className="text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]"
-            >
-              Blog
-            </Link>
-            <Link
-              to="/contact"
-              className="text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]"
-            >
-              Contact
-            </Link>
-          </div>
+          </nav>
         </div>
       </footer>
     );
@@ -45,71 +30,39 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-300 bg-white/95 px-4 py-2 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-center gap-x-3 gap-y-1">
           <p className="text-center text-xs text-gray-600">Copyright (c) SnapTagTrack</p>
-          <div className="flex flex-wrap items-center justify-center gap-x-3">
-            <Link
-              to="/terms"
-              className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
-            >
+          <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-3">
+            <Link to="/terms" className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800">
               Terms
             </Link>
-            <Link
-              to="/privacy"
-              className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
-            >
+            <Link to="/privacy" className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800">
               Privacy
             </Link>
-            <Link
-              to="/blog"
-              className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
-            >
-              Blog
-            </Link>
-            <Link
-              to="/contact"
-              className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
-            >
-              Contact
-            </Link>
-          </div>
+          </nav>
         </div>
       </footer>
     );
   }
 
+  const slateFooterLink =
+    "text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]";
+
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
       <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-y-1.5 py-1 sm:py-0">
-        <nav
-          aria-label="Product guides"
-          className="flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-300 sm:text-xs"
-        >
-          <Link to="/blog" className="hover:text-[#7CB87E] hover:underline">
-            Blog
-          </Link>
-          <span className="text-slate-600" aria-hidden>
-            ·
-          </span>
-          <Link to="/use-cases" className="hover:text-[#7CB87E] hover:underline">
-            All guides
-          </Link>
-        </nav>
         <div className="relative flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-1">
-        <p className="text-[11px] text-slate-400 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.967</p>
-        <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
-        <div className="flex flex-wrap items-center justify-center gap-x-3 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2">
-          <Link
-            to="/terms"
-            className="text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]"
+          <p className="text-[11px] text-slate-400 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.976</p>
+          <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
+          <nav
+            aria-label="Footer"
+            className="flex flex-wrap items-center justify-center gap-x-3 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2"
           >
-            Terms
-          </Link>
-          <Link
-            to="/privacy"
-            className="text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]"
-          >
-            Privacy
-          </Link>
-        </div>
+            <Link to="/terms" className={slateFooterLink}>
+              Terms
+            </Link>
+            <Link to="/privacy" className={slateFooterLink}>
+              Privacy
+            </Link>
+          </nav>
         </div>
       </div>
     </footer>

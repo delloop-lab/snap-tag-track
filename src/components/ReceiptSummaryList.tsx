@@ -40,6 +40,12 @@ import {
   warrantyEndFromReceipt,
 } from "@/lib/userShoppingPreferences";
 import { formatReceiptCurrency } from "@/lib/displayCurrency";
+import { isClientDemoPreviewActive } from "@/lib/demo/demoMode";
+import {
+  buildClientDemoSummaryReceipts,
+  buildClientDemoSummaryTags,
+} from "@/lib/demo/clientDemoData";
+import { openDemoRegisterPrompt } from "@/components/DemoRegisterPromptHost";
 
 // Tag color palette
 const tagColors = [
@@ -76,6 +82,7 @@ interface Receipt {
   warranty: boolean;
   warranty_expires_at?: string | null;
   image_path: string | null;
+  product_image_path?: string | null;
   text_content: string | null;
   line_items?: unknown[] | null;
   currency?: string | null;
@@ -85,6 +92,7 @@ interface Receipt {
 
 const ReceiptSummaryList = () => {
   const { user } = useAuth();
+  const demoPreview = isClientDemoPreviewActive(user);
   const location = useLocation();
   const navigate = useNavigate();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -130,7 +138,16 @@ const ReceiptSummaryList = () => {
     formatReceiptCurrency(amount, currency ?? null, preferredDisplayCurrency, { nullLabel: "-" });
 
   const fetchData = async () => {
-    if (!user) return;
+    if (demoPreview) {
+      setReceipts(buildClientDemoSummaryReceipts() as Receipt[]);
+      setAllTags(buildClientDemoSummaryTags() as Tag[]);
+      return;
+    }
+    if (!user) {
+      setReceipts([]);
+      setAllTags([]);
+      return;
+    }
     const { data: receiptsData } = await supabase
       .from("receipts")
       .select("*, receipt_tags(tag_id, tags:tag_id(id, name))")
@@ -146,10 +163,9 @@ const ReceiptSummaryList = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
     setLoading(true);
-    fetchData().finally(() => setLoading(false));
-  }, [user]);
+    void fetchData().finally(() => setLoading(false));
+  }, [user, location.pathname]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -234,12 +250,19 @@ const ReceiptSummaryList = () => {
   };
 
   const openEditMetaModal = (receipt: Receipt) => {
+    if (demoPreview) {
+      openDemoRegisterPrompt(
+        "Preview mode",
+        "Create a free account to edit tags, warranty, and receipt details.",
+      );
+      return;
+    }
     setEditingReceipt(receipt);
     setEditingWarranty(Boolean(receipt.warranty));
   };
 
   const saveReceiptMeta = async () => {
-    if (!user || !editingReceipt || savingReceiptMeta) return;
+    if (demoPreview || !user || !editingReceipt || savingReceiptMeta) return;
     const metaErr = validateWarrantyWithPurchaseDate(editingWarranty, editingReceipt.purchase_date ?? null);
     if (metaErr) {
       toast({ title: "Purchase date needed", description: metaErr, variant: "destructive" });
@@ -261,6 +284,13 @@ const ReceiptSummaryList = () => {
   };
 
   const handleBulkRescan = async () => {
+    if (demoPreview) {
+      openDemoRegisterPrompt(
+        "Preview mode",
+        "Create a free account to rescan your receipts with AI.",
+      );
+      return;
+    }
     if (!user || receipts.length === 0 || isBulkRescanning) return;
     const prefs = await getRescanPreferencesFromDb(supabase, user.id);
     setBulkRescanPrefs(prefs);
@@ -268,7 +298,7 @@ const ReceiptSummaryList = () => {
   };
 
   const executeBulkRescan = async () => {
-    if (!user || receipts.length === 0 || isBulkRescanning) return;
+    if (demoPreview || !user || receipts.length === 0 || isBulkRescanning) return;
     const prefs = bulkRescanPrefs;
     setIsBulkRescanning(true);
     setBulkProgress({ done: 0, total: receipts.length });
@@ -718,7 +748,16 @@ const ReceiptSummaryList = () => {
           <Button
             variant="default"
             className="h-9 min-w-[120px] mt-2 md:mt-0 ml-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"
-            onClick={() => window.print()}
+            onClick={() => {
+              if (demoPreview) {
+                openDemoRegisterPrompt(
+                  "Preview mode",
+                  "Printing is available after you create an account.",
+                );
+                return;
+              }
+              window.print();
+            }}
           >
             <Printer className="w-4 h-4 mr-2" /> Print
           </Button>
@@ -764,8 +803,8 @@ const ReceiptSummaryList = () => {
                 <th className="border-b border-slate-200 p-2 text-left md:p-3">Tags</th>
                 <th className="border-b border-slate-200 p-2 text-left md:p-3">Warranty</th>
                 {showWarrantyEndDate && <th className="border-b border-slate-200 p-2 text-left md:p-3">Warranty End Date</th>}
-                <th className="border-b border-slate-200 p-2 text-left md:p-3">Image</th>
-                <th className="border-b border-slate-200 p-2 text-left md:p-3">Text</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Receipt</th>
+                <th className="border-b border-slate-200 p-2 text-left md:p-3">Product</th>
                 <th className="border-b border-slate-200 p-2 text-left md:p-3">Notes</th>
                 <th className="border-b border-slate-200 p-2 text-left md:p-3">Edit</th>
               </tr>
@@ -813,13 +852,24 @@ const ReceiptSummaryList = () => {
                         const imageUrl = await resolveReceiptImageUrl(r.image_path, 60 * 60);
                         if (imageUrl) window.open(imageUrl, '_blank');
                       }
-                    }}>View Image</Button>
+                    }}>View Receipt</Button>
                   </td>
                   <td className="border-b border-slate-100 p-2 md:p-3">
-                    <Button size="sm" variant="outline" onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewText(r.text_content || "No text extracted");
-                    }}>View Text</Button>
+                    {r.product_image_path ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const imageUrl = await resolveReceiptImageUrl(r.product_image_path || "", 60 * 60);
+                          if (imageUrl) window.open(imageUrl, "_blank");
+                        }}
+                      >
+                        View Product
+                      </Button>
+                    ) : (
+                      "-"
+                    )}
                   </td>
                   <td className="border-b border-slate-100 p-2 md:p-3">
                     {r.notes ? (

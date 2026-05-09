@@ -32,10 +32,10 @@ export const useCasesBody: SeoPageBody = {
       ],
     },
     {
-      h2: "Explore deeper guides",
+      h2: "Explore more topic pages",
       paragraphs: [
-        "Follow internal links to each topic page for longer explanations and FAQs. The Help centre answers product mechanics; these guides focus on why a workflow might fit you.",
-        "If you are comparing options, read how-it-works first, then jump to the guide matching your immediate problem. That path gives enough context without overwhelming setup advice.",
+        "Topic pages such as the receipt scanner and warranty tracker still exist for long-form reading and SEO. For day-to-day mechanics, use the Help Centre on this site—one page with scanning steps, FAQs, and troubleshooting.",
+        "If you are comparing options, read How it works in the Help Centre first, then open the topic page that matches your immediate problem.",
       ],
     },
     {

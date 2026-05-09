@@ -13,18 +13,20 @@ import {
 import { SEO_LANDING_PATHS } from "@/marketing/seoPublicPaths";
 import { getSeoLandingBody } from "@/marketing/seoLandingRegistry";
 import { useAuth } from "@/components/AuthProvider";
+import { breadcrumbJsonLd, receiptScanHowToJsonLd } from "@/seo/structuredData";
+import HelpReceiptScanningGuide from "@/components/help/HelpReceiptScanningGuide";
 
 const RELATED_LINK_LABELS: Record<string, string> = {
   "/receipt-scanner-app": "Receipt scanner app",
   "/warranty-tracker": "Warranty tracker",
+  "/returns-cooling-off": "Returns & cooling-off",
   "/expense-tracking-without-bank": "Expense tracking without a bank",
   "/contractor-expense-tracker": "Contractor expense tracker",
   "/household-spending-tracker": "Household spending tracker",
-  "/fuel-food-spending-tracker": "Fuel and food spending tracker",
-  "/how-it-works": "How it works",
-  "/pricing": "Pricing",
+  "/fuel-food-spending-tracker": "Fuel & food spending tracker",
+  "/how-it-works": "How Snap Tag Track works",
   "/use-cases": "Use cases",
-  "/blog": "Blog",
+  "/pricing": "Pricing",
 };
 
 export default function SeoMarketingPage() {
@@ -45,19 +47,33 @@ export default function SeoMarketingPage() {
     });
   }, [body]);
 
+  const breadcrumbLd = useMemo(() => {
+    if (!body) return "";
+    const name = RELATED_LINK_LABELS[pathname] ?? body.h1;
+    return breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name, path: pathname },
+    ]);
+  }, [body, pathname]);
+
+  const howToLd = pathname === "/receipt-scanner-app" ? receiptScanHowToJsonLd() : "";
+
+  const related = useMemo(
+    () => SEO_LANDING_PATHS.filter((p) => p !== pathname && p !== "/blog"),
+    [pathname],
+  );
+
   if (!body) {
     return <Navigate to="/" replace />;
   }
 
-  const related = SEO_LANDING_PATHS.filter((p) => p !== pathname);
-
   return (
     <div className="min-h-screen w-full bg-slate-800 text-slate-100">
-      {faqJsonLd ? (
-        <Helmet>
-          <script type="application/ld+json">{faqJsonLd}</script>
-        </Helmet>
-      ) : null}
+      <Helmet>
+        {breadcrumbLd ? <script type="application/ld+json">{breadcrumbLd}</script> : null}
+        {howToLd ? <script type="application/ld+json">{howToLd}</script> : null}
+        {faqJsonLd ? <script type="application/ld+json">{faqJsonLd}</script> : null}
+      </Helmet>
 
       <div className={`${marketingPageGutterClass} pb-10`}>
         {!user && <MarketingTopNav />}
@@ -70,18 +86,12 @@ export default function SeoMarketingPage() {
                 <p key={`intro-${i}`}>{p}</p>
               ))}
             </div>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6">
               <Link
                 to="/auth"
                 className="inline-flex items-center justify-center rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-orange-600"
               >
                 Try Snap Tag Track
-              </Link>
-              <Link
-                to="/help"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-600"
-              >
-                Help and FAQs
               </Link>
             </div>
           </header>
@@ -98,6 +108,12 @@ export default function SeoMarketingPage() {
               </section>
             ))}
           </div>
+
+          {pathname === "/receipt-scanner-app" ? (
+            <section className="mt-14 scroll-mt-8" aria-label="Receipt capture examples">
+              <HelpReceiptScanningGuide />
+            </section>
+          ) : null}
 
           {body.faq && body.faq.length > 0 ? (
             <section className="mt-14 rounded-2xl border border-slate-600 bg-slate-700/70 p-5 sm:p-6" aria-labelledby="seo-faq-heading">
@@ -120,10 +136,13 @@ export default function SeoMarketingPage() {
           ) : null}
 
           <section className="mt-14 rounded-2xl border border-slate-600 bg-slate-900/40 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-white">More guides</h2>
+            <h2 className="text-lg font-semibold text-white">Related pages</h2>
             <p className="mt-2 text-sm text-slate-400">
-              Internal guides for receipt tracking, warranty reminders, and expense tracking—open in a new context, same
-              account.
+              Other crawlable Snap Tag Track pages. For editorial posts, visit the{" "}
+              <Link to="/blog" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
+                blog index
+              </Link>
+              .
             </p>
             <ul className="mt-4 grid gap-2 sm:grid-cols-2">
               {related.map((path) => (
@@ -134,20 +153,20 @@ export default function SeoMarketingPage() {
                 </li>
               ))}
             </ul>
-            <GuideSearch className="mt-6" />
+            <GuideSearch className="mt-6" sources="guides" />
           </section>
 
           <section className="mt-10 border-t border-slate-600/80 pt-8">
             <p className="text-sm text-slate-400">
-              Ready to capture real receipts?{" "}
+              Already decided?{" "}
               <Link to="/auth" className="font-semibold text-[#7CB87E] hover:underline">
                 Create a free account
-              </Link>{" "}
-              or read{" "}
-              <Link to="/help" className="font-semibold text-[#7CB87E] hover:underline">
-                Help
-              </Link>{" "}
-              for scanning tips.
+              </Link>
+              {" · "}
+              <Link to="/blog" className="font-semibold text-[#7CB87E] hover:underline">
+                Read more on the blog
+              </Link>
+              .
             </p>
           </section>
         </article>

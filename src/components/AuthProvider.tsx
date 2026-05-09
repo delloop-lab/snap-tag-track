@@ -4,6 +4,10 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureTermsSignupAcceptanceRecorded } from "@/lib/termsRegistrationAcceptance";
 import { resetPostAuthLandingGuard } from "@/lib/postAuthLanding";
+import {
+  clearClientDemoModeForAuthenticatedUser,
+  exitClientDemoMode,
+} from "@/lib/demo/demoMode";
 
 /** Remove persisted Supabase auth keys so a full reload cannot resurrect the session. */
 function wipeSupabaseAuthStorage() {
@@ -25,7 +29,7 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: (options?: { redirectTo?: string }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,8 +47,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           resetPostAuthLandingGuard();
         }
 
+        const nextUser = currentSession?.user ?? null;
+        if (nextUser) {
+          clearClientDemoModeForAuthenticatedUser();
+        }
+
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        setUser(nextUser);
         setLoading(false);
         if (
           (event === "SIGNED_IN" || event === "INITIAL_SESSION") &&
@@ -60,8 +69,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      const nextUser = currentSession?.user ?? null;
+      if (nextUser) {
+        clearClientDemoModeForAuthenticatedUser();
+      }
       setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      setUser(nextUser);
       setLoading(false);
     });
 
@@ -70,7 +83,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const signOut = async () => {
+  const signOut = async (options?: { redirectTo?: string }) => {
+    const redirectTo = options?.redirectTo ?? "/";
     resetPostAuthLandingGuard();
     // Drop local session immediately so chrome (sidebar) disappears.
     setSession(null);
@@ -86,7 +100,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     wipeSupabaseAuthStorage();
     // Server-side refresh-token revoke — do not await (network must not trap logout).
     void supabase.auth.signOut({ scope: "global" }).catch(() => {});
-    window.location.replace("/");
+    if (redirectTo === "/") {
+      exitClientDemoMode();
+    }
+    window.location.replace(redirectTo);
   };
 
   const value = {

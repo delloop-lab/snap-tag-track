@@ -23,6 +23,7 @@ import {
   warrantyWindowStartForProgress,
 } from "@/lib/userShoppingPreferences";
 import { cn } from "@/lib/utils";
+import { isDemoReceiptRecord } from "@/lib/demo/seedDemoData";
 
 type ReceiptWarrantyRow = {
   id: string;
@@ -30,6 +31,8 @@ type ReceiptWarrantyRow = {
   purchase_date: string | null;
   warranty: boolean;
   warranty_expires_at: string | null;
+  type: string | null;
+  notes: string | null;
 };
 
 type WarrantyItem = {
@@ -44,6 +47,7 @@ type WarrantyItem = {
   usedExplicitEndDate: boolean;
   purchaseDateIso: string | null;
   warrantyExpiresAtIso: string | null;
+  isDemo: boolean;
 };
 
 function toWarrantyItem(r: ReceiptWarrantyRow, today: Date, defaultWarrantyMonths: number): WarrantyItem | null {
@@ -79,6 +83,7 @@ function toWarrantyItem(r: ReceiptWarrantyRow, today: Date, defaultWarrantyMonth
     usedExplicitEndDate,
     purchaseDateIso: r.purchase_date,
     warrantyExpiresAtIso: r.warranty_expires_at,
+    isDemo: isDemoReceiptRecord(r),
   };
 }
 
@@ -163,6 +168,10 @@ const tierDotClass: Record<WarrantyItem["tier"], string> = {
 
 type Props = {
   className?: string;
+  /** When provided, skip Supabase and render this static snapshot (client session demo). */
+  demoWarrantyRows?: ReceiptWarrantyRow[] | null;
+  /** Session preview: run simulated snap instead of navigating to `/upload`. */
+  onDemoSimulatedSnapReceipt?: () => void;
 };
 
 type WarrantyBucket = "active" | "expiring30" | "expired";
@@ -179,10 +188,22 @@ function bucketTitle(bucket: WarrantyBucket): string {
   return "Active warranties";
 }
 
-export default function WarrantyIntelligenceCard({ className }: Props) {
+export default function WarrantyIntelligenceCard({
+  className,
+  demoWarrantyRows,
+  onDemoSimulatedSnapReceipt,
+}: Props) {
   const { user } = useAuth();
   const { warrantyDefaultMonths, returnWindowDays } = useUserShoppingPreferences();
   const navigate = useNavigate();
+
+  const goScanReceipt = () => {
+    if (onDemoSimulatedSnapReceipt) {
+      onDemoSimulatedSnapReceipt();
+      return;
+    }
+    navigate("/upload");
+  };
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ReceiptWarrantyRow[]>([]);
   const [detailItem, setDetailItem] = useState<WarrantyItem | null>(null);
@@ -193,7 +214,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
     setLoading(true);
     const { data, error } = await supabase
       .from("receipts")
-      .select("id, vendor_name, purchase_date, warranty, warranty_expires_at")
+      .select("id, vendor_name, purchase_date, warranty, warranty_expires_at, type, notes")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(300);
@@ -207,14 +228,20 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
   }, [user]);
 
   useEffect(() => {
+    if (demoWarrantyRows != null) {
+      setRows(demoWarrantyRows);
+      setLoading(false);
+      return;
+    }
     void fetchWarrantyReceipts();
-  }, [fetchWarrantyReceipts]);
+  }, [demoWarrantyRows, fetchWarrantyReceipts]);
 
   useEffect(() => {
+    if (demoWarrantyRows != null) return;
     const onReceiptAdded = () => void fetchWarrantyReceipts();
     window.addEventListener("receiptAdded", onReceiptAdded);
     return () => window.removeEventListener("receiptAdded", onReceiptAdded);
-  }, [fetchWarrantyReceipts]);
+  }, [fetchWarrantyReceipts, demoWarrantyRows]);
 
   const { items, counts, hero, supporting } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -270,7 +297,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
     [items, listBucket],
   );
 
-  if (!user) return null;
+  if (!user && demoWarrantyRows == null) return null;
 
   if (loading) {
     return (
@@ -441,7 +468,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
           <Button
             type="button"
             className="mt-8 rounded-xl bg-orange-500 px-8 py-6 text-base font-bold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-600"
-            onClick={() => navigate("/upload")}
+            onClick={goScanReceipt}
           >
             Scan a receipt
           </Button>
@@ -470,7 +497,7 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
             <Button
               type="button"
               className="rounded-xl bg-orange-500 px-6 py-5 text-sm font-bold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-600"
-              onClick={() => navigate("/upload")}
+              onClick={goScanReceipt}
             >
               Scan a receipt
             </Button>
@@ -528,6 +555,11 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                 <p className="line-clamp-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                   {hero.productLabel}
                 </p>
+                {hero.isDemo && (
+                  <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                    Demo
+                  </span>
+                )}
               </div>
               <div className="mt-4 flex flex-wrap items-end gap-3">
                 <div>
@@ -639,6 +671,11 @@ export default function WarrantyIntelligenceCard({ className }: Props) {
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex min-w-0 items-center gap-2">
                             <p className="truncate font-medium text-slate-100">{item.productLabel}</p>
+                            {item.isDemo && (
+                              <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                Demo
+                              </span>
+                            )}
                           </span>
                           <span className="shrink-0 text-sm font-bold tabular-nums text-white">
                             {item.daysRemaining < 0 ? (

@@ -3,18 +3,28 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { runPostAuthLandingOnce } from "@/lib/postAuthLanding";
+import { clearClientDemoModeForAuthenticatedUser } from "@/lib/demo/demoMode";
 
 const EXPECTED_RECOVERY_FLOW_KEY = "snap_expected_recovery_flow";
+const EXPECTED_RECOVERY_FLOW_TS_KEY = "snap_expected_recovery_flow_ts";
 
 function isRecoveryRedirect() {
   const query = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   if (query.get("type") === "recovery" || hash.get("type") === "recovery") return true;
 
-  const expectedRecovery = sessionStorage.getItem(EXPECTED_RECOVERY_FLOW_KEY) === "1";
+  const expectedRecovery = localStorage.getItem(EXPECTED_RECOVERY_FLOW_KEY) === "1";
+  const expiresRaw = localStorage.getItem(EXPECTED_RECOVERY_FLOW_TS_KEY);
+  const expiresAt = expiresRaw ? Number(expiresRaw) : 0;
+  const notExpired = Number.isFinite(expiresAt) && expiresAt > Date.now();
   const hasAuthParams =
     query.has("code") || hash.has("access_token") || hash.has("refresh_token");
-  return expectedRecovery && hasAuthParams;
+  return expectedRecovery && notExpired && hasAuthParams;
+}
+
+function clearExpectedRecoveryFlow() {
+  localStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
+  localStorage.removeItem(EXPECTED_RECOVERY_FLOW_TS_KEY);
 }
 
 /** Handles Supabase email-confirmation (and OAuth) redirects; tokens are parsed from the URL by the client. */
@@ -28,12 +38,12 @@ const AuthCallback = () => {
     void (async () => {
       await new Promise((r) => setTimeout(r, 0));
       if (isRecoveryRedirect()) {
-        sessionStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
+        clearExpectedRecoveryFlow();
         const suffix = `${window.location.search}${window.location.hash}`;
         navigate(`/auth/reset-password${suffix}`, { replace: true });
         return;
       }
-      sessionStorage.removeItem(EXPECTED_RECOVERY_FLOW_KEY);
+      clearExpectedRecoveryFlow();
       const {
         data: { session },
         error,
@@ -51,6 +61,7 @@ const AuthCallback = () => {
         return;
       }
       if (session) {
+        clearClientDemoModeForAuthenticatedUser();
         const handled = await runPostAuthLandingOnce(
           supabase,
           navigate,

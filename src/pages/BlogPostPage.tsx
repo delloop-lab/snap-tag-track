@@ -5,6 +5,9 @@ import { useAuth } from "@/components/AuthProvider";
 import MarketingTopNav, { marketingPageGutterClass } from "@/components/MarketingTopNav";
 import SiteFooter from "@/components/SiteFooter";
 import { BLOG_POSTS_BY_SLUG } from "@/marketing/blogPosts";
+import { seoGuideLinksForBlogSlug } from "@/marketing/blogPostSeoGuides";
+import { CANONICAL_ORIGIN } from "@/seo/site";
+import { articleJsonLd, breadcrumbJsonLd } from "@/seo/structuredData";
 import {
   Accordion,
   AccordionContent,
@@ -33,17 +36,36 @@ export default function BlogPostPage() {
     });
   }, [post]);
 
+  const articleLd = useMemo(() => {
+    if (!post) return "";
+    const url = `${CANONICAL_ORIGIN}${post.path}`;
+    return articleJsonLd({
+      headline: post.h1,
+      description: post.description,
+      url,
+    });
+  }, [post]);
+
+  const breadcrumbLd = useMemo(() => {
+    if (!post) return "";
+    return breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Blog", path: "/blog" },
+      { name: post.h1, path: post.path },
+    ]);
+  }, [post]);
+
   if (!post) {
     return <Navigate to="/blog" replace />;
   }
 
   return (
     <div className="min-h-screen w-full bg-slate-800 text-slate-100">
-      {faqJsonLd ? (
-        <Helmet>
-          <script type="application/ld+json">{faqJsonLd}</script>
-        </Helmet>
-      ) : null}
+      <Helmet>
+        {breadcrumbLd ? <script type="application/ld+json">{breadcrumbLd}</script> : null}
+        {articleLd ? <script type="application/ld+json">{articleLd}</script> : null}
+        {faqJsonLd ? <script type="application/ld+json">{faqJsonLd}</script> : null}
+      </Helmet>
 
       <div className={`${marketingPageGutterClass} pb-10`}>
         {!user && <MarketingTopNav />}
@@ -70,26 +92,44 @@ export default function BlogPostPage() {
             ) : null}
           </section>
 
-          <section className="mt-10 rounded-2xl border border-slate-600 bg-slate-900/40 p-5">
-            <h2 className="text-lg font-semibold text-white">Try this in Snap Tag Track</h2>
+          <section className="mt-10 rounded-2xl border border-slate-600 bg-slate-900/40 p-5" aria-label="Matching crawlable URLs">
+            <h2 className="text-lg font-semibold text-white">Related pages for context</h2>
             <p className="mt-2 text-sm text-slate-300">
-              Put this workflow into practice inside your account. Capture a few real receipts, tag them, and
-              review what changes.
+              These pages are optimised for discovery in search and stay separate from editorial posts.
+            </p>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {seoGuideLinksForBlogSlug(post.slug).map(({ path, label }) => (
+                <li key={path}>
+                  <Link to={path} className="text-sm font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="mt-10 rounded-2xl border border-slate-600 bg-slate-900/40 p-5">
+            <h2 className="text-lg font-semibold text-white">Try Snap Tag Track</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Put this workflow into practice inside your account. Capture a few real receipts, tag them, and review what
+              changes.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 to="/auth"
                 className="inline-flex items-center justify-center rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600"
               >
-                Try Snap Tag Track
-              </Link>
-              <Link
-                to="/help"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-500 bg-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-600"
-              >
-                Help
+                Create an account / sign in
               </Link>
             </div>
+            <p className="mt-4 text-xs text-slate-500">
+              Already using the app? For uploads, troubleshooting, or settings, visit the Help Centre—not this blog.
+              See{" "}
+              <Link to="/help" className="font-semibold text-[#7CB87E] underline-offset-2 hover:underline">
+                Help Centre
+              </Link>
+              .
+            </p>
           </section>
 
           {post.faq?.length ? (
@@ -111,7 +151,7 @@ export default function BlogPostPage() {
           ) : null}
 
           <section className="mt-10 rounded-2xl border border-slate-600 bg-slate-900/40 p-5">
-            <h2 className="text-lg font-semibold text-white">Related guides</h2>
+            <h2 className="text-lg font-semibold text-white">Related blog posts</h2>
             <ul className="mt-3 space-y-2">
               {post.relatedSlugs.slice(0, 2).map((relatedSlug) => {
                 const related = BLOG_POSTS_BY_SLUG[relatedSlug];

@@ -42,6 +42,13 @@ import {
   suggestedReturnDeadline,
   warrantyEndFromReceipt,
 } from "@/lib/userShoppingPreferences";
+import { DEMO_RECEIPTS_DATASET } from "@/lib/demo/demoDataset";
+import { isClientDemoPreviewActive } from "@/lib/demo/demoMode";
+import {
+  buildClientDemoReceiptDetail,
+  isClientDemoReceiptId,
+} from "@/lib/demo/clientDemoData";
+import { openDemoRegisterPrompt } from "@/components/DemoRegisterPromptHost";
 
 interface LineItem {
   description: string;
@@ -72,9 +79,19 @@ type Receipt = {
   currency: string | null;
 };
 
+function fallbackDemoProductImagePath(receipt: Pick<Receipt, "type" | "vendor_name" | "product_image_path">): string | null {
+  if (receipt.product_image_path) return receipt.product_image_path;
+  if (receipt.type !== "demo") return null;
+  const vendor = receipt.vendor_name?.trim();
+  if (!vendor) return null;
+  const demo = DEMO_RECEIPTS_DATASET.find((r) => r.vendor === vendor);
+  return demo?.productImage ?? null;
+}
+
 const ReceiptDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const demoPreview = isClientDemoPreviewActive(user);
   const { warrantyDefaultMonths, returnWindowDays, preferredDisplayCurrency } = useUserShoppingPreferences();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -110,6 +127,42 @@ const ReceiptDetail = () => {
     if (!id) return;
     try {
       setLoading(true);
+      if (demoPreview && isClientDemoReceiptId(id)) {
+        const built = buildClientDemoReceiptDetail(id);
+        if (!built) throw new Error("Demo receipt not found");
+        const receiptData = built as unknown as Receipt;
+        setReceipt(receiptData);
+        if (receiptData.image_path) {
+          const resolved = await resolveReceiptImageUrl(receiptData.image_path, 60 * 60 * 24);
+          setImageUrl(resolved || "/placeholder.svg");
+        } else {
+          setImageUrl("/placeholder.svg");
+        }
+        const productPath = fallbackDemoProductImagePath(receiptData);
+        if (productPath) {
+          const resolvedProduct = await resolveReceiptImageUrl(productPath, 60 * 60 * 24);
+          setProductImageUrl(resolvedProduct);
+        } else {
+          setProductImageUrl(null);
+        }
+        setEditedVendor(receiptData.vendor_name || "");
+        setEditedAmount(receiptData.total_amount?.toString() || "");
+        setEditedNotes(receiptData.notes || "");
+        setEditedWarranty(!!receiptData.warranty);
+        if (receiptData.purchase_date) {
+          setEditedDate(new Date(receiptData.purchase_date));
+        } else {
+          setEditedDate(undefined);
+        }
+        setEditedClient(receiptData.client_name || "");
+        return;
+      }
+
+      if (!user?.id) {
+        setReceipt(null);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("receipts")
         .select(`
@@ -139,7 +192,7 @@ const ReceiptDetail = () => {
           )
         `)
         .eq("id", id)
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .single();
       if (error) throw error;
       if (!data) {
@@ -177,8 +230,13 @@ const ReceiptDetail = () => {
         setImageUrl(null);
       }
       // Generate signed URL for product image if present
-      if (data.product_image_path) {
-        const resolvedProduct = await resolveReceiptImageUrl(data.product_image_path, 60 * 60 * 24);
+      const productPath = fallbackDemoProductImagePath({
+        type: data.type || null,
+        vendor_name: data.vendor_name || null,
+        product_image_path: data.product_image_path ?? null,
+      });
+      if (productPath) {
+        const resolvedProduct = await resolveReceiptImageUrl(productPath, 60 * 60 * 24);
         setProductImageUrl(resolvedProduct);
       } else {
         setProductImageUrl(null);
@@ -199,33 +257,42 @@ const ReceiptDetail = () => {
         description: "Failed to load receipt details",
         variant: "destructive",
       });
-      navigate("/receipts");
+      navigate(
+        demoPreview && id && isClientDemoReceiptId(id) ? "/dashboard" : "/receipts",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReceipt();
-    // Fetch all unique clients for dropdown
+    void fetchReceipt();
+  }, [id, user]);
+
+  useEffect(() => {
+    if (demoPreview && id && isClientDemoReceiptId(id)) {
+      setAllClients([]);
+      return;
+    }
     const fetchClients = async () => {
       const { data } = await supabase
         .from("receipts")
         .select("client_name")
         .neq("client_name", null);
       if (data) {
-        const uniqueClients = Array.from(new Set(data.map(r => r.client_name).filter(Boolean)));
+        const uniqueClients = Array.from(new Set(data.map((r) => r.client_name).filter(Boolean)));
         setAllClients(uniqueClients);
       }
     };
-    fetchClients();
-  }, [id, navigate]);
+    void fetchClients();
+  }, [id]);
 
   // Add effect to fetch product image URL when receipt changes
   useEffect(() => {
     const fetchProductImageUrl = async () => {
-      if (receipt?.product_image_path) {
-        const resolved = await resolveReceiptImageUrl(receipt.product_image_path, 60 * 60);
+      const productPath = receipt ? fallbackDemoProductImagePath(receipt) : null;
+      if (productPath) {
+        const resolved = await resolveReceiptImageUrl(productPath, 60 * 60);
         setProductImageUrl(resolved);
       } else {
         setProductImageUrl(null);
@@ -233,7 +300,7 @@ const ReceiptDetail = () => {
     };
 
     fetchProductImageUrl();
-  }, [receipt?.product_image_path]);
+  }, [receipt?.product_image_path, receipt?.type, receipt?.vendor_name]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -255,6 +322,7 @@ const ReceiptDetail = () => {
 
   const handleDelete = async () => {
     if (!receipt) return;
+    if (demoPreview && isClientDemoReceiptId(receipt.id)) return;
 
     try {
       // Delete child tag rows first to avoid FK constraint errors.
@@ -291,6 +359,7 @@ const ReceiptDetail = () => {
 
   const handleRescanWithAI = async () => {
     if (!receipt?.image_path || !user) return;
+    if (demoPreview && isClientDemoReceiptId(receipt.id)) return;
     setIsRescanning(true);
     try {
       const { data: fnData, error: fnError } = await supabase.functions.invoke(
@@ -370,6 +439,7 @@ const ReceiptDetail = () => {
 
   const openRescanDialog = async () => {
     if (!user) return;
+    if (receipt && demoPreview && isClientDemoReceiptId(receipt.id)) return;
     const prefs = await getRescanPreferencesFromDb(supabase, user.id);
     setRescanDialogText(
       `AI will re-check this receipt and may update vendor, total, date, text, line items, and currency.\n\nCurrent mode: ${
@@ -381,6 +451,7 @@ const ReceiptDetail = () => {
 
   const handleSaveChanges = async () => {
     if (!receipt) return;
+    if (demoPreview && isClientDemoReceiptId(receipt.id)) return;
     const nextPurchaseIso = editedDate ? format(editedDate, "yyyy-MM-dd") : null;
     const warrantyErr = validateWarrantyWithPurchaseDate(editedWarranty, nextPurchaseIso);
     if (warrantyErr) {
@@ -442,6 +513,7 @@ const ReceiptDetail = () => {
   const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !receipt) return;
+    if (demoPreview && isClientDemoReceiptId(receipt.id)) return;
 
     try {
       setIsUploadingProductImage(true);
@@ -490,6 +562,7 @@ const ReceiptDetail = () => {
 
   const handleDeleteProductImage = async () => {
     if (!receipt?.id || !receipt?.product_image_path) return;
+    if (demoPreview && isClientDemoReceiptId(receipt.id)) return;
     try {
       const pathToDelete = receipt.product_image_path;
       const { error: storageError } = await supabase.storage
@@ -558,12 +631,22 @@ const ReceiptDetail = () => {
     return (
       <div className="text-center py-10">
         <p className="text-slate-300">Receipt not found</p>
-        <Button onClick={() => navigate("/receipts")} className="mt-4">
-          Back to Receipts
+        <Button
+          onClick={() =>
+            navigate(
+              demoPreview && id && isClientDemoReceiptId(id) ? "/dashboard" : "/receipts",
+            )
+          }
+          className="mt-4"
+        >
+          {demoPreview && id && isClientDemoReceiptId(id) ? "Back to dashboard" : "Back to Receipts"}
         </Button>
       </div>
     );
   }
+
+  const isClientDemoReadOnly =
+    demoPreview && !!receipt && isClientDemoReceiptId(receipt.id);
 
   return (
     <div className="container mx-auto max-w-4xl p-4 text-slate-100">
@@ -587,27 +670,40 @@ const ReceiptDetail = () => {
               isMobile && "h-9 w-full justify-center text-xs md:text-sm",
               isMobile && isEditing && "col-span-2"
             )}
-            onClick={() => navigate("/receipts")}
+            onClick={() =>
+              navigate(isClientDemoReadOnly ? "/dashboard" : "/receipts")
+            }
           >
-            {isMobile ? "Back" : "Back to Receipts"}
+            {isMobile ? "Back" : isClientDemoReadOnly ? "Back to dashboard" : "Back to Receipts"}
           </Button>
           {!isEditing && (
             <>
-              <Button 
-                variant="outline" 
-                size={isMobile ? "sm" : "default"}
-                onClick={() => setIsEditing(true)}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
-                  isMobile && "h-9 w-full text-xs"
-                )}
-              >
-                <Edit className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Edit
-              </Button>
+              {!isClientDemoReadOnly && (
+                <Button 
+                  variant="outline" 
+                  size={isMobile ? "sm" : "default"}
+                  onClick={() => setIsEditing(true)}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
+                    isMobile && "h-9 w-full text-xs"
+                  )}
+                >
+                  <Edit className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Edit
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size={isMobile ? "sm" : "default"}
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (demoPreview) {
+                    openDemoRegisterPrompt(
+                      "Preview mode",
+                      "Printing is available after you create an account.",
+                    );
+                    return;
+                  }
+                  window.print();
+                }}
                 className={cn(
                   "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
                   isMobile && "h-9 w-full text-xs"
@@ -615,30 +711,34 @@ const ReceiptDetail = () => {
               >
                 <Printer className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Print
               </Button>
-              <Button
-                variant="outline"
-                size={isMobile ? "sm" : "default"}
-                onClick={openRescanDialog}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
-                  isMobile && "h-9 w-full text-xs leading-tight"
-                )}
-                disabled={isRescanning}
-              >
-                <RefreshCcw className={`h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 ${isRescanning ? "animate-spin" : ""}`} />
-                {isRescanning ? "Working…" : isMobile ? "Rescan AI" : "Rescan with AI"}
-              </Button>
-              <Button
-                variant="destructive"
-                size={isMobile ? "sm" : "default"}
-                onClick={() => setShowDeleteDialog(true)}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 md:gap-2",
-                  isMobile ? "col-span-2 h-9 w-full text-xs" : ""
-                )}
-              >
-                <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Delete
-              </Button>
+              {!isClientDemoReadOnly && (
+                <>
+                  <Button
+                    variant="outline"
+                    size={isMobile ? "sm" : "default"}
+                    onClick={openRescanDialog}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 border-slate-500 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white md:gap-2",
+                      isMobile && "h-9 w-full text-xs leading-tight"
+                    )}
+                    disabled={isRescanning}
+                  >
+                    <RefreshCcw className={`h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 ${isRescanning ? "animate-spin" : ""}`} />
+                    {isRescanning ? "Working…" : isMobile ? "Rescan AI" : "Rescan with AI"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size={isMobile ? "sm" : "default"}
+                    onClick={() => setShowDeleteDialog(true)}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 md:gap-2",
+                      isMobile ? "col-span-2 h-9 w-full text-xs" : ""
+                    )}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" /> Delete
+                  </Button>
+                </>
+              )}
             </>
           )}
         </div>
@@ -672,49 +772,55 @@ const ReceiptDetail = () => {
                         (e.target as HTMLImageElement).src = "/placeholder.svg";
                       }}
                     />
-                    <div className="flex gap-2">
-                      <input
-                        type="file"
-                        id="product-image-reupload-view"
-                        className="hidden"
-                        accept="image/*"
-                        capture={isMobile ? "environment" : undefined}
-                        onChange={handleProductImageUpload}
-                        disabled={isUploadingProductImage}
-                      />
-                      <label
-                        htmlFor="product-image-reupload-view"
-                        className="px-3 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 text-sm"
-                      >
-                        {isUploadingProductImage ? "Uploading..." : "Replace Image"}
-                      </label>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setShowDeleteProductImageDialog(true)}
-                      >
-                        Delete Image
-                      </Button>
-                    </div>
+                    {!isClientDemoReadOnly && (
+                      <div className="flex gap-2">
+                        <input
+                          type="file"
+                          id="product-image-reupload-view"
+                          className="hidden"
+                          accept="image/*"
+                          capture={isMobile ? "environment" : undefined}
+                          onChange={handleProductImageUpload}
+                          disabled={isUploadingProductImage}
+                        />
+                        <label
+                          htmlFor="product-image-reupload-view"
+                          className="px-3 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 text-sm"
+                        >
+                          {isUploadingProductImage ? "Uploading..." : "Replace Image"}
+                        </label>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setShowDeleteProductImageDialog(true)}
+                        >
+                          Delete Image
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="py-8 text-center">
                     <p className="mb-4 text-slate-300">No product image uploaded</p>
-                    <input
-                      type="file"
-                      id="product-image-upload-view"
-                      className="hidden"
-                      accept="image/*"
-                      capture={isMobile ? "environment" : undefined}
-                      onChange={handleProductImageUpload}
-                      disabled={isUploadingProductImage}
-                    />
-                    <label
-                      htmlFor="product-image-upload-view"
-                      className="inline-flex cursor-pointer items-center rounded-md bg-slate-900 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700"
-                    >
-                      {isUploadingProductImage ? "Uploading..." : isMobile ? "Take Product Photo" : "Upload Product Image"}
-                    </label>
+                    {!isClientDemoReadOnly && (
+                      <>
+                        <input
+                          type="file"
+                          id="product-image-upload-view"
+                          className="hidden"
+                          accept="image/*"
+                          capture={isMobile ? "environment" : undefined}
+                          onChange={handleProductImageUpload}
+                          disabled={isUploadingProductImage}
+                        />
+                        <label
+                          htmlFor="product-image-upload-view"
+                          className="inline-flex cursor-pointer items-center rounded-md bg-slate-900 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700"
+                        >
+                          {isUploadingProductImage ? "Uploading..." : isMobile ? "Take Product Photo" : "Upload Product Image"}
+                        </label>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

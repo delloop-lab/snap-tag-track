@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Calendar, Users, Receipt, ShieldCheck, Tag, BarChart3 } from "lucide-react";
+import { Calendar, Users, Receipt, ShieldCheck, Tag, BarChart3, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+type UserSortKey = "name" | "email" | "receipts" | "warranties" | "lastSignIn" | "joined";
+
 interface User {
   id: string;
   email: string;
@@ -29,6 +31,16 @@ interface User {
   avatar_display_url?: string | null;
   receipt_count?: number;
   warranty_count?: number;
+}
+
+function userSortNameKey(u: User): string {
+  return [u.first_name, u.last_name].filter(Boolean).join(" ").trim().toLowerCase();
+}
+
+function userLastSignInTime(u: User): number | null {
+  if (!u.last_sign_in_at) return null;
+  const t = new Date(u.last_sign_in_at).getTime();
+  return Number.isFinite(t) ? t : null;
 }
 
 interface Client {
@@ -75,6 +87,10 @@ const Admin = () => {
   });
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [userSort, setUserSort] = useState<{ key: UserSortKey; dir: "asc" | "desc" }>({
+    key: "joined",
+    dir: "desc",
+  });
   const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
   const [waitlistLoading, setWaitlistLoading] = useState(true);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -105,6 +121,56 @@ const Admin = () => {
   const [issuerReceipts, setIssuerReceipts] = useState<IssuerReceipt[]>([]);
   const [issuerReceiptsLoading, setIssuerReceiptsLoading] = useState(false);
   const navigate = useNavigate();
+
+  const cycleUserSort = (key: UserSortKey) => {
+    setUserSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" },
+    );
+  };
+
+  const sortedUsers = useMemo(() => {
+    const list = [...users];
+    const mult = userSort.dir === "asc" ? 1 : -1;
+    const joinedTs = (u: User) => new Date(u.created_at).getTime();
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (userSort.key) {
+        case "name": {
+          const na = userSortNameKey(a);
+          const nb = userSortNameKey(b);
+          cmp = na.localeCompare(nb, undefined, { sensitivity: "base" });
+          if (na === "" && nb !== "") cmp = 1;
+          else if (nb === "" && na !== "") cmp = -1;
+          break;
+        }
+        case "email":
+          cmp = a.email.toLowerCase().localeCompare(b.email.toLowerCase(), undefined, { sensitivity: "base" });
+          break;
+        case "receipts":
+          cmp = (a.receipt_count ?? 0) - (b.receipt_count ?? 0);
+          break;
+        case "warranties":
+          cmp = (a.warranty_count ?? 0) - (b.warranty_count ?? 0);
+          break;
+        case "lastSignIn": {
+          const ta = userLastSignInTime(a);
+          const tb = userLastSignInTime(b);
+          if (ta === null && tb === null) cmp = 0;
+          else if (ta === null) cmp = 1;
+          else if (tb === null) cmp = -1;
+          else cmp = ta - tb;
+          break;
+        }
+        case "joined":
+          cmp = joinedTs(a) - joinedTs(b);
+          break;
+      }
+      return cmp * mult;
+    });
+    return list;
+  }, [users, userSort]);
+
   const isAbsoluteUrl = (value?: string | null) => !!value && /^https?:\/\//i.test(value);
   const normalizeIssuerTitle = (raw?: string | null): string => {
     const trimmed = (raw || "").trim().replace(/\s+/g, " ");
@@ -925,17 +991,161 @@ const Admin = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead className="text-right">Receipts</TableHead>
-                          <TableHead className="text-right">Warranties</TableHead>
-                          <TableHead>Last Logged In</TableHead>
-                          <TableHead>Joined</TableHead>
+                          <TableHead>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 text-left text-xs font-medium text-slate-400 hover:text-slate-100"
+                              onClick={() => cycleUserSort("name")}
+                              aria-sort={
+                                userSort.key === "name"
+                                  ? userSort.dir === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : "none"
+                              }
+                            >
+                              Name
+                              {userSort.key === "name" ? (
+                                userSort.dir === "asc" ? (
+                                  <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              )}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 text-left text-xs font-medium text-slate-400 hover:text-slate-100"
+                              onClick={() => cycleUserSort("email")}
+                              aria-sort={
+                                userSort.key === "email"
+                                  ? userSort.dir === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : "none"
+                              }
+                            >
+                              Email
+                              {userSort.key === "email" ? (
+                                userSort.dir === "asc" ? (
+                                  <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              )}
+                            </button>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <button
+                              type="button"
+                              className="ml-auto flex w-full items-center justify-end gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100"
+                              onClick={() => cycleUserSort("receipts")}
+                              aria-sort={
+                                userSort.key === "receipts"
+                                  ? userSort.dir === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : "none"
+                              }
+                            >
+                              Receipts
+                              {userSort.key === "receipts" ? (
+                                userSort.dir === "asc" ? (
+                                  <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              )}
+                            </button>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <button
+                              type="button"
+                              className="ml-auto flex w-full items-center justify-end gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100"
+                              onClick={() => cycleUserSort("warranties")}
+                              aria-sort={
+                                userSort.key === "warranties"
+                                  ? userSort.dir === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : "none"
+                              }
+                            >
+                              Warranties
+                              {userSort.key === "warranties" ? (
+                                userSort.dir === "asc" ? (
+                                  <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              )}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 text-left text-xs font-medium text-slate-400 hover:text-slate-100"
+                              onClick={() => cycleUserSort("lastSignIn")}
+                              aria-sort={
+                                userSort.key === "lastSignIn"
+                                  ? userSort.dir === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : "none"
+                              }
+                            >
+                              Last Logged In
+                              {userSort.key === "lastSignIn" ? (
+                                userSort.dir === "asc" ? (
+                                  <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              )}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 text-left text-xs font-medium text-slate-400 hover:text-slate-100"
+                              onClick={() => cycleUserSort("joined")}
+                              aria-sort={
+                                userSort.key === "joined"
+                                  ? userSort.dir === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : "none"
+                              }
+                            >
+                              Joined
+                              {userSort.key === "joined" ? (
+                                userSort.dir === "asc" ? (
+                                  <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              )}
+                            </button>
+                          </TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {users.map((user) => (
+                        {sortedUsers.map((user) => (
                           <TableRow key={user.id}>
                             <TableCell>
                               <div className="flex items-center gap-3">

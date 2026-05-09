@@ -2,13 +2,14 @@
 export const SEO_LANDING_PATHS = [
   "/receipt-scanner-app",
   "/warranty-tracker",
+  "/returns-cooling-off",
   "/expense-tracking-without-bank",
   "/contractor-expense-tracker",
   "/household-spending-tracker",
   "/fuel-food-spending-tracker",
   "/how-it-works",
-  "/pricing",
   "/use-cases",
+  "/pricing",
   "/blog",
 ] as const;
 
