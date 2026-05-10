@@ -110,7 +110,7 @@ export default function LandingPage2() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-800 text-slate-100 pb-28">
+    <main className="min-h-screen bg-slate-800 text-slate-100 pb-32">
       <section className={`${marketingPageGutterClass} pb-14 md:pb-20`}>
         {!user && <MarketingTopNav />}
 

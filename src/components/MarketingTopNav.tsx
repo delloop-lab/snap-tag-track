@@ -133,5 +133,15 @@ export default function MarketingTopNav({
   );
 }
 
+/**
+ * Same max width + horizontal padding as marketing pages, without vertical padding.
+ * Use in fixed footers so they line up with `marketingPageGutterClass` content.
+ */
+export const marketingHorizontalShellClass =
+  "mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-10";
+
+/** Inner content width used under the shell (headings, hero, footer row). */
+export const marketingHeaderInnerClass = "mx-auto w-full max-w-6xl";
+
 /** Horizontal gutters aligned with dashboard shell */
-export const marketingPageGutterClass = "mx-auto w-full max-w-[1600px] px-4 pt-8 sm:px-6 md:pt-12 lg:px-10";
+export const marketingPageGutterClass = `${marketingHorizontalShellClass} pt-8 md:pt-12`;

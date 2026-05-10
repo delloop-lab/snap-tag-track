@@ -1,4 +1,8 @@
 import { Link } from "react-router-dom";
+import {
+  marketingHeaderInnerClass,
+  marketingHorizontalShellClass,
+} from "@/components/MarketingTopNav";
 
 export type SiteFooterVariant = "slate" | "classic" | "landing";
 
@@ -9,17 +13,31 @@ const linkClassLanding =
 export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) {
   if (variant === "landing") {
     return (
-      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <p className="text-center text-xs text-slate-300">Copyright (c) SnapTagTrack</p>
-          <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-3">
-            <Link to="/terms" className={linkClassLanding}>
-              Terms
-            </Link>
-            <Link to="/privacy" className={linkClassLanding}>
-              Privacy
-            </Link>
-          </nav>
+      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 backdrop-blur-sm">
+        <div
+          className={`${marketingHorizontalShellClass} py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]`}
+        >
+          <div
+            className={`${marketingHeaderInnerClass} flex flex-col items-center gap-y-1 md:flex-row md:items-center md:justify-between md:gap-x-6`}
+          >
+            <p className="shrink-0 text-center text-[11px] font-medium text-slate-300 md:text-left">
+              Beta v0.9.978
+            </p>
+            <p className="min-w-0 flex-1 text-center text-xs text-slate-300 md:px-4">
+              Copyright (c) SnapTagTrack
+            </p>
+            <nav
+              aria-label="Footer"
+              className="flex shrink-0 flex-wrap items-center justify-center gap-x-3 md:justify-end"
+            >
+              <Link to="/terms" className={linkClassLanding}>
+                Terms
+              </Link>
+              <Link to="/privacy" className={linkClassLanding}>
+                Privacy
+              </Link>
+            </nav>
+          </div>
         </div>
       </footer>
     );
@@ -27,17 +45,29 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
 
   if (variant === "classic") {
     return (
-      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-300 bg-white/95 px-4 py-2 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <p className="text-center text-xs text-gray-600">Copyright (c) SnapTagTrack</p>
-          <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-3">
-            <Link to="/terms" className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800">
-              Terms
-            </Link>
-            <Link to="/privacy" className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800">
-              Privacy
-            </Link>
-          </nav>
+      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-300 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto w-full max-w-[1100px] px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8">
+          <div className="flex flex-col items-center gap-y-1 md:flex-row md:items-center md:justify-between md:gap-x-6">
+            <p className="shrink-0 text-center text-[11px] font-medium text-gray-500 md:text-left">Beta v0.9.978</p>
+            <p className="min-w-0 flex-1 text-center text-xs text-gray-600 md:px-4">Copyright (c) SnapTagTrack</p>
+            <nav
+              aria-label="Footer"
+              className="flex shrink-0 flex-wrap items-center justify-center gap-x-3 md:justify-end"
+            >
+              <Link
+                to="/terms"
+                className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
+              >
+                Terms
+              </Link>
+              <Link
+                to="/privacy"
+                className="text-[11px] font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
+              >
+                Privacy
+              </Link>
+            </nav>
+          </div>
         </div>
       </footer>
     );
@@ -47,14 +77,20 @@ export default function SiteFooter({ variant }: { variant: SiteFooterVariant }) 
     "text-[11px] font-medium text-[#7CB87E] underline decoration-[#7CB87E]/40 underline-offset-2 hover:text-[#8fcf91]";
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 px-4 py-2 backdrop-blur-sm">
-      <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-y-1.5 py-1 sm:py-0">
-        <div className="relative flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-1">
-          <p className="text-[11px] text-slate-400 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">Beta v0.9.977</p>
-          <p className="text-center text-xs text-slate-300">&copy; 2025–2026 Snap Tag Track</p>
+    <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-500 bg-slate-900/95 backdrop-blur-sm">
+      <div
+        className={`${marketingHorizontalShellClass} py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]`}
+      >
+        <div
+          className={`${marketingHeaderInnerClass} flex flex-col items-center gap-y-1 md:flex-row md:items-center md:justify-between md:gap-x-6`}
+        >
+          <p className="shrink-0 text-center text-[11px] font-medium text-slate-300 md:text-left">Beta v0.9.978</p>
+          <p className="min-w-0 flex-1 text-center text-xs text-slate-300 md:px-4">
+            &copy; 2025–2026 Snap Tag Track
+          </p>
           <nav
             aria-label="Footer"
-            className="flex flex-wrap items-center justify-center gap-x-3 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2"
+            className="flex shrink-0 flex-wrap items-center justify-center gap-x-3 md:justify-end"
           >
             <Link to="/terms" className={slateFooterLink}>
               Terms
