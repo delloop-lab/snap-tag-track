@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.9.976",
+  "version": "0.9.977",
   "type": "module",
   "scripts": {
     "demo:receipts": "tsx scripts/gen-demo-receipt-svgs.ts",
